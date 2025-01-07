@@ -25,7 +25,7 @@ read -p "请输入选择：" choice
 case $choice in
     1)
         echo "正在下载 '直接24小时持续跑流量' 脚本..."
-        url="https://github.com/sillda76/VPSkit/raw/main/24test.sh"
+        url="https://raw.githubusercontent.com/sillda76/VPSKit/refs/heads/main/download-test/24test.sh"
         script_file="script.sh"
         wget -O $script_file $url
         chmod +x $script_file
