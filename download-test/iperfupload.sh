@@ -28,7 +28,7 @@ fi
 # 创建 Nginx 配置文件
 tee /etc/nginx/sites-available/$domain_name <<EOF
 server {
-    listen 998;
+    listen 80;
     server_name $domain_name;
 
     root /var/www/$domain_name;
