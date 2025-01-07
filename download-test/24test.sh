@@ -10,7 +10,7 @@ fi
 
 tee /etc/nginx/sites-available/$domain_name <<EOF
 server {
-    listen 80;
+    listen 998;
     server_name $domain_name;
 
     root /var/www/$domain_name;

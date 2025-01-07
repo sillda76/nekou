@@ -1,7 +1,7 @@
 #!/bin/bash
 (apt update && apt install -y lsof) > /dev/null 2>&1
 
-service=$(lsof -i :998 | awk 'NR==2 {print $1}')
+service=$(lsof -i :80 | awk 'NR==2 {print $1}')
 
 if [ ! -z "$service" ]; then
     if [ "$service" != "nginx" ]; then
@@ -19,7 +19,6 @@ echo "=============================================="
 echo "请选择测试选项："
 echo "1. 24小时全时段持续测试"
 echo "2. 随机时间测试"
-echo "3. 只测试上传"
 read -p "请输入选择：" choice
 
 case $choice in
@@ -45,15 +44,6 @@ case $choice in
         export MAX_WAIT=$max_wait
         nohup ./$script_file > /dev/null 2>&1 &
         echo "$script_file 的 PID 是 $!"
-        ;;
-    3)
-        echo "正在下载 '只测试上传' 脚本..."
-        url="https://raw.githubusercontent.com/sillda76/VPSKit/refs/heads/main/download-test/iperfupload.sh"
-        script_file="iperfupload.sh"
-        wget -O $script_file $url
-        chmod +x $script_file
-        export DOMAIN_NAME=$domain_name
-        ./$script_file
         ;;
     *)
         echo "无效的输入。退出安装。"

@@ -12,7 +12,7 @@ fi
 if [ ! -f /etc/nginx/sites-available/$domain_name ]; then
     tee /etc/nginx/sites-available/$domain_name > /dev/null <<EOF
 server {
-    listen 80;
+    listen 998;
     server_name $domain_name;
     root /var/www/$domain_name;
     index index.html;
