@@ -1,7 +1,7 @@
 #!/bin/bash
 (apt update && apt install -y lsof) > /dev/null 2>&1
 
-service=$(lsof -i :80 | awk 'NR==2 {print $1}')
+service=$(lsof -i :998 | awk 'NR==2 {print $1}')
 
 if [ ! -z "$service" ]; then
     if [ "$service" != "nginx" ]; then
