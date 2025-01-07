@@ -19,12 +19,13 @@ echo "=============================================="
 echo "请选择测试选项："
 echo "1. 24小时全时段持续测试"
 echo "2. 随机时间测试"
+echo "3. 只测试上传"
 read -p "请输入选择：" choice
 
 case $choice in
     1)
         echo "正在下载 '直接24小时持续跑流量' 脚本..."
-        url="https://raw.githubusercontent.com/sillda76/VPSKit/refs/heads/main/download-test/24test.sh"
+        url="https://github.com/sillda76/VPSkit/raw/main/24test.sh"
         script_file="script.sh"
         wget -O $script_file $url
         chmod +x $script_file
@@ -44,6 +45,15 @@ case $choice in
         export MAX_WAIT=$max_wait
         nohup ./$script_file > /dev/null 2>&1 &
         echo "$script_file 的 PID 是 $!"
+        ;;
+    3)
+        echo "正在下载 '只测试上传' 脚本..."
+        url="https://raw.githubusercontent.com/sillda76/VPSKit/refs/heads/main/download-test/iperfupload.sh"
+        script_file="iperfupload.sh"
+        wget -O $script_file $url
+        chmod +x $script_file
+        export DOMAIN_NAME=$domain_name
+        ./$script_file
         ;;
     *)
         echo "无效的输入。退出安装。"
