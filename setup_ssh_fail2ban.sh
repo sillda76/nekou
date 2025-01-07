@@ -27,13 +27,30 @@ else
     exit 1
 fi
 
-# 修改 SSH 端口为 3222
-echo "正在修改 SSH 端口为 3222..."
-sudo sed -i 's/#Port 22/Port 3222/' /etc/ssh/sshd_config
-if [ $? -eq 0 ]; then
+# 设置新端口
+NEW_PORT=3222
+
+# 检查配置文件是否存在
+SSHD_CONFIG="/etc/ssh/sshd_config"
+if [ ! -f "$SSHD_CONFIG" ]; then
+    echo "错误：未找到 SSH 配置文件 $SSHD_CONFIG。"
+    exit 1
+fi
+
+# 获取当前 SSH 端口
+CURRENT_PORT=$(grep "^Port" "$SSHD_CONFIG" | awk '{print $2}')
+if [ -z "$CURRENT_PORT" ]; then
+    CURRENT_PORT=22  # 默认端口
+fi
+echo "当前 SSH 端口: $CURRENT_PORT"
+
+# 修改 SSH 端口
+echo "正在修改 SSH 端口为 $NEW_PORT..."
+sudo sed -i "s/^#Port 22/Port $NEW_PORT/" "$SSHD_CONFIG"
+if grep -q "^Port $NEW_PORT" "$SSHD_CONFIG"; then
     echo "SSH 端口修改成功！"
 else
-    echo "SSH 端口修改失败，请检查配置文件。"
+    echo "错误：SSH 端口修改失败。"
     exit 1
 fi
 
@@ -43,13 +60,38 @@ sudo systemctl restart sshd
 if [ $? -eq 0 ]; then
     echo "SSH 服务重启成功！"
 else
-    echo "SSH 服务重启失败，请检查日志。"
+    echo "错误：SSH 服务重启失败。"
     exit 1
+fi
+
+# 检查端口是否被占用
+echo "检查端口 $NEW_PORT 是否被占用..."
+if sudo netstat -tuln | grep -q ":$NEW_PORT"; then
+    echo "警告：端口 $NEW_PORT 已被占用，请选择其他端口。"
+    exit 1
+else
+    echo "端口 $NEW_PORT 可用。"
+fi
+
+# 检测并放行防火墙端口
+echo "检测防火墙并放行端口 $NEW_PORT..."
+if command -v ufw &> /dev/null; then
+    echo "检测到 ufw 防火墙，正在放行端口 $NEW_PORT..."
+    sudo ufw allow "$NEW_PORT/tcp"
+    sudo ufw reload
+    echo "端口 $NEW_PORT 已放行。"
+elif command -v firewall-cmd &> /dev/null; then
+    echo "检测到 firewalld 防火墙，正在放行端口 $NEW_PORT..."
+    sudo firewall-cmd --permanent --add-port="$NEW_PORT/tcp"
+    sudo firewall-cmd --reload
+    echo "端口 $NEW_PORT 已放行。"
+else
+    echo "未检测到支持的防火墙工具（ufw 或 firewalld），请手动放行端口 $NEW_PORT。"
 fi
 
 # 提示用户记住新的端口和密码
 echo "重要提示："
-echo "1. SSH 端口已修改为 3222。"
+echo "1. SSH 端口已修改为 $NEW_PORT。"
 echo "2. SSH 密码已修改为 Qq667766。"
 echo "请务必记住以上信息，否则可能导致无法登录服务器！"
 
