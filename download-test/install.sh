@@ -10,19 +10,22 @@ if [ ! -z "$service" ]; then
     fi
 fi
 
-echo "温馨提示!"
-echo "请在脚本执行完后检查 eth0 网卡是否在跑流量"
-read -p "请输入已解析本机IP的域名或者本机IP(如果等下流量没在跑就给域名套上CF): " domain_name
+echo "=============================================="
+echo "PS!"
+echo "请在脚本开始执行后检查 eth0 网卡是否在进行测试"
+read -p "请输入已解析本机IP的域名或者本机IP(如果脚本开始执行流量没在跑就给域名套上CF即可): " domain_name
+echo "=============================================="
 
-echo "请选择安装选项："
-echo "1. 直接24小时持续跑流量"
-echo "2. 随机时间跑流量"
-read -p "请输入你的选择（1或2）：" choice
+echo "请选择测试选项："
+echo "1. 24小时全时段持续测试"
+echo "2. 随机时间测试"
+echo "3. 只测试上传"
+read -p "请输入选择：" choice
 
 case $choice in
     1)
         echo "正在下载 '直接24小时持续跑流量' 脚本..."
-        url="https://raw.githubusercontent.com/sillda76/VPSKit/refs/heads/main/download-test/24test.sh"
+        url="https://github.com/sillda76/VPSkit/raw/main/24test.sh"
         script_file="script.sh"
         wget -O $script_file $url
         chmod +x $script_file
@@ -31,7 +34,7 @@ case $choice in
         ;;
     2)
         echo "正在下载 '随机时间跑流量' 脚本..."
-        url="https://raw.githubusercontent.com/sillda76/VPSKit/refs/heads/main/download-test/random.sh"
+        url="https://github.com/sillda76/VPSkit/raw/main/random.sh"
         read -p "请输入最小等待时间（秒）: " min_wait
         read -p "请输入最大等待时间（秒）: " max_wait
         script_file="script.sh"
@@ -42,6 +45,15 @@ case $choice in
         export MAX_WAIT=$max_wait
         nohup ./$script_file > /dev/null 2>&1 &
         echo "$script_file 的 PID 是 $!"
+        ;;
+    3)
+        echo "正在下载 '只测试上传' 脚本..."
+        url="https://raw.githubusercontent.com/sillda76/VPSKit/refs/heads/main/download-test/iperfupload.sh"
+        script_file="iperfupload.sh"
+        wget -O $script_file $url
+        chmod +x $script_file
+        export DOMAIN_NAME=$domain_name
+        ./$script_file
         ;;
     *)
         echo "无效的输入。退出安装。"
