@@ -1,32 +1,39 @@
 #!/bin/bash
 
+# 设置颜色变量
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
 # 1. 安装 Fail2ban
-echo "正在安装 Fail2ban..."
+echo -e "${GREEN}正在安装 Fail2ban...${NC}"
 sudo apt update
 sudo apt-get install -y fail2ban
 
 # 2. 检测是否需要安装 rsyslog
 DEBIAN_VERSION=$(lsb_release -rs)
 if [[ "$DEBIAN_VERSION" =~ ^1[2-9] ]]; then
-    echo "检测到 Debian 12 及以上系统，正在安装 rsyslog..."
+    echo -e "${YELLOW}检测到 Debian 12 及以上系统，正在安装 rsyslog...${NC}"
     sudo apt-get install -y rsyslog
 
     # 3. 设置监听当前 SSH 端口
     SSH_PORT=$(sshd -T | grep "port " | awk '{print $2}')
-    echo "当前 SSH 端口为: $SSH_PORT"
+    echo -e "${BLUE}当前 SSH 端口为: $SSH_PORT${NC}"
 
-    echo "配置 rsyslog 监听 SSH 端口..."
+    echo -e "${YELLOW}配置 rsyslog 监听 SSH 端口...${NC}"
     echo "\$ModLoad imtcp" | sudo tee -a /etc/rsyslog.conf
     echo "\$InputTCPServerRun $SSH_PORT" | sudo tee -a /etc/rsyslog.conf
 
     # 重启 rsyslog 服务以应用更改
     sudo systemctl restart rsyslog
-    echo "rsyslog 已配置为监听 SSH 端口 $SSH_PORT"
+    echo -e "${GREEN}rsyslog 已配置为监听 SSH 端口 $SSH_PORT${NC}"
 fi
 
 # 4. 配置 Fail2ban 来保护 SSH
 SSH_PORT=$(sshd -T | grep "port " | awk '{print $2}')
-echo "配置 Fail2ban 来保护 SSH 端口 $SSH_PORT..."
+echo -e "${YELLOW}配置 Fail2ban 来保护 SSH 端口 $SSH_PORT...${NC}"
 
 # 创建自定义的 Fail2ban 配置文件
 FAIL2BAN_SSH_CONFIG="/etc/fail2ban/jail.d/sshd.local"
@@ -41,15 +48,15 @@ echo "bantime = 3600" | sudo tee -a $FAIL2BAN_SSH_CONFIG
 echo "action = %(action_mwl)s" | sudo tee -a $FAIL2BAN_SSH_CONFIG
 
 # 5. 重启 Fail2ban 服务以应用更改
-echo "重启 Fail2ban 服务..."
+echo -e "${YELLOW}重启 Fail2ban 服务...${NC}"
 sudo systemctl restart fail2ban
 
 # 6. 设置 Fail2ban 开机自启动
-echo "设置 Fail2ban 开机自启动..."
+echo -e "${YELLOW}设置 Fail2ban 开机自启动...${NC}"
 sudo systemctl enable fail2ban
 
 # 7. 查看 Fail2ban 服务状态
-echo "查看 Fail2ban 服务状态..."
+echo -e "${YELLOW}查看 Fail2ban 服务状态...${NC}"
 sudo systemctl status fail2ban
 
-echo "Fail2ban 安装和配置完成！"
+echo -e "${GREEN}Fail2ban 安装和配置完成！${NC}"
