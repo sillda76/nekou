@@ -1,29 +1,39 @@
 #!/bin/bash
 
-# 更新系统包列表
+# 1. 安装 Fail2ban
+echo "正在安装 Fail2ban..."
 sudo apt update
-
-# 安装 fail2ban
 sudo apt-get install -y fail2ban
 
-# 启动 fail2ban 服务
+# 2. 检测是否需要安装 rsyslog
+DEBIAN_VERSION=$(lsb_release -rs)
+if [[ "$DEBIAN_VERSION" =~ ^1[2-9] ]]; then
+    echo "检测到 Debian 12 及以上系统，正在安装 rsyslog..."
+    sudo apt-get install -y rsyslog
+
+    # 3. 设置监听当前 SSH 端口
+    SSH_PORT=$(sshd -T | grep "port " | awk '{print $2}')
+    echo "当前 SSH 端口为: $SSH_PORT"
+
+    echo "配置 rsyslog 监听 SSH 端口..."
+    echo "\$ModLoad imtcp" | sudo tee -a /etc/rsyslog.conf
+    echo "\$InputTCPServerRun $SSH_PORT" | sudo tee -a /etc/rsyslog.conf
+
+    # 重启 rsyslog 服务以应用更改
+    sudo systemctl restart rsyslog
+    echo "rsyslog 已配置为监听 SSH 端口 $SSH_PORT"
+fi
+
+# 4. 启动 Fail2ban 服务
+echo "启动 Fail2ban 服务..."
 sudo systemctl start fail2ban
 
-# 配置 fail2ban 监听 22 端口，封禁时间设为一小时
-sudo bash -c 'cat > /etc/fail2ban/jail.local <<EOF
-[sshd]
-enabled = true
-port = 4422
-filter = sshd
-logpath = /var/log/auth.log
-maxretry = 5
-bantime = 3600
-EOF'
-
-# 设置 fail2ban 开机自启
+# 5. 设置 Fail2ban 开机自启动
+echo "设置 Fail2ban 开机自启动..."
 sudo systemctl enable fail2ban
 
-# 查看 fail2ban 状态
+# 6. 查看 Fail2ban 服务状态
+echo "查看 Fail2ban 服务状态..."
 sudo systemctl status fail2ban
 
 echo "Fail2ban 安装和配置完成！"
