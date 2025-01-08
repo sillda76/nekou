@@ -13,7 +13,7 @@ sudo systemctl start fail2ban
 sudo bash -c 'cat > /etc/fail2ban/jail.local <<EOF
 [sshd]
 enabled = true
-port = 22
+port = 4422
 filter = sshd
 logpath = /var/log/auth.log
 maxretry = 5
