@@ -24,15 +24,31 @@ if [[ "$DEBIAN_VERSION" =~ ^1[2-9] ]]; then
     echo "rsyslog 已配置为监听 SSH 端口 $SSH_PORT"
 fi
 
-# 4. 启动 Fail2ban 服务
-echo "启动 Fail2ban 服务..."
-sudo systemctl start fail2ban
+# 4. 配置 Fail2ban 来保护 SSH
+SSH_PORT=$(sshd -T | grep "port " | awk '{print $2}')
+echo "配置 Fail2ban 来保护 SSH 端口 $SSH_PORT..."
 
-# 5. 设置 Fail2ban 开机自启动
+# 创建自定义的 Fail2ban 配置文件
+FAIL2BAN_SSH_CONFIG="/etc/fail2ban/jail.d/sshd.local"
+echo "[sshd]" | sudo tee $FAIL2BAN_SSH_CONFIG
+echo "enabled = true" | sudo tee -a $FAIL2BAN_SSH_CONFIG
+echo "port = $SSH_PORT" | sudo tee -a $FAIL2BAN_SSH_CONFIG
+echo "filter = sshd" | sudo tee -a $FAIL2BAN_SSH_CONFIG
+echo "logpath = /var/log/auth.log" | sudo tee -a $FAIL2BAN_SSH_CONFIG
+echo "maxretry = 5" | sudo tee -a $FAIL2BAN_SSH_CONFIG
+echo "findtime = 600" | sudo tee -a $FAIL2BAN_SSH_CONFIG
+echo "bantime = 3600" | sudo tee -a $FAIL2BAN_SSH_CONFIG
+echo "action = %(action_mwl)s" | sudo tee -a $FAIL2BAN_SSH_CONFIG
+
+# 5. 重启 Fail2ban 服务以应用更改
+echo "重启 Fail2ban 服务..."
+sudo systemctl restart fail2ban
+
+# 6. 设置 Fail2ban 开机自启动
 echo "设置 Fail2ban 开机自启动..."
 sudo systemctl enable fail2ban
 
-# 6. 查看 Fail2ban 服务状态
+# 7. 查看 Fail2ban 服务状态
 echo "查看 Fail2ban 服务状态..."
 sudo systemctl status fail2ban
 
