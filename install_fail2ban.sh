@@ -105,6 +105,29 @@ start_service() {
     fi
 }
 
+# 显示当前 fail2ban 保护的端口
+show_protected_ports() {
+    log_info "正在检查 fail2ban 保护的端口..."
+
+    # 获取所有启用的 jail
+    local jails=$(fail2ban-client status | grep "Jail list" | sed 's/.*Jail list://' | tr -d ' \t\n\r')
+
+    if [[ -z "$jails" ]]; then
+        log_warn "没有找到启用的 jail"
+        return
+    fi
+
+    # 遍历每个 jail，获取其保护的端口
+    for jail in $(echo "$jails" | tr ',' ' '); do
+        local port=$(fail2ban-client status "$jail" | grep -oP "Port:\s+\K[0-9,]+")
+        if [[ -n "$port" ]]; then
+            log_info "Jail: $jail, 保护端口: $port"
+        else
+            log_warn "Jail: $jail, 未找到端口信息"
+        fi
+    done
+}
+
 # 显示状态信息
 show_status() {
     log_info "正在检查 fail2ban 状态..."
@@ -122,22 +145,15 @@ show_status() {
     echo "- 封禁 IP: fail2ban-client set sshd banip <IP>"
     echo "- 解封 IP: fail2ban-client set sshd unbanip <IP>"
     echo "- 查看日志: tail -f /var/log/fail2ban.log"
-}
 
-# 安装其他软件
-install_other_software() {
-    log_info "正在安装其他软件..."
-    # 这里可以添加你需要安装的其他软件
-    # 例如：apt-get install -y nginx mysql-server
+    # 显示保护的端口
+    show_protected_ports
 }
 
 # 主函数
 main() {
     check_root
     check_system
-
-    # 安装其他软件
-    install_other_software
 
     # 安装和配置 fail2ban
     install_fail2ban
