@@ -59,9 +59,23 @@ install_fail2ban() {
     apt-get install -y fail2ban
 }
 
+# 获取当前 SSH 端口
+get_ssh_port() {
+    local ssh_port=$(ss -tlnp | grep sshd | awk '{print $4}' | awk -F':' '{print $NF}')
+    if [[ -z "$ssh_port" ]]; then
+        log_error "无法检测到 SSH 端口"
+        exit 1
+    fi
+    echo "$ssh_port"
+}
+
 # 配置 fail2ban
 configure_fail2ban() {
     log_info "正在配置 fail2ban..."
+
+    # 获取当前 SSH 端口
+    local ssh_port=$(get_ssh_port)
+    log_info "检测到当前 SSH 端口: $ssh_port"
 
     # 备份原配置文件
     if [ -f /etc/fail2ban/jail.local ]; then
@@ -82,7 +96,7 @@ logtarget = /var/log/fail2ban.log
 
 [sshd]
 enabled = true
-port = ssh
+port = $ssh_port
 filter = sshd
 logpath = /var/log/auth.log
 maxretry = $MAXRETRY
