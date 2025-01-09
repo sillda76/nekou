@@ -60,10 +60,11 @@ install_fail2ban() {
 
 # 获取当前 SSH 端口
 get_ssh_port() {
-    # 获取 SSH 端口，确保只返回一个端口值
-    local ssh_port=$(ss -tlnp | grep sshd | awk '{print $4}' | awk -F':' '{print $NF}' | head -n 1 | tr -d '\n')
+    # 从 SSH 配置文件中获取端口
+    local ssh_port=$(grep -E "^Port\s+[0-9]+" /etc/ssh/sshd_config | awk '{print $2}' | head -n 1)
     if [[ -z "$ssh_port" ]]; then
-        log_error "无法检测到 SSH 端口"
+        # 如果未找到 Port 配置，则使用默认端口 22
+        ssh_port=22
     fi
     echo "$ssh_port"
 }
