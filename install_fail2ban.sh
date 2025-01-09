@@ -203,6 +203,14 @@ main() {
     echo "4. 启动并启用 fail2ban 服务"
     echo "5. 显示配置状态和常用命令"
     echo -e "${BLUE}========================================${NC}"
+    echo -e "${YELLOW}常用命令：${NC}"
+    echo "- 查看状态: fail2ban-client status"
+    echo "- 查看 SSH 监狱状态: fail2ban-client status sshd"
+    echo "- 封禁 IP: fail2ban-client set sshd banip <IP>"
+    echo "- 解封 IP: fail2ban-client set sshd unbanip <IP>"
+    echo "- 查看日志: tail -f /var/log/fail2ban.log"
+    echo "- 查看自定义配置文件: cat /etc/fail2ban/jail.local"
+    echo -e "${BLUE}========================================${NC}"
     read -p "是否继续安装并配置 fail2ban？(y/n): " choice
     case "$choice" in
         y|Y)
