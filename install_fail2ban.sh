@@ -52,6 +52,12 @@ check_system() {
 
 # 检查系统版本并安装 rsyslog（仅适用于 Debian 12 及以上版本）
 check_system_version() {
+    # 检测是否安装 iptables
+    if ! command -v iptables &> /dev/null; then
+        log_info "检测到未安装 iptables，正在安装 iptables..."
+        apt-get install -y iptables
+    fi
+
     if [[ -f /etc/debian_version ]]; then
         DEBIAN_VERSION=$(cat /etc/debian_version)
         if [[ $DEBIAN_VERSION =~ ^12 ]]; then
@@ -204,8 +210,9 @@ main() {
         echo "4. 解封 IP: fail2ban-client set sshd unbanip <IP>"
         echo "5. 查看日志: tail -f /var/log/fail2ban.log"
         echo "6. 查看自定义配置文件: cat /etc/fail2ban/jail.local"
+        echo "7. 卸载 fail2ban: apt purge fail2ban"
         echo -e "${BLUE}========================================${NC}"
-        read -p "请输入选项 (1-6) 或是否继续安装并配置 fail2ban？(y/n): " choice
+        read -p "请输入选项 (1-7) 或是否继续安装并配置 fail2ban？(y/n): " choice
         case "$choice" in
             1)
                 fail2ban-client status
@@ -237,7 +244,27 @@ main() {
             6)
                 cat /etc/fail2ban/jail.local
                 ;;
+            7)
+                log_info "正在卸载 fail2ban..."
+                apt purge -y fail2ban
+                log_info "fail2ban 已卸载。"
+                exit 0
+                ;;
             y|Y)
+                # 检测是否已安装 fail2ban
+                if command -v fail2ban-client &> /dev/null; then
+                    log_warn "检测到系统已安装 fail2ban。"
+                    read -p "是否卸载并重新安装 fail2ban？(y/n): " reinstall_choice
+                    if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
+                        log_info "正在卸载 fail2ban..."
+                        apt purge -y fail2ban
+                        log_info "fail2ban 已卸载，继续安装..."
+                    else
+                        log_info "跳过卸载，退出脚本。"
+                        exit 0
+                    fi
+                fi
+
                 log_info "用户选择继续安装，开始执行脚本..."
                 break  # 跳出循环，继续执行安装逻辑
                 ;;
@@ -246,7 +273,7 @@ main() {
                 exit 0
                 ;;
             *)
-                log_error "无效的输入，请输入 1-6、y 或 n。"
+                log_error "无效的输入，请输入 1-7、y 或 n。"
                 ;;
         esac
 
