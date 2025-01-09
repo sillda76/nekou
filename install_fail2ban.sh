@@ -96,7 +96,7 @@ configure_fail2ban() {
         cp /etc/fail2ban/jail.local /etc/fail2ban/jail.local.backup.$(date +%Y%m%d%H%M%S)
     fi
 
-    # 创建主配置文件
+    # 创建主配置文件（不包含注释）
     cat > /etc/fail2ban/jail.local << EOL
 [DEFAULT]
 bantime = $BANTIME
@@ -109,7 +109,7 @@ logtarget = /var/log/fail2ban.log
 
 [sshd]
 enabled = true
-port = ssh  # 修改为 port = ssh，自动检测 SSH 端口
+port = ssh
 filter = sshd
 logpath = /var/log/auth.log
 maxretry = $MAXRETRY
