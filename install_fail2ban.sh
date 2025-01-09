@@ -15,7 +15,6 @@ DEFAULT_MAXRETRY=4         # 最大尝试次数 4 次
 DEFAULT_FINDTIME=600       # 检测时间窗口 10 分钟
 DEFAULT_IGNOREIP="127.0.0.1/8 ::1"
 SSH_CONFIG_PATH="/etc/ssh/sshd_config"  # SSH 配置文件路径
-LOG_FILE="/var/log/install_fail2ban.log"  # 脚本日志文件
 
 # 全局变量
 BANTIME=$DEFAULT_BANTIME
@@ -26,17 +25,14 @@ IGNOREIP="$DEFAULT_IGNOREIP"
 # 日志函数
 log_info() {
     echo -e "${GREEN}[信息]${NC} $1"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [信息] $1" >> "$LOG_FILE"
 }
 
 log_warn() {
     echo -e "${YELLOW}[警告]${NC} $1"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [警告] $1" >> "$LOG_FILE"
 }
 
 log_error() {
     echo -e "${RED}[错误]${NC} $1"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [错误] $1" >> "$LOG_FILE"
     exit 1
 }
 
