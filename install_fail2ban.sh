@@ -14,7 +14,6 @@ DEFAULT_BANTIME=1800       # 封禁时间 30 分钟
 DEFAULT_MAXRETRY=4         # 最大尝试次数 4 次
 DEFAULT_FINDTIME=600       # 检测时间窗口 10 分钟
 DEFAULT_IGNOREIP="127.0.0.1/8 ::1"
-SSH_CONFIG_PATH="/etc/ssh/sshd_config"  # SSH 配置文件路径
 
 # 全局变量
 BANTIME=$DEFAULT_BANTIME
@@ -61,7 +60,7 @@ install_fail2ban() {
 
 # 获取当前 SSH 端口
 get_ssh_port() {
-    local ssh_port=$(ss -tlnp | grep sshd | awk '{print $4}' | awk -F':' '{print $NF}')
+    local ssh_port=$(ss -tlnp | grep sshd | awk '{print $4}' | awk -F':' '{print $NF}' | tr -d '\n')
     if [[ -z "$ssh_port" ]]; then
         log_error "无法检测到 SSH 端口"
     fi
