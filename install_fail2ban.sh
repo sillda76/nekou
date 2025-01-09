@@ -49,10 +49,28 @@ check_system() {
     fi
 }
 
+# 检查系统版本并安装 rsyslog（仅适用于 Debian 12 及以上版本）
+check_system_version() {
+    if [[ -f /etc/debian_version ]]; then
+        DEBIAN_VERSION=$(cat /etc/debian_version)
+        if [[ $DEBIAN_VERSION =~ ^12 ]]; then
+            log_info "检测到系统为 Debian 12 及以上版本，正在安装 rsyslog..."
+            apt-get install -y rsyslog
+        else
+            log_warn "系统版本低于 Debian 12，跳过 rsyslog 安装。"
+        fi
+    else
+        log_warn "非 Debian 系统，跳过 rsyslog 安装。"
+    fi
+}
+
 # 安装 fail2ban
 install_fail2ban() {
     log_info "正在更新软件包列表..."
     apt-get update
+
+    # 在更新完系统软件包后检测并安装 rsyslog
+    check_system_version
 
     log_info "正在安装 fail2ban..."
     apt-get install -y fail2ban
@@ -134,6 +152,16 @@ show_status() {
     echo "- 最大尝试次数: $MAXRETRY 次"
     echo "- 检测时间窗口: $FINDTIME 秒"
     echo "- 忽略的 IP 地址: $IGNOREIP"
+
+    # 添加重启 fail2ban 服务的提示
+    log_info "为了让规则生效，正在重启 fail2ban 服务..."
+    systemctl restart fail2ban
+    if systemctl is-active --quiet fail2ban; then
+        log_info "fail2ban 服务已成功重启。"
+    else
+        log_error "fail2ban 服务重启失败，请手动检查。"
+    fi
+
     echo -e "\n常用命令："
     echo "- 查看状态: fail2ban-client status"
     echo "- 查看 SSH 监狱状态: fail2ban-client status sshd"
