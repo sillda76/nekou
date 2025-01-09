@@ -176,17 +176,10 @@ show_status() {
     systemctl restart fail2ban
     if systemctl is-active --quiet fail2ban; then
         log_info "fail2ban 服务已成功重启。"
+        log_info "fail2ban安装成功！"  # 新增提示
     else
         log_error "fail2ban 服务重启失败，请手动检查。"
     fi
-
-    echo -e "\n常用命令："
-    echo "- 查看状态: fail2ban-client status"
-    echo "- 查看 SSH 监狱状态: fail2ban-client status sshd"
-    echo "- 封禁 IP: fail2ban-client set sshd banip <IP>"
-    echo "- 解封 IP: fail2ban-client set sshd unbanip <IP>"
-    echo "- 查看日志: tail -f /var/log/fail2ban.log"
-    echo "- 查看自定义配置文件: cat /etc/fail2ban/jail.local"
 }
 
 # 主函数
@@ -197,22 +190,58 @@ main() {
     echo -e "${BLUE}----------------------------------------${NC}"
     echo "欢迎使用 fail2ban 自动安装和配置脚本"
     echo "本脚本将执行以下操作："
-    echo "1. 检查系统环境和权限"
-    echo "2. 安装 fail2ban 和 rsyslog（仅限 Debian 12 及以上版本）"
-    echo "3. 配置 fail2ban，保护 SSH 服务"
-    echo "4. 启动并启用 fail2ban 服务"
-    echo "5. 显示配置状态和常用命令"
+    echo "- 检查系统环境和权限"
+    echo "- 安装 fail2ban 和 rsyslog（仅限 Debian 12 及以上版本）"
+    echo "- 配置 fail2ban，保护 SSH 服务"
+    echo "- 启动并启用 fail2ban 服务"
+    echo "- 显示配置状态和常用命令"
     echo -e "${BLUE}========================================${NC}"
     echo -e "${YELLOW}常用命令：${NC}"
-    echo "- 查看状态: fail2ban-client status"
-    echo "- 查看 SSH 监狱状态: fail2ban-client status sshd"
-    echo "- 封禁 IP: fail2ban-client set sshd banip <IP>"
-    echo "- 解封 IP: fail2ban-client set sshd unbanip <IP>"
-    echo "- 查看日志: tail -f /var/log/fail2ban.log"
-    echo "- 查看自定义配置文件: cat /etc/fail2ban/jail.local"
+    echo "1. 查看状态: fail2ban-client status"
+    echo "2. 查看 SSH 监狱状态: fail2ban-client status sshd"
+    echo "3. 封禁 IP: fail2ban-client set sshd banip <IP>"
+    echo "4. 解封 IP: fail2ban-client set sshd unbanip <IP>"
+    echo "5. 查看日志: tail -f /var/log/fail2ban.log"
+    echo "6. 查看自定义配置文件: cat /etc/fail2ban/jail.local"
     echo -e "${BLUE}========================================${NC}"
-    read -p "是否继续安装并配置 fail2ban？(y/n): " choice
+    read -p "请输入选项 (1-6) 或是否继续安装并配置 fail2ban？(y/n): " choice
     case "$choice" in
+        1)
+            fail2ban-client status
+            exit 0
+            ;;
+        2)
+            fail2ban-client status sshd
+            exit 0
+            ;;
+        3)
+            read -p "请输入要封禁的 IP 地址: " ip
+            if [[ -n "$ip" ]]; then
+                fail2ban-client set sshd banip "$ip"
+                log_info "已封禁 IP: $ip"
+            else
+                log_error "未输入 IP 地址，操作取消。"
+            fi
+            exit 0
+            ;;
+        4)
+            read -p "请输入要解封的 IP 地址: " ip
+            if [[ -n "$ip" ]]; then
+                fail2ban-client set sshd unbanip "$ip"
+                log_info "已解封 IP: $ip"
+            else
+                log_error "未输入 IP 地址，操作取消。"
+            fi
+            exit 0
+            ;;
+        5)
+            tail -f /var/log/fail2ban.log
+            exit 0
+            ;;
+        6)
+            cat /etc/fail2ban/jail.local
+            exit 0
+            ;;
         y|Y)
             log_info "用户选择继续安装，开始执行脚本..."
             ;;
@@ -221,7 +250,7 @@ main() {
             exit 0
             ;;
         *)
-            log_error "无效的输入，请输入 y 或 n。"
+            log_error "无效的输入，请输入 1-6、y 或 n。"
             ;;
     esac
 
