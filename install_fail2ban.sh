@@ -60,7 +60,8 @@ install_fail2ban() {
 
 # 获取当前 SSH 端口
 get_ssh_port() {
-    local ssh_port=$(ss -tlnp | grep sshd | awk '{print $4}' | awk -F':' '{print $NF}' | tr -d '\n')
+    # 获取 SSH 端口，确保只返回一个端口值
+    local ssh_port=$(ss -tlnp | grep sshd | awk '{print $4}' | awk -F':' '{print $NF}' | head -n 1 | tr -d '\n')
     if [[ -z "$ssh_port" ]]; then
         log_error "无法检测到 SSH 端口"
     fi
