@@ -79,12 +79,29 @@ install_fail2ban() {
 
 # 获取当前 SSH 端口
 get_ssh_port() {
+    local ssh_port
+
     # 从 SSH 配置文件中获取端口
-    local ssh_port=$(grep -E "^Port\s+[0-9]+" /etc/ssh/sshd_config | awk '{print $2}' | head -n 1)
+    ssh_port=$(grep -E "^#?Port\s+[0-9]+" /etc/ssh/sshd_config | awk '{print $2}' | head -n 1)
+
+    # 如果未找到 Port 配置，则检查 SSH 服务实际监听的端口
     if [[ -z "$ssh_port" ]]; then
-        # 如果未找到 Port 配置，则使用默认端口 22
+        log_warn "未在 /etc/ssh/sshd_config 中找到 Port 配置，尝试检查 SSH 服务实际监听的端口..."
+        if command -v ss &> /dev/null; then
+            ssh_port=$(ss -tlnp | grep sshd | awk '{print $4}' | awk -F: '{print $NF}' | head -n 1)
+        elif command -v netstat &> /dev/null; then
+            ssh_port=$(netstat -tlnp | grep sshd | awk '{print $4}' | awk -F: '{print $NF}' | head -n 1)
+        else
+            log_warn "未找到 ss 或 netstat 命令，无法检查 SSH 服务实际监听的端口。"
+        fi
+    fi
+
+    # 如果仍然未找到端口，则使用默认端口 22
+    if [[ -z "$ssh_port" ]]; then
+        log_warn "无法确定 SSH 端口，使用默认端口 22。"
         ssh_port=22
     fi
+
     echo "$ssh_port"
 }
 
