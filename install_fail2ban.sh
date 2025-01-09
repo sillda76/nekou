@@ -56,8 +56,11 @@ check_system_version() {
     if ! command -v iptables &> /dev/null; then
         log_info "检测到未安装 iptables，正在安装 iptables..."
         apt-get install -y iptables
+    else
+        log_info "iptables 已安装，继续运行脚本。"
     fi
 
+    # 检测系统版本并安装 rsyslog（仅适用于 Debian 12 及以上版本）
     if [[ -f /etc/debian_version ]]; then
         DEBIAN_VERSION=$(cat /etc/debian_version)
         if [[ $DEBIAN_VERSION =~ ^12 ]]; then
