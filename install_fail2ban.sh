@@ -253,6 +253,7 @@ main() {
         # 提示按任意键返回交互界面
         echo -e "\n${YELLOW}按任意键返回菜单...${NC}"
         read -n 1 -s  # 捕获任意键输入，无需按 Enter
+        clear  # 清除屏幕内容
     done
 
     # 原有逻辑
