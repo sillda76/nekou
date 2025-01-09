@@ -249,6 +249,10 @@ main() {
                 log_error "无效的输入，请输入 1-6、y 或 n。"
                 ;;
         esac
+
+        # 提示按任意键返回交互界面
+        echo -e "\n${YELLOW}按任意键返回菜单...${NC}"
+        read -n 1 -s  # 捕获任意键输入，无需按 Enter
     done
 
     # 原有逻辑
