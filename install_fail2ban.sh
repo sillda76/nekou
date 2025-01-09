@@ -7,6 +7,7 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'  # 新增蓝色
 NC='\033[0m' # No Color
 
 # 默认配置
@@ -173,6 +174,33 @@ show_status() {
 
 # 主函数
 main() {
+    # 显示 GitHub 地址，嵌入到分割线中
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}GitHub: https://github.com/sillda76/VPSKit${NC}"
+    echo -e "${BLUE}----------------------------------------${NC}"
+    echo "欢迎使用 fail2ban 自动安装和配置脚本"
+    echo "本脚本将执行以下操作："
+    echo "1. 检查系统环境和权限"
+    echo "2. 安装 fail2ban 和 rsyslog（仅限 Debian 12 及以上版本）"
+    echo "3. 配置 fail2ban，保护 SSH 服务"
+    echo "4. 启动并启用 fail2ban 服务"
+    echo "5. 显示配置状态和常用命令"
+    echo -e "${BLUE}========================================${NC}"
+    read -p "是否继续安装并配置 fail2ban？(y/n): " choice
+    case "$choice" in
+        y|Y)
+            log_info "用户选择继续安装，开始执行脚本..."
+            ;;
+        n|N)
+            log_info "用户选择退出，脚本终止。"
+            exit 0
+            ;;
+        *)
+            log_error "无效的输入，请输入 y 或 n。"
+            ;;
+    esac
+
+    # 原有逻辑
     check_root
     check_system
 
