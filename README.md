@@ -1,7 +1,7 @@
-# 一些VPS脚本
-带宽测试
+# 快速消耗流量 跑流量脚本 
+##  debian/ubuntu 一键脚本
 ```
-bash <(curl -sSL https://raw.githubusercontent.com/sillda76/VPSKit/refs/heads/main/download-test/install.sh)
+bash <(curl -sSL https://github.com/net818/Consumption-traffic/raw/main/install.sh)
 ```
 
 
