@@ -9,10 +9,8 @@ fi
 
 ORANGE='\033[1;38;5;208m'
 GREEN='\033[1;32m'
-BLACK='\033[0;30m'
 RED='\033[1;31m'
 ORANGE_START='\033[38;5;214m'
-ORANGE_END='\033[38;5;208m'
 NC='\033[0m'
 
 echo -e "${ORANGE_START}============[ System Information ]============${NC}"
@@ -126,11 +124,11 @@ if [ -n "$interface_info" ]; then
     if [ "$bytes" -lt 1024 ]; then
       echo "${bytes} B"
     elif [ "$bytes" -lt $((1024 * 1024)) ]; then
-      echo "$((bytes / 1024)) KB"
+      echo "$(awk "BEGIN {printf \"%.2f\", $bytes / 1024}") KB"
     elif [ "$bytes" -lt $((1024 * 1024 * 1024)) ]; then
-      echo "$((bytes / 1024 / 1024)) MB"
+      echo "$(awk "BEGIN {printf \"%.2f\", $bytes / 1024 / 1024}") MB"
     else
-      echo "$((bytes / 1024 / 1024 / 1024)) GB"
+      echo "$(awk "BEGIN {printf \"%.2f\", $bytes / 1024 / 1024 / 1024}") GB"
     fi
   }
 
@@ -146,6 +144,3 @@ else
 fi
 
 echo -e "${ORANGE_START}==============================================${NC}"
-
-echo
-echo
