@@ -91,7 +91,7 @@ fi
 
 disk_used=$(echo "$disk_info" | awk 'NR==2{print $3}' | sed 's/[^0-9.]//g')
 disk_total=$(echo "$disk_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
-disk_percent=$(echo "$disk_info" | awk 'NR==2{print $5}' | sed 's/%//g')
+disk_percent=$(awk "BEGIN {printf \"%.1f\", ($disk_used/$disk_total)*100}")
 
 echo -e "${ORANGE}Disk      : ${NC}[$(generate_bar $disk_percent)] $(echo "$disk_info" | awk 'NR==2{print $3 "/" $2}') ($disk_percent%)"
 
