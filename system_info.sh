@@ -60,7 +60,7 @@ generate_bar() {
 if swapon --show | grep -q '^'; then
   memory_used=$(echo "$memory_info" | awk 'NR==2{print $3}' | sed 's/[^0-9.]//g')
   memory_total=$(echo "$memory_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
-  
+  
   if echo "$memory_info" | awk 'NR==2{print $2}' | grep -q 'Gi'; then
     memory_total=$(awk "BEGIN {printf \"%.1f\", $memory_total * 1024}")
   fi
