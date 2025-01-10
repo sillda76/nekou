@@ -10,6 +10,7 @@ fi
 ORANGE='\033[1;38;5;208m'
 GREEN='\033[1;32m'
 BLACK='\033[0;30m'
+RED='\033[1;31m'
 NC='\033[0m'
 
 echo -e "${ORANGE}============[ System Information ]============${NC}"
@@ -53,10 +54,10 @@ if swapon --show | grep -q '^'; then
   swap_total=$(echo "$memory_info" | awk 'NR==3{print $2}' | sed 's/[^0-9.]//g')
   swap_percent=$(awk "BEGIN {printf \"%.1f\", ($swap_used/$swap_total)*100}")
 
-  memory_bar=$(awk -v p="$memory_percent" 'BEGIN {for (i=1; i<=25; i++) if (i <= p/4) printf "="; else printf "="}')
-  memory_bar_colored=$(echo "$memory_bar" | sed -E "s/(={1,25})/${GREEN}\1${NC}/g" | sed -E "s/(={0,25})/${BLACK}\1${NC}/g")
-  swap_bar=$(awk -v p="$swap_percent" 'BEGIN {for (i=1; i<=25; i++) if (i <= p/4) printf "="; else printf "="}')
-  swap_bar_colored=$(echo "$swap_bar" | sed -E "s/(={1,25})/${GREEN}\1${NC}/g" | sed -E "s/(={0,25})/${BLACK}\1${NC}/g")
+  memory_bar=$(awk -v p="$memory_percent" 'BEGIN {for (i=1; i<=25; i++) if (i <= p/4) printf "="; else printf " "}')
+  memory_bar_colored="${GREEN}$(echo "$memory_bar" | sed 's/=/=/g')${NC}"
+  swap_bar=$(awk -v p="$swap_percent" 'BEGIN {for (i=1; i<=25; i++) if (i <= p/4) printf "="; else printf " "}')
+  swap_bar_colored="${GREEN}$(echo "$swap_bar" | sed 's/=/=/g')${NC}"
   echo -e "${ORANGE}Memory    : ${NC}[$memory_bar_colored] $(echo "$memory_info" | awk 'NR==2{print $3 "/" $2}') ($memory_percent%)"
   echo -e "${ORANGE}Swap      : ${NC}[$swap_bar_colored] $(echo "$memory_info" | awk 'NR==3{print $3 "/" $2}') ($swap_percent%)"
 else
@@ -64,8 +65,8 @@ else
   memory_total=$(echo "$memory_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
   memory_percent=$(awk "BEGIN {printf \"%.1f\", ($memory_used/$memory_total)*100}")
 
-  memory_bar=$(awk -v p="$memory_percent" 'BEGIN {for (i=1; i<=25; i++) if (i <= p/4) printf "="; else printf "="}')
-  memory_bar_colored=$(echo "$memory_bar" | sed -E "s/(={1,25})/${GREEN}\1${NC}/g" | sed -E "s/(={0,25})/${BLACK}\1${NC}/g")
+  memory_bar=$(awk -v p="$memory_percent" 'BEGIN {for (i=1; i<=25; i++) if (i <= p/4) printf "="; else printf " "}')
+  memory_bar_colored="${GREEN}$(echo "$memory_bar" | sed 's/=/=/g')${NC}"
   echo -e "${ORANGE}Memory    : ${NC}[$memory_bar_colored] $(echo "$memory_info" | awk 'NR==2{print $3 "/" $2}') ($memory_percent%)"
 fi
 
@@ -73,8 +74,8 @@ disk_used=$(echo "$disk_info" | awk 'NR==2{print $3}' | sed 's/[^0-9.]//g')
 disk_total=$(echo "$disk_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
 disk_percent=$(echo "$disk_info" | awk 'NR==2{print $5}' | sed 's/%//g')
 
-disk_bar=$(awk -v p="$disk_percent" 'BEGIN {for (i=1; i<=25; i++) if (i <= p/4) printf "="; else printf "="}')
-disk_bar_colored=$(echo "$disk_bar" | sed -E "s/(={1,25})/${GREEN}\1${NC}/g" | sed -E "s/(={0,25})/${BLACK}\1${NC}/g")
+disk_bar=$(awk -v p="$disk_percent" 'BEGIN {for (i=1; i<=25; i++) if (i <= p/4) printf "="; else printf " "}')
+disk_bar_colored="${GREEN}$(echo "$disk_bar" | sed 's/=/=/g')${NC}"
 echo -e "${ORANGE}Disk      : ${NC}[$disk_bar_colored] $(echo "$disk_info" | awk 'NR==2{print $3 " used, " $2 " total"}') ($disk_percent%)"
 
 if [ -n "$ipv4_info" ]; then
@@ -135,7 +136,7 @@ if [ -n "$interface_info" ]; then
   if [ -n "$rx_bytes" ] && [ -n "$tx_bytes" ]; then
     rx_converted=$(convert_bytes $rx_bytes)
     tx_converted=$(convert_bytes $tx_bytes)
-    echo -e "${ORANGE}Traffic   : ${NC}${GREEN}↑${NC}:${tx_converted} ${RED}↓${NC}:${rx_converted}"
+    echo -e "${ORANGE}Traffic   : ${NC}${RED}Tx${NC}:${tx_converted} ${GREEN}Rx${NC}:${rx_converted}"
   else
     echo -e "${ORANGE}Traffic   : ${NC}N/A"
   fi
