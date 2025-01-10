@@ -11,11 +11,11 @@ ORANGE='\033[1;38;5;208m'
 GREEN='\033[1;32m'
 BLACK='\033[0;30m'
 RED='\033[1;31m'
-BLUE_START='\033[38;5;45m'
-BLUE_END='\033[38;5;51m'
+ORANGE_START='\033[38;5;214m'
+ORANGE_END='\033[38;5;208m'
 NC='\033[0m'
 
-echo -e "${BLUE_START}============[ System Information ]============${NC}"
+echo -e "${ORANGE_START}============[ System Information ]============${NC}"
 
 os_info=$(lsb_release -d 2>/dev/null | awk -F'\t' '{print $2}')
 [ -z "$os_info" ] && os_info=$(cat /etc/os-release | grep PRETTY_NAME | awk -F'"' '{print $2}')
@@ -145,7 +145,7 @@ else
   echo -e "${ORANGE}Traffic   : ${NC}N/A"
 fi
 
-echo -e "${BLUE_START}==============================================${NC}"
+echo -e "${ORANGE_START}==============================================${NC}"
 
 echo
 echo
