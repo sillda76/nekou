@@ -96,9 +96,27 @@ configure_fail2ban() {
         cp /etc/fail2ban/jail.local /etc/fail2ban/jail.local.backup.$(date +%Y%m%d%H%M%S)
     fi
 
-    # 创建主配置文件（不包含注释）
+    # 检测系统日志文件路径
+    if [[ -f /var/log/auth.log ]]; then
+        LOGPATH="/var/log/auth.log"
+    elif [[ -f /var/log/secure ]]; then
+        LOGPATH="/var/log/secure"
+    else
+        log_error "未找到 SSH 日志文件（/var/log/auth.log 或 /var/log/secure），请检查系统日志配置。"
+    fi
+
+    # 检测 SSH 端口
+    SSHD_CONFIG="/etc/ssh/sshd_config"
+    if [[ -f $SSHD_CONFIG ]]; then
+        SSH_PORT=$(grep -oP '^Port\s+\K\d+' $SSHD_CONFIG || echo "22")
+    else
+        SSH_PORT="22"
+    fi
+
+    # 创建主配置文件
     cat > /etc/fail2ban/jail.local << EOL
 [DEFAULT]
+allowipv6 = auto
 bantime = $BANTIME
 findtime = $FINDTIME
 maxretry = $MAXRETRY
@@ -109,9 +127,9 @@ logtarget = /var/log/fail2ban.log
 
 [sshd]
 enabled = true
-port = ssh
+port = ssh,$SSH_PORT
 filter = sshd
-logpath = /var/log/auth.log
+logpath = $LOGPATH
 maxretry = $MAXRETRY
 findtime = $FINDTIME
 bantime = $BANTIME
