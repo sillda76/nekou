@@ -58,6 +58,15 @@ generate_bar() {
 if swapon --show | grep -q '^'; then
   memory_used=$(echo "$memory_info" | awk 'NR==2{print $3}' | sed 's/[^0-9.]//g')
   memory_total=$(echo "$memory_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
+  
+  # 转换单位（MiB 或 GiB 转换为 KiB）
+  if echo "$memory_info" | awk 'NR==2{print $2}' | grep -q 'Gi'; then
+    memory_total=$(awk "BEGIN {printf \"%.1f\", $memory_total * 1024}")
+  fi
+  if echo "$memory_info" | awk 'NR==2{print $3}' | grep -q 'Gi'; then
+    memory_used=$(awk "BEGIN {printf \"%.1f\", $memory_used * 1024}")
+  fi
+
   memory_percent=$(awk "BEGIN {printf \"%.1f\", ($memory_used/$memory_total)*100}")
   swap_used=$(echo "$memory_info" | awk 'NR==3{print $3}' | sed 's/[^0-9.]//g')
   swap_total=$(echo "$memory_info" | awk 'NR==3{print $2}' | sed 's/[^0-9.]//g')
@@ -68,6 +77,15 @@ if swapon --show | grep -q '^'; then
 else
   memory_used=$(echo "$memory_info" | awk 'NR==2{print $3}' | sed 's/[^0-9.]//g')
   memory_total=$(echo "$memory_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
+
+  # 转换单位（MiB 或 GiB 转换为 KiB）
+  if echo "$memory_info" | awk 'NR==2{print $2}' | grep -q 'Gi'; then
+    memory_total=$(awk "BEGIN {printf \"%.1f\", $memory_total * 1024}")
+  fi
+  if echo "$memory_info" | awk 'NR==2{print $3}' | grep -q 'Gi'; then
+    memory_used=$(awk "BEGIN {printf \"%.1f\", $memory_used * 1024}")
+  fi
+
   memory_percent=$(awk "BEGIN {printf \"%.1f\", ($memory_used/$memory_total)*100}")
 
   echo -e "${ORANGE}Memory    : ${NC}[$(generate_bar $memory_percent)] $(echo "$memory_info" | awk 'NR==2{print $3 "/" $2}') ($memory_percent%)"
