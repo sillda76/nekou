@@ -47,7 +47,7 @@ generate_bar() {
   awk -v p="$percent" 'BEGIN {
     for (i=1; i<=20; i++) {
       if (i <= p/5) {
-        printf "\033[38;5;%dm=\033[0m", 22 + int(i * 8)
+        printf "\033[38;5;%dm=\033[0m", 28 + int(i * 3)
       } else {
         printf "\033[0;30m=\033[0m"
       }
@@ -59,7 +59,6 @@ if swapon --show | grep -q '^'; then
   memory_used=$(echo "$memory_info" | awk 'NR==2{print $3}' | sed 's/[^0-9.]//g')
   memory_total=$(echo "$memory_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
   
-  # 转换单位（MiB 或 GiB 转换为 KiB）
   if echo "$memory_info" | awk 'NR==2{print $2}' | grep -q 'Gi'; then
     memory_total=$(awk "BEGIN {printf \"%.1f\", $memory_total * 1024}")
   fi
@@ -78,7 +77,6 @@ else
   memory_used=$(echo "$memory_info" | awk 'NR==2{print $3}' | sed 's/[^0-9.]//g')
   memory_total=$(echo "$memory_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
 
-  # 转换单位（MiB 或 GiB 转换为 KiB）
   if echo "$memory_info" | awk 'NR==2{print $2}' | grep -q 'Gi'; then
     memory_total=$(awk "BEGIN {printf \"%.1f\", $memory_total * 1024}")
   fi
@@ -95,7 +93,7 @@ disk_used=$(echo "$disk_info" | awk 'NR==2{print $3}' | sed 's/[^0-9.]//g')
 disk_total=$(echo "$disk_info" | awk 'NR==2{print $2}' | sed 's/[^0-9.]//g')
 disk_percent=$(echo "$disk_info" | awk 'NR==2{print $5}' | sed 's/%//g')
 
-echo -e "${ORANGE}Disk      : ${NC}[$(generate_bar $disk_percent)] $(echo "$disk_info" | awk 'NR==2{print $3 " used, " $2 " total"}') ($disk_percent%)"
+echo -e "${ORANGE}Disk      : ${NC}[$(generate_bar $disk_percent)] $(echo "$disk_info" | awk 'NR==2{print $3 "/" $2}') ($disk_percent%)"
 
 if [ -n "$ipv4_info" ]; then
   echo -e "${GREEN}IPv4      : ${NC}$ipv4_info"
