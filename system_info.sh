@@ -49,9 +49,9 @@ generate_bar() {
   awk -v p="$percent" 'BEGIN {
     for (i=1; i<=20; i++) {
       if (i <= p/5) {
-        printf "\033[38;5;%dm=\033[0m", 82 + int(i * 3)
+        printf "\033[38;5;%dm=\033[0m", 28 + int(i * 3)
       } else {
-        printf "\033[0;30m=\033[0m"
+        printf " "
       }
     }
   }'
