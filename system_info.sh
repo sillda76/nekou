@@ -11,8 +11,8 @@ ORANGE='\033[1;38;5;208m'
 GREEN='\033[1;32m'
 BLACK='\033[0;30m'
 RED='\033[1;31m'
-BLUE_START='\033[38;5;27m'
-BLUE_END='\033[38;5;39m'
+BLUE_START='\033[38;5;45m'
+BLUE_END='\033[38;5;51m'
 NC='\033[0m'
 
 echo -e "${BLUE_START}============[ System Information ]============${NC}"
