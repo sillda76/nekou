@@ -54,7 +54,7 @@ uptime_info="${uptime_days} days ${uptime_hours} hours ${uptime_minutes} minutes
 memory_info=$(free -h)
 disk_info=$(df -h /)
 
-# 获取 IP 信息（异步执行）
+# 获取 IP 信息
 ipv4_info=$(ip -4 addr show scope global | grep inet | awk '{print $2}' | cut -d/ -f1 | head -n 1)
 ipv6_info=$(ip -6 addr show scope global | grep inet6 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
 
