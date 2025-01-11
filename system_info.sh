@@ -13,22 +13,6 @@ install() {
         sudo truncate -s 0 /etc/motd
     fi
 
-    # 检测网络接口
-    interface="eth0"
-
-    if ! ifconfig $interface &> /dev/null; then
-        interface="enp3s0"
-        if ! ifconfig $interface &> /dev/null; then
-            available_interfaces=$(ifconfig -a | grep '^[a-z]' | awk '{print $1}')
-            echo -e "---------------------------------------------"
-            echo -e "\033[34m"
-            echo "未找到eth0或enp3s0。可用网卡有："
-            echo "$available_interfaces"
-            echo -e "\033[0m"
-            read -p "请输入要监测的网卡(不带冒号): " interface
-        fi
-    fi
-
     # 生成系统信息脚本
     cat << EOF > ~/.local/sysinfo.sh
 #!/bin/bash
@@ -36,7 +20,9 @@ install() {
 # ANSI colors
 RED='\033[1;31m'
 GREEN='\033[1;32m'
-YELLOW='\033[1;33m'
+PURPLE='\033[1;35m'
+CYAN='\033[1;36m'
+ORANGE='\033[1;33m'
 NC='\033[0m'
 
 # Function to create a progress bar
@@ -48,7 +34,7 @@ progress_bar() {
     local empty=\$((bar_width - filled))
 
     printf "["
-    for ((i=0; i<filled; i++)); do printf "\${RED}=\${NC}"; done
+    for ((i=0; i<filled; i++)); do printf "\${PURPLE}=\${NC}"; done
     for ((i=0; i<empty; i++)); do printf "\${GREEN}=\${NC}"; done
     printf "]"
 }
@@ -64,14 +50,11 @@ cpu_info=\$(lscpu | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | xar
 cpu_cores=\$(lscpu | grep "^CPU(s):" | awk '{print \$2}')
 cpu_speed=\$(lscpu | grep "CPU MHz" | awk '{print \$3/1000 "GHz"}' | xargs)
 
-# 提取型号缩写（如 i7-8750H）
-cpu_model=\$(echo "\$cpu_info" | grep -oP '(i[3-9]|Ryzen|AMD)[-\w]+')
-
 # 格式化 CPU 信息
 if [ -n "\$cpu_speed" ]; then
-    cpu_output="\${cpu_cores} cores (\${cpu_model}) @\$cpu_speed"
+    cpu_output="\${cpu_cores} cores (\${cpu_info}) @\$cpu_speed"
 else
-    cpu_output="\${cpu_cores} cores (\${cpu_model})"
+    cpu_output="\${cpu_cores} cores (\${cpu_info})"
 fi
 
 # Memory usage
@@ -94,10 +77,10 @@ get_ipinfo() {
     local ip=\$1
     ipinfo_data=\$(curl -s "https://ipinfo.io/\$ip/json")
     if [[ -n "\$ipinfo_data" ]]; then
-        isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": "$.*$",/\1/')
-        city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": "$.*$",/\1/')
-        region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": "$.*$",/\1/')
-        country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": "$.*$",/\1/')
+        isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": "\(.*\)",/\1/')
+        city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": "\(.*\)",/\1/')
+        region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": "\(.*\)",/\1/')
+        country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": "\(.*\)",/\1/')
         if [[ -n "\$city" && -n "\$region" && -n "\$country" ]]; then
             location="\$city, \$region, \$country"
         else
@@ -127,36 +110,35 @@ get_public_ip() {
     fi
 }
 
-# Network traffic
+# 获取网络流量信息
 get_network_traffic() {
-    local interface=\$1
-    rx_bytes=\$(ifconfig \$interface | grep 'RX packets' | awk '{print \$5}')
-    tx_bytes=\$(ifconfig \$interface | grep 'TX packets' | awk '{print \$5}')
+    rx_bytes=\$(cat /proc/net/dev | grep 'eth0:' | awk '{print \$2}')
+    tx_bytes=\$(cat /proc/net/dev | grep 'eth0:' | awk '{print \$10}')
     rx_gb=\$(awk "BEGIN {printf \"%.2f\", \$rx_bytes/1024/1024/1024}")
     tx_gb=\$(awk "BEGIN {printf \"%.2f\", \$tx_bytes/1024/1024/1024}")
     echo "\${RED}↑:\${NC}\$tx_gb GB    \${GREEN}↓:\${NC}\$rx_gb GB"
 }
 
 # Display the information
-echo -e "\${YELLOW}OS:\${NC}        \$os_info"
-echo -e "\${YELLOW}Uptime:\${NC}    \$uptime_info"
-echo -e "\${YELLOW}CPU:\${NC}       \$cpu_output"
+echo -e "\${ORANGE}OS:\${NC}        \$os_info"
+echo -e "\${ORANGE}Uptime:\${NC}    \$uptime_info"
+echo -e "\${ORANGE}CPU:\${NC}       \$cpu_output"
 
 if [[ \$swap_total -ne 0 ]]; then
-    echo -ne "\${YELLOW}Memory:\${NC}    "
+    echo -ne "\${ORANGE}Memory:\${NC}    "
     progress_bar \$memory_used \$memory_total
     echo " \$memory_usage"
-    echo -e "\${YELLOW}Swap:\${NC}      \$swap_usage"
+    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
 else
-    echo -ne "\${YELLOW}Memory:\${NC}    "
+    echo -ne "\${ORANGE}Memory:\${NC}    "
     progress_bar \$memory_used \$memory_total
     echo " \$memory_usage"
 fi
 
-echo -ne "\${YELLOW}Disk:\${NC}      "
+echo -ne "\${ORANGE}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$disk_usage"
-echo -e "\${YELLOW}Traffic:\${NC}   \$(get_network_traffic $interface)"
+echo -e "\${ORANGE}Traffic:\${NC}   \$(get_network_traffic)"
 get_public_ip
 EOF
 
@@ -164,7 +146,7 @@ EOF
     chmod +x ~/.local/sysinfo.sh
 
     # 修改.bashrc以在SSH登录时显示系统信息
-    if ! grep -q 'if \[\[ \$- == \*i\* && -n "\$SSH_CONNECTION" \]\]; then' ~/.bashrc; then
+    if ! grep -q 'if $\[ \$- == \*i\* && -n "\$SSH_CONNECTION" $\]; then' ~/.bashrc; then
         echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
         echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
         echo '    bash ~/.local/sysinfo.sh' >> ~/.bashrc
@@ -188,6 +170,8 @@ uninstall() {
     # 恢复原始SSH欢迎信息
     if [[ -f /etc/motd.bak ]]; then
         sudo mv /etc/motd.bak /etc/motd
+    else
+        sudo truncate -s 0 /etc/motd
     fi
 
     echo -e "\033[32m系统信息工具已卸载！\033[0m"
