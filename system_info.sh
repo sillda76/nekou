@@ -3,11 +3,12 @@
 install() {
     mkdir -p ~/.local
 
-    # 安装必要的工具
     sudo apt update
     sudo apt install bc net-tools curl -y
 
-    # 创建系统信息脚本
+    sudo cp /etc/motd /etc/motd.bak
+    sudo truncate -s 0 /etc/motd
+
     cat << 'EOF' > ~/.local/sysinfo.sh
 #!/bin/bash
 
@@ -46,7 +47,6 @@ echo -e "${ORANGE}CPU       : ${NC}$cpu_model ($cpu_cores cores)"
 
 echo -e "${ORANGE}Uptime    : ${NC}$uptime_info"
 
-# 进度条函数
 progress_bar() {
     local progress=$1
     local total=$2
@@ -165,7 +165,6 @@ EOF
 
     chmod +x ~/.local/sysinfo.sh
 
-    # 添加到 .bashrc
     if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
         echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
         echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
@@ -175,11 +174,15 @@ EOF
     fi
 
     echo "安装完成！系统信息将在下次SSH登录时显示。"
+    echo -e "\033[31m如需卸载，请运行：\033[0m bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh) -u"
 }
 
 uninstall() {
     rm -f ~/.local/sysinfo.sh
     sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
+    if [[ -f /etc/motd.bak ]]; then
+      sudo mv /etc/motd.bak /etc/motd
+    fi
     echo "卸载完成！"
 }
 
