@@ -85,10 +85,10 @@ get_ipinfo() {
     local ip=\$1
     ipinfo_data=\$(curl -s "https://ipinfo.io/\$ip/json" 2>/dev/null)
     if [[ -n "\$ipinfo_data" ]]; then
-        isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": "\(.*\)",/\1/')
-        city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": "\(.*\)",/\1/')
-        region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": "\(.*\)",/\1/')
-        country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": "\(.*\)",/\1/')
+        isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": *"\([^"]*\)".*/\1/')
+        city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": *"\([^"]*\)".*/\1/')
+        region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": *"\([^"]*\)".*/\1/')
+        country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": *"\([^"]*\)".*/\1/')
         if [[ -n "\$city" && -n "\$region" && -n "\$country" ]]; then
             location="\$city, \$region, \$country"
         else
