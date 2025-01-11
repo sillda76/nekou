@@ -108,11 +108,11 @@ get_ipinfo() {
         else
             location="N/A"
         fi
-        echo -e "\${GREEN}Provider:\${NC} \${isp:-N/A}"
-        echo -e "\${GREEN}Location:\${NC} \${location:-N/A}"
+        echo -e "\${GREEN}Provider: \${NC}\${isp:-N/A}"
+        echo -e "\${GREEN}Location: \${NC}\${location:-N/A}"
     else
-        echo -e "\${GREEN}Provider:\${NC} N/A"
-        echo -e "\${GREEN}Location:\${NC} N/A"
+        echo -e "\${GREEN}Provider: \${NC}N/A"
+        echo -e "\${GREEN}Location: \${NC}N/A"
     fi
 }
 
@@ -122,10 +122,10 @@ get_public_ip() {
     ipv6=\$(curl -s ipv6.icanhazip.com 2>/dev/null)
 
     if [[ -n "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
+        echo -e "\${GREEN}IPv4: \${NC}\$ipv4"
         get_ipinfo "\$ipv4"
     elif [[ -n "\$ipv6" ]]; then
-        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
+        echo -e "\${GREEN}IPv6: \${NC}\$ipv6"
         get_ipinfo "\$ipv6"
     else
         echo -e "\${RED}No Public IP\${NC}"
@@ -139,32 +139,32 @@ get_network_traffic() {
     if [[ -n "\$rx_bytes" && -n "\$tx_bytes" ]]; then
         rx_gb=\$(awk "BEGIN {printf \"%.2f\", \$rx_bytes/1024/1024/1024}")
         tx_gb=\$(awk "BEGIN {printf \"%.2f\", \$tx_bytes/1024/1024/1024}")
-        echo -e "\${RED}↑:\${NC}\$tx_gb GB    \${GREEN}↓:\${NC}\$rx_gb GB"
+        echo -e "\${RED}↑: \${NC}\$tx_gb GB    \${GREEN}↓: \${NC}\$rx_gb GB"
     else
-        echo -e "\${RED}↑:\${NC}N/A    \${GREEN}↓:\${NC}N/A"
+        echo -e "\${RED}↑: \${NC}N/A    \${GREEN}↓: \${NC}N/A"
     fi
 }
 
 # 显示系统信息
-echo -e "\${ORANGE}OS:\${NC}        \$os_info"
-echo -e "\${ORANGE}Uptime:\${NC}    \$uptime_info"
-echo -e "\${ORANGE}CPU:\${NC}       \$cpu_output"
+echo -e "\${ORANGE}OS:          \${NC}\$os_info"
+echo -e "\${ORANGE}Uptime:      \${NC}\$uptime_info"
+echo -e "\${ORANGE}CPU:         \${NC}\$cpu_output"
 
 if [[ "\$swap_usage" != "N/A" ]]; then
-    echo -ne "\${ORANGE}Memory:\${NC}    "
+    echo -ne "\${ORANGE}Memory:      \${NC}"
     progress_bar \$memory_used \$memory_total
     echo " \$memory_usage"
-    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
+    echo -e "\${ORANGE}Swap:        \${NC}\$swap_usage"
 else
-    echo -ne "\${ORANGE}Memory:\${NC}    "
+    echo -ne "\${ORANGE}Memory:      \${NC}"
     progress_bar \$memory_used \$memory_total
     echo " \$memory_usage"
 fi
 
-echo -ne "\${ORANGE}Disk:\${NC}      "
+echo -ne "\${ORANGE}Disk:        \${NC}"
 progress_bar \$disk_used \$disk_total
 echo " \$disk_usage"
-echo -e "\${ORANGE}Traffic:\${NC}   \$(get_network_traffic)"
+echo -e "\${ORANGE}Traffic:     \${NC}\$(get_network_traffic)"
 get_public_ip
 EOF
 
