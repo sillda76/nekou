@@ -1,5 +1,17 @@
 #!/bin/bash
 
+install() {
+    # 创建 ~/.local 目录
+    mkdir -p ~/.local
+
+    # 备份并清空 /etc/motd
+    sudo cp /etc/motd /etc/motd.bak
+    sudo truncate -s 0 /etc/motd
+
+    # 创建系统信息脚本
+    cat << 'EOF' > ~/.local/sysinfo.sh
+#!/bin/bash
+
 # 检查终端大小并调整
 terminal_size=$(stty size)
 rows=$(echo "$terminal_size" | awk '{print $1}')
@@ -178,3 +190,42 @@ fi
 # 强制刷新输出
 echo
 echo
+EOF
+
+    # 赋予执行权限
+    chmod +x ~/.local/sysinfo.sh
+
+    # 添加到 .bashrc
+    if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
+        echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
+        echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
+        echo '    bash ~/.local/sysinfo.sh' >> ~/.bashrc
+        echo 'fi' >> ~/.bashrc
+        echo '# SYSINFO SSH LOGIC END' >> ~/.bashrc
+    fi
+
+    echo "安装完成！系统信息将在下次SSH登录时显示。"
+    echo -e "\033[31m如需卸载，请运行：\033[0m bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh) -u"
+}
+
+uninstall() {
+    # 删除系统信息脚本
+    rm -f ~/.local/sysinfo.sh
+
+    # 从 .bashrc 中移除相关逻辑
+    sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
+
+    # 恢复 /etc/motd
+    if [[ -f /etc/motd.bak ]]; then
+      sudo mv /etc/motd.bak /etc/motd
+    fi
+
+    echo "卸载完成！"
+}
+
+# 主逻辑
+if [ "$1" == "-u" ]; then
+    uninstall
+else
+    install
+fi
