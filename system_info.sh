@@ -28,9 +28,6 @@ RED='\033[1;31m'
 ORANGE_START='\033[38;5;214m'
 NC='\033[0m'
 
-# 显示系统信息标题
-echo -e "${ORANGE_START}============[ System Information ]============${NC}"
-
 # 获取操作系统信息
 os_info=$(lsb_release -d 2>/dev/null | awk -F'\t' '{print $2}')
 [ -z "$os_info" ] && os_info=$(cat /etc/os-release | grep PRETTY_NAME | awk -F'"' '{print $2}')
@@ -55,7 +52,8 @@ memory_info=$(free -h)
 disk_info=$(df -h /)
 
 # 获取 IP 信息
-ipv4_info=$(ip -4 addr show scope global | grep inet | awk '{print $2}' | cut -d/ -f1 | head -n 1)
+ipv4_info=$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null)
+[ -z "$ipv4_info" ] && ipv4_info=$(ip -4 addr show scope global | grep inet | awk '{print $2}' | cut -d/ -f1 | head -n 1)
 ipv6_info=$(ip -6 addr show scope global | grep inet6 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
 
 # 显示操作系统信息
@@ -132,25 +130,23 @@ echo " $(echo "$disk_info" | awk 'NR==2{print $3 "/" $2}') ($disk_percent%)"
 # 显示 IPv4 信息
 if [ -n "$ipv4_info" ]; then
   echo -e "${GREEN}IPv4      : ${NC}$ipv4_info"
-  # 异步获取 IP 信息
-  (ip_info=$(curl -s --max-time 2 "https://ipinfo.io/$ipv4_info/json" 2>/dev/null)
+  ip_info=$(curl -s --max-time 2 "https://ipinfo.io/$ipv4_info/json")
   ipv4_location=$(echo "$ip_info" | grep '"city":' | awk -F'"' '{print $4}')
   ipv4_isp=$(echo "$ip_info" | grep '"org":' | awk -F'"' '{print $4}')
 
   [ -n "$ipv4_isp" ] && echo -e "${ORANGE}Provider  : ${NC}$ipv4_isp" || echo -e "${ORANGE}Provider  : ${NC}N/A"
-  [ -n "$ipv4_location" ] && echo -e "${ORANGE}Location  : ${NC}$ipv4_location" || echo -e "${ORANGE}Location  : ${NC}N/A") &
+  [ -n "$ipv4_location" ] && echo -e "${ORANGE}Location  : ${NC}$ipv4_location" || echo -e "${ORANGE}Location  : ${NC}N/A"
 fi
 
 # 显示 IPv6 信息
 if [ -n "$ipv6_info" ]; then
   echo -e "${GREEN}IPv6      : ${NC}$ipv6_info"
-  # 异步获取 IP 信息
-  (ip_info=$(curl -s --max-time 2 "https://ipinfo.io/$ipv6_info/json" 2>/dev/null)
+  ip_info=$(curl -s --max-time 2 "https://ipinfo.io/$ipv6_info/json")
   ipv6_location=$(echo "$ip_info" | grep '"city":' | awk -F'"' '{print $4}')
   ipv6_isp=$(echo "$ip_info" | grep '"org":' | awk -F'"' '{print $4}')
 
   [ -n "$ipv6_isp" ] && echo -e "${ORANGE}Provider  : ${NC}$ipv6_isp" || echo -e "${ORANGE}Provider  : ${NC}N/A"
-  [ -n "$ipv6_location" ] && echo -e "${ORANGE}Location  : ${NC}$ipv6_location" || echo -e "${ORANGE}Location  : ${NC}N/A") &
+  [ -n "$ipv6_location" ] && echo -e "${ORANGE}Location  : ${NC}$ipv6_location" || echo -e "${ORANGE}Location  : ${NC}N/A"
 fi
 
 # 显示网络流量信息
@@ -181,10 +177,6 @@ if [ -n "$interface_info" ]; then
 else
   echo -e "${ORANGE}Traffic   : ${NC}N/A"
 fi
-
-# 强制刷新输出
-echo
-echo
 EOF
 
     # 赋予执行权限
