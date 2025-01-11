@@ -134,8 +134,15 @@ get_public_ip() {
 
 # 获取网络流量信息
 get_network_traffic() {
-    rx_bytes=\$(cat /proc/net/dev 2>/dev/null | grep 'eth0:' | awk '{print \$2}')
-    tx_bytes=\$(cat /proc/net/dev 2>/dev/null | grep 'eth0:' | awk '{print \$10}')
+    # 自动检测网络接口
+    interface=\$(grep -oP '^[^:]+' /proc/net/dev | grep -v lo | head -n 1)
+    if [[ -z "\$interface" ]]; then
+        echo -e "\${RED}↑: \${NC}N/A    \${GREEN}↓: \${NC}N/A"
+        return
+    fi
+
+    rx_bytes=\$(cat /proc/net/dev 2>/dev/null | grep "\$interface:" | awk '{print \$2}')
+    tx_bytes=\$(cat /proc/net/dev 2>/dev/null | grep "\$interface:" | awk '{print \$10}')
     if [[ -n "\$rx_bytes" && -n "\$tx_bytes" ]]; then
         rx_gb=\$(awk "BEGIN {printf \"%.2f\", \$rx_bytes/1024/1024/1024}")
         tx_gb=\$(awk "BEGIN {printf \"%.2f\", \$tx_bytes/1024/1024/1024}")
