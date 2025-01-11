@@ -86,10 +86,10 @@ get_ipinfo() {
         else
             location="Unknown Location"
         fi
-        echo "\${GREEN}ISP:\${NC} \$isp"
+        echo "\${GREEN}Provider:\${NC} \$isp"
         echo "\${GREEN}Location:\${NC} \$location"
     else
-        echo "\${GREEN}ISP:\${NC} Unknown ISP"
+        echo "\${GREEN}Provider:\${NC} Unknown Provider"
         echo "\${GREEN}Location:\${NC} Unknown Location"
     fi
 }
