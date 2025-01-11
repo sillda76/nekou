@@ -118,7 +118,7 @@ get_public_ip() {
 }
 
 get_network_traffic() {
-    interface=\$(grep -oP '^[^:]+' /proc/net/dev | grep -v lo | head -n 1)
+    interface=\$(ip route get 8.8.8.8 2>/dev/null | awk '{print \$5}')
     if [[ -z "\$interface" ]]; then
         echo -e "\${RED}↑:\${NC} N/A    \${GREEN}↓:\${NC} N/A"
         return
@@ -127,9 +127,24 @@ get_network_traffic() {
     rx_bytes=\$(cat /proc/net/dev 2>/dev/null | grep "\$interface:" | awk '{print \$2}')
     tx_bytes=\$(cat /proc/net/dev 2>/dev/null | grep "\$interface:" | awk '{print \$10}')
     if [[ -n "\$rx_bytes" && -n "\$tx_bytes" ]]; then
-        rx_gb=\$(awk "BEGIN {printf \"%.2f\", \$rx_bytes/1024/1024/1024}")
-        tx_gb=\$(awk "BEGIN {printf \"%.2f\", \$tx_bytes/1024/1024/1024}")
-        echo -e "\${RED}↑:\${NC} \$tx_gb GB    \${GREEN}↓:\${NC} \$rx_gb GB"
+        rx_mb=\$(awk "BEGIN {printf \"%.2f\", \$rx_bytes/1024/1024}")
+        tx_mb=\$(awk "BEGIN {printf \"%.2f\", \$tx_bytes/1024/1024}")
+
+        if (( \$(echo "\$rx_mb >= 1024" | bc -l) )); then
+            rx_gb=\$(awk "BEGIN {printf \"%.2f\", \$rx_mb/1024}")
+            rx_output="\$rx_gb GB"
+        else
+            rx_output="\$rx_mb MB"
+        fi
+
+        if (( \$(echo "\$tx_mb >= 1024" | bc -l) )); then
+            tx_gb=\$(awk "BEGIN {printf \"%.2f\", \$tx_mb/1024}")
+            tx_output="\$tx_gb GB"
+        else
+            tx_output="\$tx_mb MB"
+        fi
+
+        echo -e "\${RED}↑:\${NC} \$tx_output    \${GREEN}↓:\${NC} \$rx_output"
     else
         echo -e "\${RED}↑:\${NC} N/A    \${GREEN}↓:\${NC} N/A"
     fi
