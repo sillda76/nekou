@@ -169,7 +169,8 @@ echo -ne "\${ORANGE}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$disk_usage"
 echo -e "\${ORANGE}Traffic:\${NC}   \$(get_network_traffic)"
-get_public_ip
+echo -e "\${ORANGE}IPv4:\${NC}      \$(curl -s ipv4.icanhazip.com 2>/dev/null || echo 'N/A')"
+get_ipinfo "\$(curl -s ipv4.icanhazip.com 2>/dev/null)"
 EOF
 
     chmod +x ~/.local/sysinfo.sh
