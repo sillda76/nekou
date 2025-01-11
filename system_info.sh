@@ -116,10 +116,10 @@ get_public_ip() {
     ipv6=\$(curl -s ipv6.icanhazip.com 2>/dev/null)
 
     if [[ -n "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
+        echo -e "\${GREEN}IPv4:\${NC}      \$ipv4"
         get_ipinfo "\$ipv4"
     elif [[ -n "\$ipv6" ]]; then
-        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
+        echo -e "\${GREEN}IPv6:\${NC}      \$ipv6"
         get_ipinfo "\$ipv6"
     else
         echo -e "\${RED}No Public IP\${NC}"
