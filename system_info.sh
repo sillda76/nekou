@@ -118,10 +118,14 @@ get_public_ip() {
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC}      \$ipv4"
         get_ipinfo "\$ipv4"
-    elif [[ -n "\$ipv6" ]]; then
+    fi
+    if [[ -n "\$ipv6" ]]; then
         echo -e "\${GREEN}IPv6:\${NC}      \$ipv6"
-        get_ipinfo "\$ipv6"
-    else
+        if [[ -z "\$ipv4" ]]; then
+            get_ipinfo "\$ipv6"
+        fi
+    fi
+    if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
         echo -e "\${RED}No Public IP\${NC}"
     fi
 }
