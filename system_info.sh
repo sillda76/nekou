@@ -109,10 +109,12 @@ get_public_ip() {
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
         get_ipinfo "\$ipv4"
-    elif [[ -n "\$ipv6" ]]; then
+    fi
+    if [[ -n "\$ipv6" ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
         get_ipinfo "\$ipv6"
-    else
+    fi
+    if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
         echo -e "\${RED}No Public IP\${NC}"
     fi
 }
@@ -169,8 +171,7 @@ echo -ne "\${ORANGE}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$disk_usage"
 echo -e "\${ORANGE}Traffic:\${NC}   \$(get_network_traffic)"
-echo -e "\${ORANGE}IPv4:\${NC}      \$(curl -s ipv4.icanhazip.com 2>/dev/null || echo 'N/A')"
-get_ipinfo "\$(curl -s ipv4.icanhazip.com 2>/dev/null)"
+get_public_ip
 EOF
 
     chmod +x ~/.local/sysinfo.sh
@@ -186,6 +187,8 @@ EOF
     source ~/.bashrc >/dev/null 2>&1
 
     echo -e "\033[32m系统信息工具安装完成！\033[0m"
+    echo -e "\033[33m如需卸载，请运行以下命令：\033[0m"
+    echo -e "\033[33mbash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh) -u\033[0m"
 }
 
 uninstall() {
