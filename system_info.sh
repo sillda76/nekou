@@ -20,6 +20,7 @@ CYAN='\033[1;36m'
 ORANGE='\033[1;33m'
 NC='\033[0m'
 
+# 进度条函数
 progress_bar() {
     local progress=\$1
     local total=\$2
@@ -33,16 +34,19 @@ progress_bar() {
     printf "]"
 }
 
+# 获取操作系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 if [[ -z "\$os_info" ]]; then
     os_info="N/A"
 fi
 
+# 获取运行时间
 uptime_info=\$(uptime -p 2>/dev/null | sed 's/up //g')
 if [[ -z "\$uptime_info" ]]; then
     uptime_info="N/A"
 fi
 
+# 获取 CPU 信息
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
 cpu_speed=\$(lscpu 2>/dev/null | grep "CPU MHz" | awk '{print \$3/1000 "GHz"}' | xargs)
@@ -57,6 +61,7 @@ else
     cpu_output="N/A"
 fi
 
+# 获取内存使用情况
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
 memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
 if [[ -n "\$memory_total" && -n "\$memory_used" ]]; then
@@ -65,6 +70,7 @@ else
     memory_usage="N/A"
 fi
 
+# 获取 Swap 使用情况
 swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
 swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
@@ -73,6 +79,7 @@ else
     swap_usage="N/A"
 fi
 
+# 获取磁盘使用情况
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 if [[ -n "\$disk_total" && -n "\$disk_used" ]]; then
@@ -81,6 +88,7 @@ else
     disk_usage="N/A"
 fi
 
+# 获取运营商和地理位置信息
 get_ipinfo() {
     local ip=\$1
     ipinfo_data=\$(curl -s "https://ipinfo.io/\$ip/json" 2>/dev/null)
@@ -102,6 +110,7 @@ get_ipinfo() {
     fi
 }
 
+# 获取公网 IP 信息
 get_public_ip() {
     ipv4=\$(curl -s ipv4.icanhazip.com 2>/dev/null)
     ipv6=\$(curl -s ipv6.icanhazip.com 2>/dev/null)
@@ -117,6 +126,7 @@ get_public_ip() {
     fi
 }
 
+# 获取网络流量信息
 get_network_traffic() {
     interface=\$(ip route get 8.8.8.8 2>/dev/null | awk '{print \$5}')
     if [[ -z "\$interface" ]]; then
@@ -150,6 +160,7 @@ get_network_traffic() {
     fi
 }
 
+# 显示系统信息
 echo -e "\${ORANGE}OS:\${NC}        \$os_info"
 echo -e "\${ORANGE}Uptime:\${NC}    \$uptime_info"
 echo -e "\${ORANGE}CPU:\${NC}       \$cpu_output"
