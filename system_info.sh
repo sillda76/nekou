@@ -86,11 +86,11 @@ get_ipinfo() {
         else
             location="Unknown Location"
         fi
-        echo "\${GREEN}Provider:\${NC} \$isp"
-        echo "\${GREEN}Location:\${NC} \$location"
+        echo -e "\${GREEN}Provider:\${NC} \$isp"
+        echo -e "\${GREEN}Location:\${NC} \$location"
     else
-        echo "\${GREEN}Provider:\${NC} Unknown Provider"
-        echo "\${GREEN}Location:\${NC} Unknown Location"
+        echo -e "\${GREEN}Provider:\${NC} Unknown Provider"
+        echo -e "\${GREEN}Location:\${NC} Unknown Location"
     fi
 }
 
@@ -100,13 +100,13 @@ get_public_ip() {
     ipv6=\$(curl -s ipv6.icanhazip.com 2>/dev/null)
 
     if [[ -n "\$ipv4" ]]; then
-        echo "\${GREEN}IPv4:\${NC} \$ipv4"
+        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
         get_ipinfo "\$ipv4"
     elif [[ -n "\$ipv6" ]]; then
-        echo "\${GREEN}IPv6:\${NC} \$ipv6"
+        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
         get_ipinfo "\$ipv6"
     else
-        echo "\${RED}No Public IP\${NC}"
+        echo -e "\${RED}No Public IP\${NC}"
     fi
 }
 
@@ -116,7 +116,7 @@ get_network_traffic() {
     tx_bytes=\$(cat /proc/net/dev | grep 'eth0:' | awk '{print \$10}')
     rx_gb=\$(awk "BEGIN {printf \"%.2f\", \$rx_bytes/1024/1024/1024}")
     tx_gb=\$(awk "BEGIN {printf \"%.2f\", \$tx_bytes/1024/1024/1024}")
-    echo "\${RED}↑:\${NC}\$tx_gb GB    \${GREEN}↓:\${NC}\$rx_gb GB"
+    echo -e "\${RED}↑:\${NC}\$tx_gb GB    \${GREEN}↓:\${NC}\$rx_gb GB"
 }
 
 # Display the information
