@@ -1,23 +1,18 @@
 #!/bin/bash
 
 install() {
-    # 创建目录
     mkdir -p ~/.local
 
-    # 安装必要工具
     sudo apt install bc net-tools curl -y
 
-    # 备份原始SSH欢迎信息
     if [[ -f /etc/motd ]]; then
         sudo cp /etc/motd /etc/motd.bak
         sudo truncate -s 0 /etc/motd
     fi
 
-    # 生成系统信息脚本
     cat << EOF > ~/.local/sysinfo.sh
 #!/bin/bash
 
-# ANSI 颜色
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 PURPLE='\033[1;35m'
@@ -25,7 +20,6 @@ CYAN='\033[1;36m'
 ORANGE='\033[1;33m'
 NC='\033[0m'
 
-# 进度条函数
 progress_bar() {
     local progress=\$1
     local total=\$2
@@ -39,24 +33,20 @@ progress_bar() {
     printf "]"
 }
 
-# 操作系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 if [[ -z "\$os_info" ]]; then
     os_info="N/A"
 fi
 
-# 运行时间
 uptime_info=\$(uptime -p 2>/dev/null | sed 's/up //g')
 if [[ -z "\$uptime_info" ]]; then
     uptime_info="N/A"
 fi
 
-# CPU 信息
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
 cpu_speed=\$(lscpu 2>/dev/null | grep "CPU MHz" | awk '{print \$3/1000 "GHz"}' | xargs)
 
-# 格式化 CPU 信息
 if [[ -n "\$cpu_info" && -n "\$cpu_cores" ]]; then
     if [ -n "\$cpu_speed" ]; then
         cpu_output="\$cpu_info @\$cpu_speed (\${cpu_cores} cores)"
@@ -67,7 +57,6 @@ else
     cpu_output="N/A"
 fi
 
-# 内存使用情况
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
 memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
 if [[ -n "\$memory_total" && -n "\$memory_used" ]]; then
@@ -76,7 +65,6 @@ else
     memory_usage="N/A"
 fi
 
-# Swap 使用情况
 swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
 swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
@@ -85,7 +73,6 @@ else
     swap_usage="N/A"
 fi
 
-# 磁盘使用情况
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 if [[ -n "\$disk_total" && -n "\$disk_used" ]]; then
@@ -94,7 +81,6 @@ else
     disk_usage="N/A"
 fi
 
-# 获取运营商和地理位置信息
 get_ipinfo() {
     local ip=\$1
     ipinfo_data=\$(curl -s "https://ipinfo.io/\$ip/json" 2>/dev/null)
@@ -108,36 +94,33 @@ get_ipinfo() {
         else
             location="N/A"
         fi
-        echo -e "\${GREEN}Provider: \${NC}\${isp:-N/A}"
-        echo -e "\${GREEN}Location: \${NC}\${location:-N/A}"
+        echo -e "\${GREEN}Provider:\${NC} \${isp:-N/A}"
+        echo -e "\${GREEN}Location:\${NC} \${location:-N/A}"
     else
-        echo -e "\${GREEN}Provider: \${NC}N/A"
-        echo -e "\${GREEN}Location: \${NC}N/A"
+        echo -e "\${GREEN}Provider:\${NC} N/A"
+        echo -e "\${GREEN}Location:\${NC} N/A"
     fi
 }
 
-# 获取 IPv4 和 IPv6 信息
 get_public_ip() {
     ipv4=\$(curl -s ipv4.icanhazip.com 2>/dev/null)
     ipv6=\$(curl -s ipv6.icanhazip.com 2>/dev/null)
 
     if [[ -n "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv4: \${NC}\$ipv4"
+        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
         get_ipinfo "\$ipv4"
     elif [[ -n "\$ipv6" ]]; then
-        echo -e "\${GREEN}IPv6: \${NC}\$ipv6"
+        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
         get_ipinfo "\$ipv6"
     else
         echo -e "\${RED}No Public IP\${NC}"
     fi
 }
 
-# 获取网络流量信息
 get_network_traffic() {
-    # 自动检测网络接口
     interface=\$(grep -oP '^[^:]+' /proc/net/dev | grep -v lo | head -n 1)
     if [[ -z "\$interface" ]]; then
-        echo -e "\${RED}↑: \${NC}N/A    \${GREEN}↓: \${NC}N/A"
+        echo -e "\${RED}↑:\${NC} N/A    \${GREEN}↓:\${NC} N/A"
         return
     fi
 
@@ -146,39 +129,36 @@ get_network_traffic() {
     if [[ -n "\$rx_bytes" && -n "\$tx_bytes" ]]; then
         rx_gb=\$(awk "BEGIN {printf \"%.2f\", \$rx_bytes/1024/1024/1024}")
         tx_gb=\$(awk "BEGIN {printf \"%.2f\", \$tx_bytes/1024/1024/1024}")
-        echo -e "\${RED}↑: \${NC}\$tx_gb GB    \${GREEN}↓: \${NC}\$rx_gb GB"
+        echo -e "\${RED}↑:\${NC} \$tx_gb GB    \${GREEN}↓:\${NC} \$rx_gb GB"
     else
-        echo -e "\${RED}↑: \${NC}N/A    \${GREEN}↓: \${NC}N/A"
+        echo -e "\${RED}↑:\${NC} N/A    \${GREEN}↓:\${NC} N/A"
     fi
 }
 
-# 显示系统信息
-echo -e "\${ORANGE}OS:          \${NC}\$os_info"
-echo -e "\${ORANGE}Uptime:      \${NC}\$uptime_info"
-echo -e "\${ORANGE}CPU:         \${NC}\$cpu_output"
+echo -e "\${ORANGE}OS:\${NC}        \$os_info"
+echo -e "\${ORANGE}Uptime:\${NC}    \$uptime_info"
+echo -e "\${ORANGE}CPU:\${NC}       \$cpu_output"
 
 if [[ "\$swap_usage" != "N/A" ]]; then
-    echo -ne "\${ORANGE}Memory:      \${NC}"
+    echo -ne "\${ORANGE}Memory:\${NC}    "
     progress_bar \$memory_used \$memory_total
     echo " \$memory_usage"
-    echo -e "\${ORANGE}Swap:        \${NC}\$swap_usage"
+    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
 else
-    echo -ne "\${ORANGE}Memory:      \${NC}"
+    echo -ne "\${ORANGE}Memory:\${NC}    "
     progress_bar \$memory_used \$memory_total
     echo " \$memory_usage"
 fi
 
-echo -ne "\${ORANGE}Disk:        \${NC}"
+echo -ne "\${ORANGE}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$disk_usage"
-echo -e "\${ORANGE}Traffic:     \${NC}\$(get_network_traffic)"
+echo -e "\${ORANGE}Traffic:\${NC}   \$(get_network_traffic)"
 get_public_ip
 EOF
 
-    # 设置脚本可执行权限
     chmod +x ~/.local/sysinfo.sh
 
-    # 修改 .bashrc 以在 SSH 登录时显示系统信息
     if ! grep -q 'if $\[ \$- == \*i\* && -n "\$SSH_CONNECTION" $\]; then' ~/.bashrc; then
         echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
         echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
@@ -187,20 +167,16 @@ EOF
         echo '# SYSINFO SSH LOGIC END' >> ~/.bashrc
     fi
 
-    # 重新加载 .bashrc
     source ~/.bashrc >/dev/null 2>&1
 
     echo -e "\033[32m系统信息工具安装完成！\033[0m"
 }
 
 uninstall() {
-    # 删除系统信息脚本
     rm -f ~/.local/sysinfo.sh
 
-    # 从 .bashrc 中移除相关配置
     sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
 
-    # 恢复原始 SSH 欢迎信息
     if [[ -f /etc/motd.bak ]]; then
         sudo mv /etc/motd.bak /etc/motd
     else
@@ -210,7 +186,6 @@ uninstall() {
     echo -e "\033[32m系统信息工具已卸载！\033[0m"
 }
 
-# 主逻辑
 if [[ "$1" == "-u" ]]; then
     uninstall
 else
