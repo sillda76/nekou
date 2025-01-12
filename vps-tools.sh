@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 脚本名称
-SCRIPT_NAME="vps-script.sh"
+SCRIPT_NAME="vps-tools.sh"
 # 快捷启动命令
 ALIAS_NAME="o"
 
