@@ -154,6 +154,29 @@ start_service() {
     fi
 }
 
+# 清理 fail2ban 日志
+clean_fail2ban_log() {
+    log_info "正在清理 fail2ban 日志..."
+    if [[ -f /var/log/fail2ban.log ]]; then
+        > /var/log/fail2ban.log
+        log_info "fail2ban 日志已清理。"
+    else
+        log_warn "未找到 fail2ban 日志文件，跳过清理。"
+    fi
+}
+
+# 设置定时清理任务
+setup_cron_job() {
+    log_info "正在设置每7天清理 fail2ban 日志的定时任务..."
+    CRON_JOB="0 0 */7 * * root /usr/bin/bash -c '> /var/log/fail2ban.log'"
+    if ! grep -q "$CRON_JOB" /etc/crontab; then
+        echo "$CRON_JOB" >> /etc/crontab
+        log_info "定时任务已添加。"
+    else
+        log_warn "定时任务已存在，跳过添加。"
+    fi
+}
+
 # 显示状态信息
 show_status() {
     log_info "正在检查 fail2ban 状态..."
@@ -190,6 +213,7 @@ main() {
         echo "- 安装 fail2ban 和 rsyslog（仅限 Debian 12 及以上版本）"
         echo "- 配置 fail2ban，保护 SSH 服务"
         echo "- 启动并启用 fail2ban 服务"
+        echo "- 设置每7天清理 fail2ban 日志的定时任务"
         echo "- 显示配置状态和常用命令"
         echo -e "${BLUE}========================================${NC}"
         echo -e "${YELLOW}常用命令：${NC}"
@@ -280,6 +304,11 @@ main() {
     install_fail2ban
     configure_fail2ban
     start_service
+
+    # 设置定时清理任务
+    setup_cron_job
+
+    # 显示状态信息
     show_status
 }
 
