@@ -34,7 +34,7 @@ function install_script() {
             chmod +x "$SCRIPT_NAME"
             echo "脚本下载成功！"
         else
-            echo "脚本下载失败，请检查网络连接！"
+            echo "脚本下载失败，请检查网络连接或下载链接是否正确！"
             exit 1
         fi
     fi
