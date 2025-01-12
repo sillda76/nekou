@@ -15,7 +15,7 @@ show_menu() {
   echo "请选择要执行的操作："
   echo "1. 设置禁 Ping"
   echo "2. 恢复原样"
-  echo "0. 返回菜单"
+  echo "0. 退出脚本"
   echo "============================"
 }
 
@@ -59,8 +59,9 @@ while true; do
       revert_icmp_config
       ;;
     0)
-      echo "返回菜单..."
-      o  # 运行指定的命令
+      echo "退出脚本..."
+      q  # 运行指定的命令
+      break
       ;;
     *)
       echo "错误：无效选项，请按任意键返回菜单..."
