@@ -83,7 +83,7 @@ fi
 
 get_ipinfo() {
     local ip=\$1
-    ipinfo_data=\$(curl -s "https://ipinfo.io/\$ip/json" 2>/dev/null)
+    ipinfo_data=\$(curl -s --max-time 5 "https://ipinfo.io/\$ip/json" 2>/dev/null)
     if [[ -n "\$ipinfo_data" ]]; then
         isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": *"\([^"]*\)".*/\1/')
         city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": *"\([^"]*\)".*/\1/')
@@ -103,8 +103,8 @@ get_ipinfo() {
 }
 
 get_public_ip() {
-    ipv4=\$(curl -s ipv4.icanhazip.com 2>/dev/null)
-    ipv6=\$(curl -s ipv6.icanhazip.com 2>/dev/null)
+    ipv4=\$(curl -s --max-time 5 ipv4.icanhazip.com 2>/dev/null)
+    ipv6=\$(curl -s --max-time 5 ipv6.icanhazip.com 2>/dev/null)
 
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
@@ -178,6 +178,9 @@ progress_bar \$disk_used \$disk_total
 echo " \$disk_usage"
 echo -e "\${ORANGE}Traffic:\${NC}   \$(get_network_traffic)"
 get_public_ip
+
+# 增加延迟，确保输出完整
+sleep 0.05
 EOF
 
     chmod +x ~/.local/sysinfo.sh
