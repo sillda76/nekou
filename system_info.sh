@@ -81,80 +81,89 @@ else
     disk_usage="N/A"
 fi
 
-get_ipinfo() {
+CACHE_FILE=~/.local/ip_cache.txt
+CACHE_TTL=2592000
+
+get_ipinfo_with_cache() {
     local ip=\$1
-    ipinfo_data=\$(curl -s --max-time 5 "https://ipinfo.io/\$ip/json" 2>/dev/null)
-    if [[ -n "\$ipinfo_data" ]]; then
-        isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": *"\([^"]*\)".*/\1/')
-        city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": *"\([^"]*\)".*/\1/')
-        region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": *"\([^"]*\)".*/\1/')
-        country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": *"\([^"]*\)".*/\1/')
-        if [[ -n "\$city" && -n "\$region" && -n "\$country" ]]; then
-            location="\$city, \$region, \$country"
-        else
-            location="N/A"
-        fi
-        echo -e "\${GREEN}Provider:\${NC} \${isp:-N/A}"
-        echo -e "\${GREEN}Location:\${NC} \${location:-N/A}"
+    local current_time=\$(date +%s)
+    local cache_time=0
+    local cached_ip=""
+    local cached_data=""
+
+    if [[ -f "\$CACHE_FILE" ]]; then
+        cache_time=\$(head -n 1 "\$CACHE_FILE")
+        cached_ip=\$(sed -n '2p' "\$CACHE_FILE")
+        cached_data=\$(sed -n '3p' "\$CACHE_FILE")
+    fi
+
+    if [[ -n "\$cached_data" && \$((current_time - cache_time)) -lt \$CACHE_TTL && "\$cached_ip" == "\$ip" ]]; then
+        echo "\$cached_data"
     else
-        echo -e "\${GREEN}Provider:\${NC} N/A"
-        echo -e "\${GREEN}Location:\${NC} N/A"
+        ipinfo_data=\$(curl -s --max-time 3 "https://ipinfo.io/\$ip/json" 2>/dev/null)
+        if [[ -n "\$ipinfo_data" ]]; then
+            echo "\$current_time" > "\$CACHE_FILE"
+            echo "\$ip" >> "\$CACHE_FILE"
+            echo "\$ipinfo_data" >> "\$CACHE_FILE"
+            echo "\$ipinfo_data"
+        else
+            echo ""
+        fi
     fi
 }
 
 get_public_ip() {
-    ipv4=\$(curl -s --max-time 5 ipv4.icanhazip.com 2>/dev/null)
-    ipv6=\$(curl -s --max-time 5 ipv6.icanhazip.com 2>/dev/null)
+    ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com 2>/dev/null)
+    ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com 2>/dev/null)
 
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
         target_ip="\$ipv4"
+        ipinfo_data=\$(get_ipinfo_with_cache "\$ipv4" "ipv4")
+        if [[ -n "\$ipinfo_data" ]]; then
+            isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": *"\([^"]*\)".*/\1/')
+            city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": *"\([^"]*\)".*/\1/')
+            region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": *"\([^"]*\)".*/\1/')
+            country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": *"\([^"]*\)".*/\1/')
+            if [[ -n "\$city" && -n "\$region" && -n "\$country" ]]; then
+                location="\$city, \$region, \$country"
+            else
+                location="N/A"
+            fi
+            echo -e "\${GREEN}Provider:\${NC} \${isp:-N/A}"
+            echo -e "\${GREEN}Location:\${NC} \${location:-N/A}"
+        else
+            echo -e "\${GREEN}Provider:\${NC} N/A"
+            echo -e "\${GREEN}Location:\${NC} N/A"
+        fi
     fi
 
     if [[ -n "\$ipv6" ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
         if [[ -z "\$target_ip" ]]; then
             target_ip="\$ipv6"
+            ipinfo_data=\$(get_ipinfo_with_cache "\$ipv6" "ipv6")
+            if [[ -n "\$ipinfo_data" ]]; then
+                isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": *"$[^"]*$".*/\1/')
+                city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": *"$[^"]*$".*/\1/')
+                region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": *"$[^"]*$".*/\1/')
+                country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": *"$[^"]*$".*/\1/')
+                if [[ -n "\$city" && -n "\$region" && -n "\$country" ]]; then
+                    location="\$city, \$region, \$country"
+                else
+                    location="N/A"
+                fi
+                echo -e "\${GREEN}Provider:\${NC} \${isp:-N/A}"
+                echo -e "\${GREEN}Location:\${NC} \${location:-N/A}"
+            else
+                echo -e "\${GREEN}Provider:\${NC} N/A"
+                echo -e "\${GREEN}Location:\${NC} N/A"
+            fi
         fi
     fi
 
-    if [[ -n "\$target_ip" ]]; then
-        get_ipinfo "\$target_ip"
-    else
+    if [[ -z "\$target_ip" ]]; then
         echo -e "\${RED}No Public IP\${NC}"
-    fi
-}
-
-get_network_traffic() {
-    interface=\$(ip route get 8.8.8.8 2>/dev/null | awk '{print \$5}')
-    if [[ -z "\$interface" ]]; then
-        echo -e "\${RED}↑:\${NC} N/A    \${GREEN}↓:\${NC} N/A"
-        return
-    fi
-
-    rx_bytes=\$(cat /proc/net/dev 2>/dev/null | grep "\$interface:" | awk '{print \$2}')
-    tx_bytes=\$(cat /proc/net/dev 2>/dev/null | grep "\$interface:" | awk '{print \$10}')
-    if [[ -n "\$rx_bytes" && -n "\$tx_bytes" ]]; then
-        rx_mb=\$(awk "BEGIN {printf \"%.2f\", \$rx_bytes/1024/1024}")
-        tx_mb=\$(awk "BEGIN {printf \"%.2f\", \$tx_bytes/1024/1024}")
-
-        if (( \$(echo "\$rx_mb >= 1024" | bc -l) )); then
-            rx_gb=\$(awk "BEGIN {printf \"%.2f\", \$rx_mb/1024}")
-            rx_output="\$rx_gb GB"
-        else
-            rx_output="\$rx_mb MB"
-        fi
-
-        if (( \$(echo "\$tx_mb >= 1024" | bc -l) )); then
-            tx_gb=\$(awk "BEGIN {printf \"%.2f\", \$tx_mb/1024}")
-            tx_output="\$tx_gb GB"
-        else
-            tx_output="\$tx_mb MB"
-        fi
-
-        echo -e "\${RED}↑:\${NC} \$tx_output    \${GREEN}↓:\${NC} \$rx_output"
-    else
-        echo -e "\${RED}↑:\${NC} N/A    \${GREEN}↓:\${NC} N/A"
     fi
 }
 
@@ -179,8 +188,9 @@ echo " \$disk_usage"
 echo -e "\${ORANGE}Traffic:\${NC}   \$(get_network_traffic)"
 get_public_ip
 
-# 增加延迟，确保输出完整
+# 增加延迟并强制刷新输出
 sleep 0.05
+echo -ne "\n"
 EOF
 
     chmod +x ~/.local/sysinfo.sh
