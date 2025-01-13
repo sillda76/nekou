@@ -1,15 +1,23 @@
 #!/bin/bash
 
+# 颜色变量
+PURPLE='\033[1;35m'
+NC='\033[0m' # 重置颜色
+
+# 安装函数
 install() {
     mkdir -p ~/.local
 
+    # 安装依赖工具
     sudo apt install bc net-tools curl -y
 
+    # 备份并清空 /etc/motd
     if [[ -f /etc/motd ]]; then
         sudo cp /etc/motd /etc/motd.bak
         sudo truncate -s 0 /etc/motd
     fi
 
+    # 生成 sysinfo.sh 脚本
     cat << EOF > ~/.local/sysinfo.sh
 #!/bin/bash
 
@@ -20,6 +28,7 @@ CYAN='\033[1;36m'
 ORANGE='\033[1;33m'
 NC='\033[0m'
 
+# 进度条函数
 progress_bar() {
     local progress=\$1
     local total=\$2
@@ -33,169 +42,56 @@ progress_bar() {
     printf "]"
 }
 
+# 获取系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
-if [[ -z "\$os_info" ]]; then
-    os_info="N/A"
-fi
-
 uptime_info=\$(uptime -p 2>/dev/null | sed 's/up //g')
-if [[ -z "\$uptime_info" ]]; then
-    uptime_info="N/A"
-fi
-
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
 cpu_speed=\$(lscpu 2>/dev/null | grep "CPU MHz" | awk '{print \$3/1000 "GHz"}' | xargs)
-
-if [[ -n "\$cpu_info" && -n "\$cpu_cores" ]]; then
-    if [ -n "\$cpu_speed" ]; then
-        cpu_output="\$cpu_info @\$cpu_speed (\${cpu_cores} cores)"
-    else
-        cpu_output="\$cpu_info (\${cpu_cores} cores)"
-    fi
-else
-    cpu_output="N/A"
-fi
-
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
 memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
-if [[ -n "\$memory_total" && -n "\$memory_used" ]]; then
-    memory_usage=\$(awk "BEGIN {printf \\"%.0fMB / %.0fMB (%.0f%%)\\", \$memory_used, \$memory_total, (\$memory_used/\$memory_total)*100}")
-else
-    memory_usage="N/A"
-fi
-
 swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
 swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
-if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
-    swap_usage=\$(awk "BEGIN {printf \\"%.0fMB / %.0fMB (%.0f%%)\\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
-else
-    swap_usage="N/A"
-fi
-
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
-if [[ -n "\$disk_total" && -n "\$disk_used" ]]; then
-    disk_usage=\$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')
-else
-    disk_usage="N/A"
-fi
 
-CACHE_FILE=~/.local/ip_cache.txt
-CACHE_TTL=2592000
+# 显示系统信息
+echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
+echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
+echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} @\${cpu_speed:-N/A} (\${cpu_cores:-N/A} cores)"
+echo -ne "\${ORANGE}Memory:\${NC}    "
+progress_bar \$memory_used \$memory_total
+echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
+echo -e "\${ORANGE}Swap:\${NC}      \${swap_used:-N/A}MB / \${swap_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$swap_used/\$swap_total)*100}"))"
+echo -ne "\${ORANGE}Disk:\${NC}      "
+progress_bar \$disk_used \$disk_total
+echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
 
-get_ipinfo_with_cache() {
-    local ip=\$1
-    local current_time=\$(date +%s)
-    local cache_time=0
-    local cached_ip=""
-    local cached_data=""
-
-    if [[ -f "\$CACHE_FILE" ]]; then
-        cache_time=\$(head -n 1 "\$CACHE_FILE")
-        cached_ip=\$(sed -n '2p' "\$CACHE_FILE")
-        cached_data=\$(sed -n '3p' "\$CACHE_FILE")
-    fi
-
-    if [[ -n "\$cached_data" && \$((current_time - cache_time)) -lt \$CACHE_TTL && "\$cached_ip" == "\$ip" ]]; then
-        echo "\$cached_data"
-    else
-        ipinfo_data=\$(curl -s --max-time 3 "https://ipinfo.io/\$ip/json" 2>/dev/null)
-        if [[ -n "\$ipinfo_data" ]]; then
-            echo "\$current_time" > "\$CACHE_FILE"
-            echo "\$ip" >> "\$CACHE_FILE"
-            echo "\$ipinfo_data" >> "\$CACHE_FILE"
-            echo "\$ipinfo_data"
-        else
-            echo ""
-        fi
-    fi
-}
-
+# 获取公网 IP 信息
 get_public_ip() {
     ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com 2>/dev/null)
     ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com 2>/dev/null)
 
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
-        target_ip="\$ipv4"
-        ipinfo_data=\$(get_ipinfo_with_cache "\$ipv4" "ipv4")
-        if [[ -n "\$ipinfo_data" ]]; then
-            isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": *"\([^"]*\)".*/\1/')
-            city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": *"\([^"]*\)".*/\1/')
-            region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": *"\([^"]*\)".*/\1/')
-            country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": *"\([^"]*\)".*/\1/')
-            if [[ -n "\$city" && -n "\$region" && -n "\$country" ]]; then
-                location="\$city, \$region, \$country"
-            else
-                location="N/A"
-            fi
-            echo -e "\${GREEN}Provider:\${NC} \${isp:-N/A}"
-            echo -e "\${GREEN}Location:\${NC} \${location:-N/A}"
-        else
-            echo -e "\${GREEN}Provider:\${NC} N/A"
-            echo -e "\${GREEN}Location:\${NC} N/A"
-        fi
     fi
-
     if [[ -n "\$ipv6" ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
-        if [[ -z "\$target_ip" ]]; then
-            target_ip="\$ipv6"
-            ipinfo_data=\$(get_ipinfo_with_cache "\$ipv6" "ipv6")
-            if [[ -n "\$ipinfo_data" ]]; then
-                isp=\$(echo "\$ipinfo_data" | grep '"org":' | sed 's/.*"org": *"$[^"]*$".*/\1/')
-                city=\$(echo "\$ipinfo_data" | grep '"city":' | sed 's/.*"city": *"$[^"]*$".*/\1/')
-                region=\$(echo "\$ipinfo_data" | grep '"region":' | sed 's/.*"region": *"$[^"]*$".*/\1/')
-                country=\$(echo "\$ipinfo_data" | grep '"country":' | sed 's/.*"country": *"$[^"]*$".*/\1/')
-                if [[ -n "\$city" && -n "\$region" && -n "\$country" ]]; then
-                    location="\$city, \$region, \$country"
-                else
-                    location="N/A"
-                fi
-                echo -e "\${GREEN}Provider:\${NC} \${isp:-N/A}"
-                echo -e "\${GREEN}Location:\${NC} \${location:-N/A}"
-            else
-                echo -e "\${GREEN}Provider:\${NC} N/A"
-                echo -e "\${GREEN}Location:\${NC} N/A"
-            fi
-        fi
     fi
-
-    if [[ -z "\$target_ip" ]]; then
+    if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
         echo -e "\${RED}No Public IP\${NC}"
     fi
 }
 
-echo -e "\${ORANGE}OS:\${NC}        \$os_info"
-echo -e "\${ORANGE}Uptime:\${NC}    \$uptime_info"
-echo -e "\${ORANGE}CPU:\${NC}       \$cpu_output"
-
-if [[ "\$swap_usage" != "N/A" ]]; then
-    echo -ne "\${ORANGE}Memory:\${NC}    "
-    progress_bar \$memory_used \$memory_total
-    echo " \$memory_usage"
-    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
-else
-    echo -ne "\${ORANGE}Memory:\${NC}    "
-    progress_bar \$memory_used \$memory_total
-    echo " \$memory_usage"
-fi
-
-echo -ne "\${ORANGE}Disk:\${NC}      "
-progress_bar \$disk_used \$disk_total
-echo " \$disk_usage"
-echo -e "\${ORANGE}Traffic:\${NC}   \$(get_network_traffic)"
 get_public_ip
-
-# 增加延迟并强制刷新输出
 sleep 0.05
 echo -ne "\n"
 EOF
 
     chmod +x ~/.local/sysinfo.sh
 
-    if ! grep -q 'if $\[ \$- == \*i\* && -n "\$SSH_CONNECTION" $\]; then' ~/.bashrc; then
+    # 将 sysinfo.sh 添加到 .bashrc
+    if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
         echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
         echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
         echo '    bash ~/.local/sysinfo.sh' >> ~/.bashrc
@@ -204,17 +100,18 @@ EOF
     fi
 
     source ~/.bashrc >/dev/null 2>&1
-
     echo -e "\033[32m系统信息工具安装完成！\033[0m"
-    echo -e "\033[33m如需卸载，请运行以下命令：\033[0m"
-    echo -e "\033[33mbash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh) -u\033[0m"
 }
 
+# 卸载函数
 uninstall() {
     rm -f ~/.local/sysinfo.sh
+    rm -f ~/.local/ip_cache.txt
 
+    # 清理 .bashrc 中的逻辑
     sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
 
+    # 恢复 /etc/motd
     if [[ -f /etc/motd.bak ]]; then
         sudo mv /etc/motd.bak /etc/motd
     else
@@ -224,8 +121,23 @@ uninstall() {
     echo -e "\033[32m系统信息工具已卸载！\033[0m"
 }
 
-if [[ "$1" == "-u" ]]; then
-    uninstall
-else
-    install
-fi
+# 交互式菜单
+echo -e "${PURPLE}=========================${NC}"
+echo -e "${PURPLE}请选择操作：${NC}"
+echo -e "${PURPLE}1. 安装 SSH 欢迎系统信息${NC}"
+echo -e "${PURPLE}2. 卸载脚本及系统信息${NC}"
+echo -e "${PURPLE}=========================${NC}"
+read -p "请输入选项 (1 或 2): " choice
+
+case $choice in
+    1)
+        install
+        ;;
+    2)
+        uninstall
+        ;;
+    *)
+        echo -e "${PURPLE}无效选项，退出脚本。${NC}"
+        exit 1
+        ;;
+esac
