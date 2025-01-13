@@ -30,6 +30,23 @@ log_error() {
     echo -e "${RED}[错误]${NC} $1"
 }
 
+check_fail2ban_installed() {
+    if command -v fail2ban-client &> /dev/null; then
+        log_warn "fail2ban 已安装。"
+        read -p "是否卸载并重新安装 fail2ban？(y/n): " choice
+        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+            log_info "正在卸载 fail2ban..."
+            apt purge -y fail2ban
+            log_info "fail2ban 已卸载。"
+        else
+            log_info "退出安装。"
+            exit 0  # 用户输入 n，退出脚本
+        fi
+    else
+        log_info "fail2ban 未安装，继续安装流程。"
+    fi
+}
+
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         log_error "此脚本必须以 root 权限运行"
@@ -248,6 +265,7 @@ interactive_menu() {
 }
 
 main() {
+    check_fail2ban_installed  # 将检测 fail2ban 是否已安装放在最前面
     interactive_menu
     check_root
     check_system
@@ -258,7 +276,8 @@ main() {
     show_status
 
     # 安装完成后提示是否返回菜单
-    read -p "安装完成！按回车键退出脚本，或输入 y 返回菜单: " choice
+    echo -e "${GREEN}安装完成！${NC}"
+    read -p "按回车键退出脚本，或输入 y 返回菜单: " choice
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         interactive_menu
     else
