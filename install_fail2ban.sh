@@ -33,13 +33,13 @@ log_warn() {
 
 log_error() {
     echo -e "${RED}[错误]${NC} $1"
-    exit 1
 }
 
 # 检查 root 权限
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         log_error "此脚本必须以 root 权限运行"
+        exit 1
     fi
 }
 
@@ -47,6 +47,7 @@ check_root() {
 check_system() {
     if ! command -v apt-get &> /dev/null; then
         log_error "此脚本仅支持 Debian/Ubuntu 系统"
+        exit 1
     fi
 }
 
@@ -90,6 +91,7 @@ configure_fail2ban() {
         LOGPATH="/var/log/secure"
     else
         log_error "未找到 SSH 日志文件"
+        exit 1
     fi
 
     SSHD_CONFIG="/etc/ssh/sshd_config"
@@ -131,6 +133,7 @@ EOL
 
     if ! fail2ban-client -t; then
         log_error "fail2ban 配置文件校验失败"
+        exit 1
     fi
 }
 
@@ -144,6 +147,7 @@ start_service() {
         log_info "fail2ban 服务已成功启动"
     else
         log_error "fail2ban 服务启动失败"
+        exit 1
     fi
 }
 
@@ -175,6 +179,7 @@ show_status() {
         log_info "fail2ban 服务已成功重启。"
     else
         log_error "fail2ban 服务重启失败"
+        exit 1
     fi
 }
 
@@ -216,11 +221,13 @@ main() {
                     if [[ -z "$ip" ]]; then
                         log_error "未输入 IP 地址，请重新输入。"
                         read -n 1 -s -r -p "按任意键继续..."
+                        echo
                         continue
                     fi
                     if [[ ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                         log_error "输入的 IP 地址无效，请重新输入。"
                         read -n 1 -s -r -p "按任意键继续..."
+                        echo
                         continue
                     fi
                     fail2ban-client set sshd banip "$ip"
@@ -234,11 +241,13 @@ main() {
                     if [[ -z "$ip" ]]; then
                         log_error "未输入 IP 地址，请重新输入。"
                         read -n 1 -s -r -p "按任意键继续..."
+                        echo
                         continue
                     fi
                     if [[ ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                         log_error "输入的 IP 地址无效，请重新输入。"
                         read -n 1 -s -r -p "按任意键继续..."
+                        echo
                         continue
                     fi
                     fail2ban-client set sshd unbanip "$ip"
