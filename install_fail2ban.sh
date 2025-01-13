@@ -217,7 +217,7 @@ main() {
                 ;;
             3)
                 while true; do
-                    read -p "请输入要封禁的 IP 地址（输入 0 返回菜单）: " ip
+                    read -p "请输入要封禁的 IP 地址（输入 0 返回菜单，支持 IPv4/IPv6）: " ip
                     if [[ "$ip" == "0" ]]; then
                         break
                     fi
@@ -227,20 +227,23 @@ main() {
                         echo
                         continue
                     fi
-                    if [[ ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    if [[ ! "$ip" =~ ^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[0-9a-fA-F:]+)$ ]]; then
                         log_error "输入的 IP 地址无效，请重新输入。"
                         read -n 1 -s -r -p "按任意键继续..."
                         echo
                         continue
                     fi
-                    fail2ban-client set sshd banip "$ip"
-                    log_info "已封禁 IP: $ip"
+                    if fail2ban-client set sshd banip "$ip"; then
+                        log_info "已成功封禁 IP: $ip"
+                    else
+                        log_error "封禁 IP 失败，请检查 fail2ban 服务状态。"
+                    fi
                     break
                 done
                 ;;
             4)
                 while true; do
-                    read -p "请输入要解封的 IP 地址（输入 0 返回菜单）: " ip
+                    read -p "请输入要解封的 IP 地址（输入 0 返回菜单，支持 IPv4/IPv6）: " ip
                     if [[ "$ip" == "0" ]]; then
                         break
                     fi
@@ -250,14 +253,17 @@ main() {
                         echo
                         continue
                     fi
-                    if [[ ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    if [[ ! "$ip" =~ ^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[0-9a-fA-F:]+)$ ]]; then
                         log_error "输入的 IP 地址无效，请重新输入。"
                         read -n 1 -s -r -p "按任意键继续..."
                         echo
                         continue
                     fi
-                    fail2ban-client set sshd unbanip "$ip"
-                    log_info "已解封 IP: $ip"
+                    if fail2ban-client set sshd unbanip "$ip"; then
+                        log_info "已成功解封 IP: $ip"
+                    else
+                        log_error "解封 IP 失败，请检查 fail2ban 服务状态。"
+                    fi
                     break
                 done
                 ;;
