@@ -257,7 +257,10 @@ interactive_menu() {
                 log_info "fail2ban 已卸载。"
                 exit 0
                 ;;
-            y|Y) break ;;
+            y|Y)
+                check_fail2ban_installed  # 检测 fail2ban 是否已安装
+                break
+                ;;
             n|N) exit 0 ;;
             *) log_error "无效的选项" ;;
         esac
@@ -265,7 +268,6 @@ interactive_menu() {
 }
 
 main() {
-    check_fail2ban_installed  # 将检测 fail2ban 是否已安装放在最前面
     interactive_menu
     check_root
     check_system
