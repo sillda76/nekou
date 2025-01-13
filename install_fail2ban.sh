@@ -154,24 +154,46 @@ setup_cron_job() {
 }
 
 show_status() {
-    log_info "正在检查 fail2ban 状态..."
     fail2ban-client status
+    read -p "按任意键返回菜单..." -n 1 -r
+}
 
-    log_info "fail2ban 安装和配置已完成！"
-    echo -e "\nSSH 保护配置："
-    echo "- 封禁时间: $BANTIME 秒"
-    echo "- 最大尝试次数: $MAXRETRY 次"
-    echo "- 检测时间窗口: $FINDTIME 秒"
-    echo "- 忽略的 IP 地址: $IGNOREIP"
+show_ssh_status() {
+    fail2ban-client status sshd
+    read -p "按任意键返回菜单..." -n 1 -r
+}
 
-    log_info "正在重启 fail2ban 服务..."
-    systemctl restart fail2ban
-    if systemctl is-active --quiet fail2ban; then
-        log_info "fail2ban 服务已成功重启。"
-    else
-        log_error "fail2ban 服务重启失败"
-        exit 1
+show_config() {
+    cat /etc/fail2ban/jail.local
+    read -p "按任意键返回菜单..." -n 1 -r
+}
+
+ban_ip() {
+    read -p "请输入要封禁的 IP 地址（输入 0 返回菜单）: " ip
+    if [[ "$ip" == "0" ]]; then
+        return
     fi
+    if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        fail2ban-client set sshd banip "$ip"
+        echo -e "${GREEN}[信息]${NC} IP 地址 $ip 已封禁。"
+    else
+        echo -e "${RED}[错误]${NC} 输入的 IP 地址无效。"
+    fi
+    read -p "按任意键返回菜单..." -n 1 -r
+}
+
+unban_ip() {
+    read -p "请输入要解封的 IP 地址（输入 0 返回菜单）: " ip
+    if [[ "$ip" == "0" ]]; then
+        return
+    fi
+    if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        fail2ban-client set sshd unbanip "$ip"
+        echo -e "${GREEN}[信息]${NC} IP 地址 $ip 已解封。"
+    else
+        echo -e "${RED}[错误]${NC} 输入的 IP 地址无效。"
+    fi
+    read -p "按任意键返回菜单..." -n 1 -r
 }
 
 interactive_menu() {
@@ -199,18 +221,12 @@ interactive_menu() {
         echo -e "${BLUE}========================================${NC}"
         read -p "请输入选项 (1-7) 或是否继续安装并配置 fail2ban？(y/n): " choice
         case "$choice" in
-            1) fail2ban-client status ;;
-            2) fail2ban-client status sshd ;;
-            3) 
-                read -p "请输入要封禁的 IP 地址: " ip
-                fail2ban-client set sshd banip "$ip"
-                ;;
-            4) 
-                read -p "请输入要解封的 IP 地址: " ip
-                fail2ban-client set sshd unbanip "$ip"
-                ;;
+            1) show_status ;;
+            2) show_ssh_status ;;
+            3) ban_ip ;;
+            4) unban_ip ;;
             5) tail -f /var/log/fail2ban.log ;;
-            6) cat /etc/fail2ban/jail.local ;;
+            6) show_config ;;
             7)
                 apt purge -y fail2ban
                 log_info "fail2ban 已卸载。"
