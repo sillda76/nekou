@@ -7,13 +7,13 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'  # 新增蓝色
-NC='\033[0m' # No Color
+BLUE='\033[0;34m'
+NC='\033[0m'
 
 # 默认配置
-DEFAULT_BANTIME=1800       # 封禁时间 30 分钟
-DEFAULT_MAXRETRY=5         # 最大尝试次数 5 次
-DEFAULT_FINDTIME=600       # 检测时间窗口 10 分钟
+DEFAULT_BANTIME=1800
+DEFAULT_MAXRETRY=5
+DEFAULT_FINDTIME=600
 DEFAULT_IGNOREIP="127.0.0.1/8 ::1"
 
 # 全局变量
@@ -50,27 +50,19 @@ check_system() {
     fi
 }
 
-# 检查系统版本并安装 rsyslog（仅适用于 Debian 12 及以上版本）
+# 检查系统版本并安装 rsyslog
 check_system_version() {
-    # 检测是否安装 iptables
     if ! command -v iptables &> /dev/null; then
-        log_info "检测到未安装 iptables，正在安装 iptables..."
+        log_info "正在安装 iptables..."
         apt-get install -y iptables
-    else
-        log_info "iptables 已安装，继续运行脚本。"
     fi
 
-    # 检测系统版本并安装 rsyslog（仅适用于 Debian 12 及以上版本）
     if [[ -f /etc/debian_version ]]; then
         DEBIAN_VERSION=$(cat /etc/debian_version)
         if [[ $DEBIAN_VERSION =~ ^12 ]]; then
-            log_info "检测到系统为 Debian 12 及以上版本，正在安装 rsyslog..."
+            log_info "正在安装 rsyslog..."
             apt-get install -y rsyslog
-        else
-            log_warn "系统版本低于 Debian 12，跳过 rsyslog 安装。"
         fi
-    else
-        log_warn "非 Debian 系统，跳过 rsyslog 安装。"
     fi
 }
 
@@ -78,10 +70,7 @@ check_system_version() {
 install_fail2ban() {
     log_info "正在更新软件包列表..."
     apt-get update
-
-    # 在更新完系统软件包后检测并安装 rsyslog
     check_system_version
-
     log_info "正在安装 fail2ban..."
     apt-get install -y fail2ban
 }
@@ -90,30 +79,35 @@ install_fail2ban() {
 configure_fail2ban() {
     log_info "正在配置 fail2ban..."
 
-    # 备份原配置文件
     if [ -f /etc/fail2ban/jail.local ]; then
         log_warn "正在备份现有的 jail.local 文件..."
         cp /etc/fail2ban/jail.local /etc/fail2ban/jail.local.backup.$(date +%Y%m%d%H%M%S)
     fi
 
-    # 检测系统日志文件路径
     if [[ -f /var/log/auth.log ]]; then
         LOGPATH="/var/log/auth.log"
     elif [[ -f /var/log/secure ]]; then
         LOGPATH="/var/log/secure"
     else
-        log_error "未找到 SSH 日志文件（/var/log/auth.log 或 /var/log/secure），请检查系统日志配置。"
+        log_error "未找到 SSH 日志文件"
     fi
 
-    # 检测 SSH 端口
     SSHD_CONFIG="/etc/ssh/sshd_config"
     if [[ -f $SSHD_CONFIG ]]; then
-        SSH_PORT=$(grep -oP '^Port\s+\K\d+' $SSHD_CONFIG || echo "22")
+        SSH_PORTS=$(grep -oP '^Port\s+\K\d+' $SSHD_CONFIG 2>/dev/null)
+        if [[ -z "$SSH_PORTS" ]]; then
+            log_warn "未检测到 SSH 端口配置，将仅使用 port = ssh"
+            SSH_PORTS="ssh"
+        else
+            SSH_PORTS=$(echo "$SSH_PORTS" | tr '\n' ',')
+            SSH_PORTS="ssh,${SSH_PORTS%,}"
+            log_info "检测到 SSH 端口配置：$SSH_PORTS"
+        fi
     else
-        SSH_PORT="22"
+        log_warn "未找到 SSH 配置文件，将仅使用 port = ssh"
+        SSH_PORTS="ssh"
     fi
 
-    # 创建主配置文件
     cat > /etc/fail2ban/jail.local << EOL
 [DEFAULT]
 allowipv6 = auto
@@ -127,7 +121,7 @@ logtarget = /var/log/fail2ban.log
 
 [sshd]
 enabled = true
-port = ssh,$SSH_PORT
+port = $SSH_PORTS
 filter = sshd
 logpath = $LOGPATH
 maxretry = $MAXRETRY
@@ -135,9 +129,8 @@ findtime = $FINDTIME
 bantime = $BANTIME
 EOL
 
-    # 校验配置文件
     if ! fail2ban-client -t; then
-        log_error "fail2ban 配置文件校验失败，请检查配置"
+        log_error "fail2ban 配置文件校验失败"
     fi
 }
 
@@ -154,17 +147,6 @@ start_service() {
     fi
 }
 
-# 清理 fail2ban 日志
-clean_fail2ban_log() {
-    log_info "正在清理 fail2ban 日志..."
-    if [[ -f /var/log/fail2ban.log ]]; then
-        > /var/log/fail2ban.log
-        log_info "fail2ban 日志已清理。"
-    else
-        log_warn "未找到 fail2ban 日志文件，跳过清理。"
-    fi
-}
-
 # 设置定时清理任务
 setup_cron_job() {
     log_info "正在设置每7天清理 fail2ban 日志的定时任务..."
@@ -172,8 +154,6 @@ setup_cron_job() {
     if ! grep -q "$CRON_JOB" /etc/crontab; then
         echo "$CRON_JOB" >> /etc/crontab
         log_info "定时任务已添加。"
-    else
-        log_warn "定时任务已存在，跳过添加。"
     fi
 }
 
@@ -189,21 +169,18 @@ show_status() {
     echo "- 检测时间窗口: $FINDTIME 秒"
     echo "- 忽略的 IP 地址: $IGNOREIP"
 
-    # 添加重启 fail2ban 服务的提示
-    log_info "为了让规则生效，正在重启 fail2ban 服务..."
+    log_info "正在重启 fail2ban 服务..."
     systemctl restart fail2ban
     if systemctl is-active --quiet fail2ban; then
         log_info "fail2ban 服务已成功重启。"
-        log_info "fail2ban安装成功！"  # 新增提示
     else
-        log_error "fail2ban 服务重启失败，请手动检查。"
+        log_error "fail2ban 服务重启失败"
     fi
 }
 
 # 主函数
 main() {
     while true; do
-        # 显示 GitHub 地址，嵌入到分割线中
         echo -e "${BLUE}========================================${NC}"
         echo -e "${BLUE}GitHub: https://github.com/sillda76/vps-scripts${NC}"
         echo -e "${BLUE}----------------------------------------${NC}"
@@ -238,8 +215,6 @@ main() {
                 if [[ -n "$ip" ]]; then
                     fail2ban-client set sshd banip "$ip"
                     log_info "已封禁 IP: $ip"
-                else
-                    log_error "未输入 IP 地址，操作取消。"
                 fi
                 ;;
             4)
@@ -247,8 +222,6 @@ main() {
                 if [[ -n "$ip" ]]; then
                     fail2ban-client set sshd unbanip "$ip"
                     log_info "已解封 IP: $ip"
-                else
-                    log_error "未输入 IP 地址，操作取消。"
                 fi
                 ;;
             5)
@@ -264,7 +237,6 @@ main() {
                 exit 0
                 ;;
             y|Y)
-                # 检测是否已安装 fail2ban
                 if command -v fail2ban-client &> /dev/null; then
                     log_warn "检测到系统已安装 fail2ban。"
                     read -p "是否卸载并重新安装 fail2ban？(y/n): " reinstall_choice
@@ -273,13 +245,10 @@ main() {
                         apt purge -y fail2ban
                         log_info "fail2ban 已卸载，继续安装..."
                     else
-                        log_info "跳过卸载，退出脚本。"
                         exit 0
                     fi
                 fi
-
-                log_info "用户选择继续安装，开始执行脚本..."
-                break  # 跳出循环，继续执行安装逻辑
+                break
                 ;;
             n|N)
                 log_info "用户选择退出，脚本终止。"
@@ -290,25 +259,17 @@ main() {
                 ;;
         esac
 
-        # 提示按任意键返回交互界面
         echo -e "\n${YELLOW}按任意键返回菜单...${NC}"
-        read -n 1 -s  # 捕获任意键输入，无需按 Enter
-        clear  # 清除屏幕内容
+        read -n 1 -s
+        clear
     done
 
-    # 原有逻辑
     check_root
     check_system
-
-    # 安装和配置 fail2ban
     install_fail2ban
     configure_fail2ban
     start_service
-
-    # 设置定时清理任务
     setup_cron_job
-
-    # 显示状态信息
     show_status
 }
 
