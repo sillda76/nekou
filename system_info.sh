@@ -6,7 +6,7 @@ GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
-PURPLE='\033[1;35m'
+ORANGE='\033[1;38;5;208m'  # 橙色
 NC='\033[0m'
 
 # 进度条函数
@@ -77,6 +77,7 @@ GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
+ORANGE='\033[1;38;5;208m'  # 橙色
 NC='\033[0m'
 
 progress_bar() {
@@ -104,9 +105,9 @@ progress_bar() {
 
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 uptime_info=\$(uptime -p 2>/dev/null | sed 's/up //g')
-cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | xargs)
+cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
-cpu_speed=\$(lscpu 2>/dev/null | grep "CPU MHz" | awk '{print \$3/1000 "GHz"}' | xargs)
+cpu_usage=\$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - \$1"%"}')
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
 memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
 swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
@@ -114,19 +115,19 @@ swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
-echo -e "\${CYAN}OS:\${NC}        \${os_info:-N/A}"
-echo -e "\${CYAN}Uptime:\${NC}    \${uptime_info:-N/A}"
-echo -e "\${CYAN}CPU:\${NC}       \${cpu_info:-N/A} @\${cpu_speed:-N/A} (\${cpu_cores:-N/A} cores)"
-echo -ne "\${CYAN}Memory:\${NC}    "
+echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
+echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
+echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores) [\${YELLOW}\${cpu_usage:-N/A} used\${NC}]"
+echo -ne "\${ORANGE}Memory:\${NC}    "
 progress_bar \$memory_used \$memory_total
 echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
 
 if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
     swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
-    echo -e "\${CYAN}Swap:\${NC}      \$swap_usage"
+    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
 fi
 
-echo -ne "\${CYAN}Disk:\${NC}      "
+echo -ne "\${ORANGE}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
 
@@ -179,12 +180,12 @@ uninstall() {
 # 显示菜单
 show_menu() {
     while true; do
-        echo -e "${PURPLE}=========================${NC}"
-        echo -e "${PURPLE}请选择操作：${NC}"
-        echo -e "${PURPLE}1. 安装 SSH 欢迎系统信息${NC}"
-        echo -e "${PURPLE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${PURPLE}0. 退出脚本${NC}"
-        echo -e "${PURPLE}=========================${NC}"
+        echo -e "${ORANGE}=========================${NC}"
+        echo -e "${ORANGE}请选择操作：${NC}"
+        echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
+        echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
+        echo -e "${ORANGE}0. 退出脚本${NC}"
+        echo -e "${ORANGE}=========================${NC}"
         read -p "请输入选项 (0、1 或 2): " choice
 
         case $choice in
@@ -197,7 +198,7 @@ show_menu() {
                 exit 0
                 ;;
             0)
-                echo -e "${PURPLE}退出脚本。${NC}"
+                echo -e "${ORANGE}退出脚本。${NC}"
                 exit 0
                 ;;
             *)
