@@ -108,6 +108,7 @@ configure_fail2ban() {
         SSH_PORT_CONFIG="port = ssh"
     fi
 
+    # 生成配置文件
     cat > /etc/fail2ban/jail.local << EOL
 [DEFAULT]
 allowipv6 = auto
