@@ -155,7 +155,7 @@ setup_cron_job() {
 
 show_status() {
     fail2ban-client status
-    read -p "按任意键返回菜单..." -n 1 -r
+    # 移除多余的 "按任意键返回菜单..." 提示
 }
 
 show_ssh_status() {
