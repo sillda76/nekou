@@ -48,13 +48,13 @@ get_public_ip() {
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
     if [[ -n "$ipv4" ]]; then
-        printf "${GREEN}IPv4:${NC} $ipv4\n"
+        printf "%-6s${GREEN}IPv4:${NC}%s\n" "" "$ipv4"
     fi
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* ]]; then
-        printf "${GREEN}IPv6:${NC} $ipv6\n"
+        printf "%-6s${GREEN}IPv6:${NC}%s\n" "" "$ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        printf "${RED}No Public IP${NC}\n"
+        printf "%-6s${RED}No Public IP${NC}\n" ""
     fi
 }
 
@@ -115,34 +115,34 @@ swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
-printf "\${ORANGE}OS:\${NC}        \${os_info:-N/A}\n"
-printf "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}\n"
-printf "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores) [\${YELLOW}\${cpu_usage:-N/A} used\${NC}]\n"
-printf "\${ORANGE}Memory:\${NC}    "
-progress_bar \$memory_used \$memory_total
-printf " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))\n"
+printf "%-6s${ORANGE}OS:${NC}%s\n" "" "\${os_info:-N/A}"
+printf "%-6s${ORANGE}Uptime:${NC}%s\n" "" "\${uptime_info:-N/A}"
+printf "%-6s${ORANGE}CPU:${NC}%s (%s cores) [${YELLOW}%s used${NC}]\n" "" "\${cpu_info:-N/A}" "\${cpu_cores:-N/A}" "\${cpu_usage:-N/A}"
+printf "%-6s${ORANGE}Memory:${NC}" ""
+progress_bar \${memory_used} \${memory_total}
+printf "%s/%s (%s)\n" "\${memory_used:-N/A}MB" "\${memory_total:-N/A}MB" "\$(awk "BEGIN {printf \"%.0f%%\", (\${memory_used}/\${memory_total})*100}")"
 
-if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
-    swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
-    printf "\${ORANGE}Swap:\${NC}      \$swap_usage\n"
+if [[ -n "\${swap_total}" && \${swap_total} -ne 0 ]]; then
+    swap_usage=\$(awk "BEGIN {printf \"%.0fMB/%.0fMB (%.0f%%)\", \${swap_used}, \${swap_total}, (\${swap_used}/\${swap_total})*100}")
+    printf "%-6s${ORANGE}Swap:${NC}%s\n" "" "\${swap_usage}"
 fi
 
-printf "\${ORANGE}Disk:\${NC}      "
-progress_bar \$disk_used \$disk_total
-printf " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')\n"
+printf "%-6s${ORANGE}Disk:${NC}" ""
+progress_bar \${disk_used} \${disk_total}
+printf "%s\n" "\$(df -h / 2>/dev/null | grep / | awk '{print \$3 "/" \$2 "(" \$5 ")"}')"
 
 get_public_ip() {
     ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
     if [[ -n "\$ipv4" ]]; then
-        printf "\${GREEN}IPv4:\${NC} \$ipv4\n"
+        printf "%-6s${GREEN}IPv4:${NC}%s\n" "" "\$ipv4"
     fi
     if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* ]]; then
-        printf "\${GREEN}IPv6:\${NC} \$ipv6\n"
+        printf "%-6s${GREEN}IPv6:${NC}%s\n" "" "\$ipv6"
     fi
     if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
-        printf "\${RED}No Public IP\${NC}\n"
+        printf "%-6s${RED}No Public IP${NC}\n" ""
     fi
 }
 
