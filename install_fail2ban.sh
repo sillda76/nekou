@@ -278,8 +278,7 @@ main() {
     show_status
 
     # 安装完成后提示是否返回菜单
-    echo -e "${GREEN}安装完成！${NC}"
-    read -p "按回车键退出脚本，或输入 y 返回菜单: " choice
+    read -p "安装完成！按回车键退出脚本，或输入 y 返回菜单: " choice
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         interactive_menu
     else
