@@ -46,7 +46,7 @@ get_public_ip() {
     if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
     fi
-    if [[ -n "$ipv6" ]]; then
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* ]]; then
         echo -e "${GREEN}IPv6:${NC} $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
@@ -129,7 +129,7 @@ get_public_ip() {
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
     fi
-    if [[ -n "\$ipv6" ]]; then
+    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
     fi
     if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
@@ -156,21 +156,13 @@ EOF
 
 # 卸载函数
 uninstall() {
-    read -p "确定要卸载系统信息工具吗？(y/n): " confirm
-    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-        echo -e "${YELLOW}卸载已取消。${NC}"
-        return
-    fi
-
     rm -f ~/.local/sysinfo.sh
     sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
 
     if [[ -f /etc/motd.bak ]]; then
         sudo mv /etc/motd.bak /etc/motd
-        echo -e "${GREEN}已恢复 /etc/motd 备份。${NC}"
     else
         sudo truncate -s 0 /etc/motd
-        echo -e "${YELLOW}未找到 /etc/motd 备份，已清空文件。${NC}"
     fi
 
     echo -e "${GREEN}系统信息工具已卸载！${NC}"
@@ -190,9 +182,11 @@ show_menu() {
         case $choice in
             1)
                 install
+                exit 0
                 ;;
             2)
                 uninstall
+                exit 0
                 ;;
             0)
                 echo -e "${PURPLE}退出脚本。${NC}"
@@ -200,7 +194,7 @@ show_menu() {
                 ;;
             *)
                 echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
-                read -n 1 -s -r
+                read -n 1 -s -r # 等待用户按任意键
                 ;;
         esac
     done
