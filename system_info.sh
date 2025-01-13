@@ -5,8 +5,7 @@ RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
-GRAY='\033[1;37m'
-PURPLE='\033[1;35m'
+BLACK='\033[1;30m'
 NC='\033[0m' # 重置颜色
 
 # 进度条函数（渐变配色）
@@ -25,7 +24,7 @@ progress_bar() {
             printf "${YELLOW}=${NC}" # 后半部分黄色
         fi
     done
-    for ((i=0; i<empty; i++)); do printf "${GRAY}=${NC}"; done # 未完成部分灰色
+    for ((i=0; i<empty; i++)); do printf "${BLACK}=${NC}"; done # 未完成部分黑色
     printf "]"
 }
 
@@ -50,7 +49,7 @@ RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
-GRAY='\033[1;37m'
+BLACK='\033[1;30m'
 NC='\033[0m'
 
 # 进度条函数（渐变配色）
@@ -69,7 +68,7 @@ progress_bar() {
             printf "\${YELLOW}=\${NC}" # 后半部分黄色
         fi
     done
-    for ((i=0; i<empty; i++)); do printf "\${GRAY}=\${NC}"; done # 未完成部分灰色
+    for ((i=0; i<empty; i++)); do printf "\${BLACK}=\${NC}"; done # 未完成部分黑色
     printf "]"
 }
 
@@ -141,7 +140,6 @@ EOF
 # 卸载函数
 uninstall() {
     rm -f ~/.local/sysinfo.sh
-    rm -f ~/.local/ip_cache.txt
 
     # 清理 .bashrc 中的逻辑
     sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
@@ -187,8 +185,4 @@ show_menu() {
 }
 
 # 主逻辑
-if [[ $1 == "-u" ]]; then
-    uninstall
-else
-    show_menu
-fi
+show_menu
