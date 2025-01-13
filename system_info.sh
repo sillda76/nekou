@@ -6,8 +6,8 @@ GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
-PURPLE='\033[1;35m' # 交互菜单颜色
-NC='\033[0m' # 重置颜色
+PURPLE='\033[1;35m'
+NC='\033[0m'
 
 # 进度条函数
 progress_bar() {
@@ -19,13 +19,17 @@ progress_bar() {
 
     printf "["
     for ((i=0; i<filled; i++)); do
-        if ((i < filled / 2)); then
+        if ((i < filled / 3)); then
             printf "${GREEN}=${NC}"
-        else
+        elif ((i < 2 * filled / 3)); then
             printf "${YELLOW}=${NC}"
+        else
+            printf "${RED}=${NC}"
         fi
     done
-    for ((i=0; i<empty; i++)); do printf "${BLACK}=${NC}"; done
+    for ((i=0; i<empty; i++)); do
+        printf "${BLACK}=${NC}"
+    done
     printf "]"
 }
 
@@ -84,13 +88,17 @@ progress_bar() {
 
     printf "["
     for ((i=0; i<filled; i++)); do
-        if ((i < filled / 2)); then
+        if ((i < filled / 3)); then
             printf "\${GREEN}=\${NC}"
-        else
+        elif ((i < 2 * filled / 3)); then
             printf "\${YELLOW}=\${NC}"
+        else
+            printf "\${RED}=\${NC}"
         fi
     done
-    for ((i=0; i<empty; i++)); do printf "\${BLACK}=\${NC}"; done
+    for ((i=0; i<empty; i++)); do
+        printf "\${BLACK}=\${NC}"
+    done
     printf "]"
 }
 
@@ -194,7 +202,7 @@ show_menu() {
                 ;;
             *)
                 echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
-                read -n 1 -s -r # 等待用户按任意键
+                read -n 1 -s -r
                 ;;
         esac
     done
