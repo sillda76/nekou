@@ -205,7 +205,7 @@ main() {
     while true; do
         # 显示 GitHub 地址，嵌入到分割线中
         echo -e "${BLUE}========================================${NC}"
-        echo -e "${BLUE}GitHub: https://github.com/sillda76/VPSKit${NC}"
+        echo -e "${BLUE}GitHub: https://github.com/sillda76/vps-scripts${NC}"
         echo -e "${BLUE}----------------------------------------${NC}"
         echo "欢迎使用 fail2ban 自动安装和配置脚本"
         echo "本脚本将执行以下操作："
@@ -215,7 +215,7 @@ main() {
         echo "- 启动并启用 fail2ban 服务"
         echo "- 设置每7天清理 fail2ban 日志的定时任务"
         echo "- 显示配置状态和常用命令"
-        echo -e "${BLUE}========================================${NC}"
+        echo -e "${GREEN}========================================${NC}"
         echo -e "${YELLOW}常用命令：${NC}"
         echo "1. 查看状态: fail2ban-client status"
         echo "2. 查看 SSH 监狱状态: fail2ban-client status sshd"
