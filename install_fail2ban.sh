@@ -1,28 +1,23 @@
 #!/bin/bash
 
-# 设置错误时退出
 set -e
 
-# 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 默认配置
 DEFAULT_BANTIME=1800
 DEFAULT_MAXRETRY=5
 DEFAULT_FINDTIME=600
 DEFAULT_IGNOREIP="127.0.0.1/8 ::1"
 
-# 全局变量
 BANTIME=$DEFAULT_BANTIME
 MAXRETRY=$DEFAULT_MAXRETRY
 FINDTIME=$DEFAULT_FINDTIME
 IGNOREIP="$DEFAULT_IGNOREIP"
 
-# 日志函数
 log_info() {
     echo -e "${GREEN}[信息]${NC} $1"
 }
@@ -35,7 +30,6 @@ log_error() {
     echo -e "${RED}[错误]${NC} $1"
 }
 
-# 检查 root 权限
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         log_error "此脚本必须以 root 权限运行"
@@ -43,7 +37,6 @@ check_root() {
     fi
 }
 
-# 检查系统
 check_system() {
     if ! command -v apt-get &> /dev/null; then
         log_error "此脚本仅支持 Debian/Ubuntu 系统"
@@ -51,7 +44,6 @@ check_system() {
     fi
 }
 
-# 检查系统版本并安装 rsyslog
 check_system_version() {
     if ! command -v iptables &> /dev/null; then
         log_info "正在安装 iptables..."
@@ -67,7 +59,6 @@ check_system_version() {
     fi
 }
 
-# 安装 fail2ban
 install_fail2ban() {
     log_info "正在更新软件包列表..."
     apt-get update
@@ -76,7 +67,6 @@ install_fail2ban() {
     apt-get install -y fail2ban
 }
 
-# 配置 fail2ban
 configure_fail2ban() {
     log_info "正在配置 fail2ban..."
 
@@ -85,13 +75,17 @@ configure_fail2ban() {
         cp /etc/fail2ban/jail.local /etc/fail2ban/jail.local.backup.$(date +%Y%m%d%H%M%S)
     fi
 
-    if [[ -f /var/log/auth.log ]]; then
-        LOGPATH="/var/log/auth.log"
-    elif [[ -f /var/log/secure ]]; then
-        LOGPATH="/var/log/secure"
-    else
-        log_error "未找到 SSH 日志文件"
-        exit 1
+    LOGPATH=""
+    for logfile in "/var/log/auth.log" "/var/log/secure" "/var/log/messages"; do
+        if [[ -f "$logfile" ]]; then
+            LOGPATH="$logfile"
+            log_info "检测到 SSH 日志文件路径: $LOGPATH"
+            break
+        fi
+    done
+
+    if [[ -z "$LOGPATH" ]]; then
+        log_warn "未找到 SSH 日志文件，跳过日志文件配置。"
     fi
 
     SSHD_CONFIG="/etc/ssh/sshd_config"
@@ -137,7 +131,6 @@ EOL
     fi
 }
 
-# 启动服务
 start_service() {
     log_info "正在启动 fail2ban 服务..."
     systemctl start fail2ban
@@ -151,7 +144,6 @@ start_service() {
     fi
 }
 
-# 设置定时清理任务
 setup_cron_job() {
     log_info "正在设置每7天清理 fail2ban 日志的定时任务..."
     CRON_JOB="0 0 */7 * * root /usr/bin/bash -c '> /var/log/fail2ban.log'"
@@ -161,7 +153,6 @@ setup_cron_job() {
     fi
 }
 
-# 显示状态信息
 show_status() {
     log_info "正在检查 fail2ban 状态..."
     fail2ban-client status
@@ -183,7 +174,6 @@ show_status() {
     fi
 }
 
-# 主函数
 main() {
     while true; do
         echo -e "${BLUE}========================================${NC}"
@@ -321,5 +311,4 @@ main() {
     show_status
 }
 
-# 运行主函数
 main
