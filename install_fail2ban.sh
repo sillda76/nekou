@@ -121,7 +121,8 @@ loglevel = INFO
 logtarget = /var/log/fail2ban.log
 
 [sshd]
-enabled = true$SSH_PORT_CONFIG
+enabled = true
+$SSH_PORT_CONFIG
 filter = sshd
 logpath = $LOGPATH
 maxretry = $MAXRETRY
