@@ -62,13 +62,12 @@ check_system_version() {
 }
 
 get_ssh_port() {
-    SSH_PORT=$(ss -tln | grep -E '(:22|:ssh)' | awk '{print $4}' | awk -F':' '{print $NF}' | sort -u | head -n 1)
-    if [[ -z "$SSH_PORT" ]]; then
-        log_warn "未检测到 SSH 端口，将使用默认配置。"
-        return 1
+    SSH_PORT=$(ss -tnlp | awk '/sshd/ && /LISTEN/ {print $4}' | awk -F: '{print $NF}' | head -1)
+    if [ -z "$SSH_PORT" ]; then
+        SSH_PORT=22
+        log_warn "未检测到自定义SSH端口，使用默认端口22。"
     else
-        log_info "检测到 SSH 端口: $SSH_PORT"
-        return 0
+        log_info "检测到的SSH端口: $SSH_PORT"
     fi
 }
 
@@ -102,11 +101,7 @@ configure_fail2ban() {
     fi
 
     # 获取 SSH 端口
-    if get_ssh_port; then
-        SSH_PORT_CONFIG="port = $SSH_PORT,ssh"
-    else
-        SSH_PORT_CONFIG="port = ssh"
-    fi
+    get_ssh_port
 
     # 生成配置文件
     cat > /etc/fail2ban/jail.local << EOL
@@ -122,7 +117,7 @@ logtarget = /var/log/fail2ban.log
 
 [sshd]
 enabled = true
-$SSH_PORT_CONFIG
+port = $SSH_PORT
 filter = sshd
 logpath = $LOGPATH
 maxretry = $MAXRETRY
@@ -179,7 +174,7 @@ show_status() {
     fi
 }
 
-main() {
+interactive_menu() {
     while true; do
         echo -e "${BLUE}========================================${NC}"
         echo -e "${BLUE}GitHub: https://github.com/sillda76/vps-scripts${NC}"
@@ -204,109 +199,32 @@ main() {
         echo -e "${BLUE}========================================${NC}"
         read -p "请输入选项 (1-7) 或是否继续安装并配置 fail2ban？(y/n): " choice
         case "$choice" in
-            1)
-                fail2ban-client status
+            1) fail2ban-client status ;;
+            2) fail2ban-client status sshd ;;
+            3) 
+                read -p "请输入要封禁的 IP 地址: " ip
+                fail2ban-client set sshd banip "$ip"
                 ;;
-            2)
-                fail2ban-client status sshd
+            4) 
+                read -p "请输入要解封的 IP 地址: " ip
+                fail2ban-client set sshd unbanip "$ip"
                 ;;
-            3)
-                while true; do
-                    read -p "请输入要封禁的 IP 地址（输入 0 返回菜单，支持 IPv4/IPv6）: " ip
-                    if [[ "$ip" == "0" ]]; then
-                        break
-                    fi
-                    if [[ -z "$ip" ]]; then
-                        log_error "未输入 IP 地址，请重新输入。"
-                        read -n 1 -s -r -p "按任意键继续..."
-                        echo
-                        continue
-                    fi
-                    if [[ ! "$ip" =~ ^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[0-9a-fA-F:]+)$ ]]; then
-                        log_error "输入的 IP 地址无效，请重新输入。"
-                        read -n 1 -s -r -p "按任意键继续..."
-                        echo
-                        continue
-                    fi
-                    if fail2ban-client set sshd banip "$ip"; then
-                        log_info "已成功封禁 IP: $ip"
-                    else
-                        log_error "封禁 IP 失败，请检查 fail2ban 服务状态。"
-                    fi
-                    break
-                done
-                ;;
-            4)
-                while true; do
-                    read -p "请输入要解封的 IP 地址（输入 0 返回菜单，支持 IPv4/IPv6）: " ip
-                    if [[ "$ip" == "0" ]]; then
-                        break
-                    fi
-                    if [[ -z "$ip" ]]; then
-                        log_error "未输入 IP 地址，请重新输入。"
-                        read -n 1 -s -r -p "按任意键继续..."
-                        echo
-                        continue
-                    fi
-                    if [[ ! "$ip" =~ ^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[0-9a-fA-F:]+)$ ]]; then
-                        log_error "输入的 IP 地址无效，请重新输入。"
-                        read -n 1 -s -r -p "按任意键继续..."
-                        echo
-                        continue
-                    fi
-                    if fail2ban-client set sshd unbanip "$ip"; then
-                        log_info "已成功解封 IP: $ip"
-                    else
-                        log_error "解封 IP 失败，请检查 fail2ban 服务状态。"
-                    fi
-                    break
-                done
-                ;;
-            5)
-                tail -f /var/log/fail2ban.log
-                ;;
-            6)
-                cat /etc/fail2ban/jail.local
-                ;;
+            5) tail -f /var/log/fail2ban.log ;;
+            6) cat /etc/fail2ban/jail.local ;;
             7)
-                read -p "是否确认卸载 fail2ban？(y/n): " uninstall_choice
-                if [[ "$uninstall_choice" == "y" || "$uninstall_choice" == "Y" ]]; then
-                    log_info "正在卸载 fail2ban..."
-                    apt purge -y fail2ban
-                    log_info "fail2ban 已卸载。"
-                    exit 0
-                else
-                    log_info "取消卸载，返回菜单。"
-                fi
-                ;;
-            y|Y)
-                if command -v fail2ban-client &> /dev/null; then
-                    log_warn "检测到系统已安装 fail2ban。"
-                    read -p "是否卸载并重新安装 fail2ban？(y/n): " reinstall_choice
-                    if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
-                        log_info "正在卸载 fail2ban..."
-                        apt purge -y fail2ban
-                        log_info "fail2ban 已卸载，继续安装..."
-                    else
-                        exit 0
-                    fi
-                fi
-                break
-                ;;
-            n|N)
-                log_info "用户选择退出，脚本终止。"
+                apt purge -y fail2ban
+                log_info "fail2ban 已卸载。"
                 exit 0
                 ;;
-            *)
-                log_error "无效的输入，请输入 1-7、y 或 n。"
-                ;;
+            y|Y) break ;;
+            n|N) exit 0 ;;
+            *) log_error "无效的选项" ;;
         esac
-
-        echo -e "\n${YELLOW}按任意键返回菜单...${NC}"
-        read -n 1 -s
-        clear
     done
+}
 
+main() {
+    interactive_menu
     check_root
     check_system
     install_fail2ban
