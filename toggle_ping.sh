@@ -22,14 +22,20 @@ show_menu() {
 # 设置禁 Ping
 set_icmp_ignore() {
   echo "正在备份当前配置..."
-  cp "$CONFIG_FILE" "$BACKUP_FILE"
+  if ! cp "$CONFIG_FILE" "$BACKUP_FILE"; then
+    echo "错误：无法备份配置文件。"
+    return 1
+  fi
 
   echo "正在设置禁 Ping..."
   echo "net.ipv4.icmp_echo_ignore_all=1" >> "$CONFIG_FILE"
   echo "net.ipv6.icmp_echo_ignore_all=1" >> "$CONFIG_FILE"
 
   echo "使配置生效..."
-  sysctl -p
+  if ! sysctl -p; then
+    echo "错误：无法应用配置。"
+    return 1
+  fi
   echo "禁 Ping 已设置完成。"
 }
 
@@ -37,10 +43,16 @@ set_icmp_ignore() {
 revert_icmp_config() {
   if [ -f "$BACKUP_FILE" ]; then
     echo "正在恢复原样..."
-    cp "$BACKUP_FILE" "$CONFIG_FILE"
+    if ! cp "$BACKUP_FILE" "$CONFIG_FILE"; then
+      echo "错误：无法恢复配置文件。"
+      return 1
+    fi
 
     echo "使配置生效..."
-    sysctl -p
+    if ! sysctl -p; then
+      echo "错误：无法应用配置。"
+      return 1
+    fi
     echo "配置已成功恢复原样。"
   else
     echo "未找到备份文件，无法恢复原样。"
@@ -60,8 +72,7 @@ while true; do
       ;;
     0)
       echo "退出脚本..."
-      q  # 运行指定的命令
-      break
+      exit 0
       ;;
     *)
       echo "错误：无效选项，请按任意键返回菜单..."
