@@ -121,8 +121,6 @@ get_public_ip() {
 }
 
 get_public_ip
-sleep 0.05
-echo -ne "\n"
 EOF
 
     chmod +x ~/.local/sysinfo.sh
@@ -158,27 +156,34 @@ uninstall() {
     echo -e "\033[32m系统信息工具已卸载！\033[0m"
 }
 
-# 强制显示交互式菜单
+# 显示菜单
 show_menu() {
-    echo -e "${PURPLE}=========================${NC}"
-    echo -e "${PURPLE}请选择操作：${NC}"
-    echo -e "${PURPLE}1. 安装 SSH 欢迎系统信息${NC}"
-    echo -e "${PURPLE}2. 卸载脚本及系统信息${NC}"
-    echo -e "${PURPLE}=========================${NC}"
-    read -p "请输入选项 (1 或 2): " choice
+    while true; do
+        echo -e "${PURPLE}=========================${NC}"
+        echo -e "${PURPLE}请选择操作：${NC}"
+        echo -e "${PURPLE}1. 安装 SSH 欢迎系统信息${NC}"
+        echo -e "${PURPLE}2. 卸载脚本及系统信息${NC}"
+        echo -e "${PURPLE}0. 退出脚本${NC}"
+        echo -e "${PURPLE}=========================${NC}"
+        read -p "请输入选项 (0、1 或 2): " choice
 
-    case $choice in
-        1)
-            install
-            ;;
-        2)
-            uninstall
-            ;;
-        *)
-            echo -e "${PURPLE}无效选项，退出脚本。${NC}"
-            exit 1
-            ;;
-    esac
+        case $choice in
+            1)
+                install
+                ;;
+            2)
+                uninstall
+                ;;
+            0)
+                echo -e "${PURPLE}退出脚本。${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
+                read -n 1 -s -r # 等待用户按任意键
+                ;;
+        esac
+    done
 }
 
 # 主逻辑
