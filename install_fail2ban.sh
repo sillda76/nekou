@@ -248,6 +248,15 @@ main() {
     start_service
     setup_cron_job
     show_status
+
+    # 安装完成后提示是否返回菜单
+    read -p "安装完成！按回车键退出脚本，或输入 y 返回菜单: " choice
+    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+        interactive_menu
+    else
+        log_info "脚本已退出。"
+        exit 0
+    fi
 }
 
 main
