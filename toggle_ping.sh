@@ -112,6 +112,11 @@ while true; do
     *)
       echo "错误：无效选项，请按任意键返回菜单..."
       read -n 1 -s  # 等待用户按任意键
+      continue
       ;;
   esac
+
+  # 提示按任意键返回菜单
+  read -n 1 -s -r -p "操作完成，按任意键返回菜单..."
+  echo
 done
