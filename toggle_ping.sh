@@ -16,6 +16,7 @@ show_menu() {
   echo "2. 设置 IPv6 禁 Ping"
   echo "3. 恢复 IPv4 Ping"
   echo "4. 恢复 IPv6 Ping"
+  echo "5. 查看当前 sysctl 配置"
   echo "0. 退出脚本"
   echo "============================"
 }
@@ -88,6 +89,14 @@ restore_ipv6_ping() {
   echo "IPv6 Ping 已恢复。"
 }
 
+# 查看当前 sysctl 配置
+view_sysctl_config() {
+  echo "当前的 sysctl 配置文件内容如下："
+  echo "----------------------------------"
+  cat "$CONFIG_FILE"
+  echo "----------------------------------"
+}
+
 # 主循环
 while true; do
   show_menu
@@ -104,6 +113,9 @@ while true; do
       ;;
     4)
       restore_ipv6_ping
+      ;;
+    5)
+      view_sysctl_config
       ;;
     0)
       echo "退出脚本..."
