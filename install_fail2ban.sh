@@ -154,18 +154,24 @@ setup_cron_job() {
 }
 
 show_status() {
+    echo -e "${GREEN}[信息]${NC} 正在查看 fail2ban 状态..."
     fail2ban-client status
-    read -p "按任意键返回菜单..." -n 1 -r
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
 }
 
 show_ssh_status() {
+    echo -e "${GREEN}[信息]${NC} 正在查看 SSH 状态..."
     fail2ban-client status sshd
-    read -p "按任意键返回菜单..." -n 1 -r
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
 }
 
 show_config() {
+    echo -e "${GREEN}[信息]${NC} 正在查看 fail2ban 配置..."
     cat /etc/fail2ban/jail.local
-    read -p "按任意键返回菜单..." -n 1 -r
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
 }
 
 ban_ip() {
@@ -179,7 +185,8 @@ ban_ip() {
     else
         echo -e "${RED}[错误]${NC} 输入的 IP 地址无效。"
     fi
-    read -p "按任意键返回菜单..." -n 1 -r
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
 }
 
 unban_ip() {
@@ -193,7 +200,8 @@ unban_ip() {
     else
         echo -e "${RED}[错误]${NC} 输入的 IP 地址无效。"
     fi
-    read -p "按任意键返回菜单..." -n 1 -r
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
 }
 
 interactive_menu() {
