@@ -88,22 +88,6 @@ configure_fail2ban() {
         log_warn "未找到 SSH 日志文件，跳过日志文件配置。"
     fi
 
-    SSHD_CONFIG="/etc/ssh/sshd_config"
-    if [[ -f $SSHD_CONFIG ]]; then
-        SSH_PORTS=$(grep -oP '^Port\s+\K\d+' $SSHD_CONFIG 2>/dev/null)
-        if [[ -z "$SSH_PORTS" ]]; then
-            log_warn "未检测到 SSH 端口配置，将仅使用 port = ssh"
-            SSH_PORTS="ssh"
-        else
-            SSH_PORTS=$(echo "$SSH_PORTS" | tr '\n' ',')
-            SSH_PORTS="ssh,${SSH_PORTS%,}"
-            log_info "检测到 SSH 端口配置：$SSH_PORTS"
-        fi
-    else
-        log_warn "未找到 SSH 配置文件，将仅使用 port = ssh"
-        SSH_PORTS="ssh"
-    fi
-
     cat > /etc/fail2ban/jail.local << EOL
 [DEFAULT]
 allowipv6 = auto
@@ -117,7 +101,7 @@ logtarget = /var/log/fail2ban.log
 
 [sshd]
 enabled = true
-port = $SSH_PORTS
+port = ssh
 filter = sshd
 logpath = $LOGPATH
 maxretry = $MAXRETRY
