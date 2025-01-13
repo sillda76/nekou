@@ -173,8 +173,7 @@ setup_cron_job() {
 show_status() {
     echo -e "${GREEN}[信息]${NC} 正在查看 fail2ban 状态..."
     fail2ban-client status
-    echo -e "${YELLOW}按任意键返回菜单...${NC}"
-    read -r -s -n 1  # 等待用户按任意键
+    # 移除 "按任意键返回菜单..." 提示
 }
 
 show_ssh_status() {
