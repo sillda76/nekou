@@ -48,6 +48,8 @@ check_system_version() {
     if ! command -v iptables &> /dev/null; then
         log_info "正在安装 iptables..."
         apt-get install -y iptables
+    else
+        log_info "iptables 已安装，跳过安装步骤。"
     fi
 
     if [[ -f /etc/debian_version ]]; then
@@ -56,6 +58,17 @@ check_system_version() {
             log_info "正在安装 rsyslog..."
             apt-get install -y rsyslog
         fi
+    fi
+}
+
+get_ssh_port() {
+    SSH_PORT=$(ss -tln | grep -E '(:22|:ssh)' | awk '{print $4}' | awk -F':' '{print $NF}' | sort -u | head -n 1)
+    if [[ -z "$SSH_PORT" ]]; then
+        log_warn "未检测到 SSH 端口，将使用默认配置。"
+        return 1
+    else
+        log_info "检测到 SSH 端口: $SSH_PORT"
+        return 0
     fi
 }
 
@@ -88,6 +101,13 @@ configure_fail2ban() {
         log_warn "未找到 SSH 日志文件，跳过日志文件配置。"
     fi
 
+    # 获取 SSH 端口
+    if get_ssh_port; then
+        SSH_PORT_CONFIG="port = $SSH_PORT,ssh"
+    else
+        SSH_PORT_CONFIG="port = ssh"
+    fi
+
     cat > /etc/fail2ban/jail.local << EOL
 [DEFAULT]
 allowipv6 = auto
@@ -100,8 +120,7 @@ loglevel = INFO
 logtarget = /var/log/fail2ban.log
 
 [sshd]
-enabled = true
-port = ssh
+enabled = true$SSH_PORT_CONFIG
 filter = sshd
 logpath = $LOGPATH
 maxretry = $MAXRETRY
