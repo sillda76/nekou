@@ -6,42 +6,65 @@ GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
+PURPLE='\033[1;35m' # 交互菜单颜色
 NC='\033[0m' # 重置颜色
 
-# 进度条函数（渐变配色）
+# 进度条函数
 progress_bar() {
     local progress=$1
     local total=$2
     local bar_width=20
-    local filled=$(echo "($progress/$total)*$bar_width" | bc -l | awk '{printf "%d", $1}')
+    local filled=$((progress * bar_width / total))
     local empty=$((bar_width - filled))
 
     printf "["
     for ((i=0; i<filled; i++)); do
         if ((i < filled / 2)); then
-            printf "${GREEN}=${NC}" # 前半部分绿色
+            printf "${GREEN}=${NC}"
         else
-            printf "${YELLOW}=${NC}" # 后半部分黄色
+            printf "${YELLOW}=${NC}"
         fi
     done
-    for ((i=0; i<empty; i++)); do printf "${BLACK}=${NC}"; done # 未完成部分黑色
+    for ((i=0; i<empty; i++)); do printf "${BLACK}=${NC}"; done
     printf "]"
+}
+
+# 安装依赖工具
+install_dependencies() {
+    if ! command -v bc &> /dev/null; then
+        echo -e "${YELLOW}未找到 bc 工具，正在安装...${NC}"
+        sudo apt install bc -y || { echo -e "${RED}安装 bc 失败！${NC}"; exit 1; }
+    fi
+    sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
+}
+
+# 获取公网 IP
+get_public_ip() {
+    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+
+    if [[ -n "$ipv4" ]]; then
+        echo -e "${GREEN}IPv4:${NC} $ipv4"
+    fi
+    if [[ -n "$ipv6" ]]; then
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
+    fi
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
+    fi
 }
 
 # 安装函数
 install() {
     mkdir -p ~/.local
 
-    # 安装依赖工具
-    sudo apt install bc net-tools curl -y
+    install_dependencies
 
-    # 备份并清空 /etc/motd
     if [[ -f /etc/motd ]]; then
         sudo cp /etc/motd /etc/motd.bak
         sudo truncate -s 0 /etc/motd
     fi
 
-    # 生成 sysinfo.sh 脚本
     cat << EOF > ~/.local/sysinfo.sh
 #!/bin/bash
 
@@ -52,27 +75,25 @@ CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 NC='\033[0m'
 
-# 进度条函数（渐变配色）
 progress_bar() {
     local progress=\$1
     local total=\$2
     local bar_width=20
-    local filled=\$(echo "(\$progress/\$total)*\$bar_width" | bc -l | awk '{printf "%d", \$1}')
+    local filled=\$((progress * bar_width / total))
     local empty=\$((bar_width - filled))
 
     printf "["
     for ((i=0; i<filled; i++)); do
         if ((i < filled / 2)); then
-            printf "\${GREEN}=\${NC}" # 前半部分绿色
+            printf "\${GREEN}=\${NC}"
         else
-            printf "\${YELLOW}=\${NC}" # 后半部分黄色
+            printf "\${YELLOW}=\${NC}"
         fi
     done
-    for ((i=0; i<empty; i++)); do printf "\${BLACK}=\${NC}"; done # 未完成部分黑色
+    for ((i=0; i<empty; i++)); do printf "\${BLACK}=\${NC}"; done
     printf "]"
 }
 
-# 获取系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 uptime_info=\$(uptime -p 2>/dev/null | sed 's/up //g')
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | xargs)
@@ -85,7 +106,6 @@ swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
-# 显示系统信息
 echo -e "\${CYAN}OS:\${NC}        \${os_info:-N/A}"
 echo -e "\${CYAN}Uptime:\${NC}    \${uptime_info:-N/A}"
 echo -e "\${CYAN}CPU:\${NC}       \${cpu_info:-N/A} @\${cpu_speed:-N/A} (\${cpu_cores:-N/A} cores)"
@@ -93,7 +113,6 @@ echo -ne "\${CYAN}Memory:\${NC}    "
 progress_bar \$memory_used \$memory_total
 echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
 
-# 如果 Swap 未开启，则不显示 Swap 信息
 if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
     swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
     echo -e "\${CYAN}Swap:\${NC}      \$swap_usage"
@@ -103,10 +122,9 @@ echo -ne "\${CYAN}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
 
-# 获取公网 IP 信息
 get_public_ip() {
-    ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com 2>/dev/null)
-    ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com 2>/dev/null)
+    ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
@@ -124,7 +142,6 @@ EOF
 
     chmod +x ~/.local/sysinfo.sh
 
-    # 将 sysinfo.sh 添加到 .bashrc
     if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
         echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
         echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
@@ -134,24 +151,29 @@ EOF
     fi
 
     source ~/.bashrc >/dev/null 2>&1
-    echo -e "\033[32m系统信息工具安装完成！\033[0m"
+    echo -e "${GREEN}系统信息工具安装完成！${NC}"
 }
 
 # 卸载函数
 uninstall() {
-    rm -f ~/.local/sysinfo.sh
-
-    # 清理 .bashrc 中的逻辑
-    sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
-
-    # 恢复 /etc/motd
-    if [[ -f /etc/motd.bak ]]; then
-        sudo mv /etc/motd.bak /etc/motd
-    else
-        sudo truncate -s 0 /etc/motd
+    read -p "确定要卸载系统信息工具吗？(y/n): " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo -e "${YELLOW}卸载已取消。${NC}"
+        return
     fi
 
-    echo -e "\033[32m系统信息工具已卸载！\033[0m"
+    rm -f ~/.local/sysinfo.sh
+    sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
+
+    if [[ -f /etc/motd.bak ]]; then
+        sudo mv /etc/motd.bak /etc/motd
+        echo -e "${GREEN}已恢复 /etc/motd 备份。${NC}"
+    else
+        sudo truncate -s 0 /etc/motd
+        echo -e "${YELLOW}未找到 /etc/motd 备份，已清空文件。${NC}"
+    fi
+
+    echo -e "${GREEN}系统信息工具已卸载！${NC}"
 }
 
 # 显示菜单
@@ -178,7 +200,7 @@ show_menu() {
                 ;;
             *)
                 echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
-                read -n 1 -s -r # 等待用户按任意键
+                read -n 1 -s -r
                 ;;
         esac
     done
