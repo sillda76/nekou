@@ -193,14 +193,14 @@ main() {
         echo "- 设置每7天清理 fail2ban 日志的定时任务"
         echo "- 显示配置状态和常用命令"
         echo -e "${GREEN}========================================${NC}"
-        echo -e "${YELLOW}常用命令：${NC}"
-        echo "1. 查看状态: fail2ban-client status"
-        echo "2. 查看 SSH 监狱状态: fail2ban-client status sshd"
-        echo "3. 封禁 IP: fail2ban-client set sshd banip <IP>"
-        echo "4. 解封 IP: fail2ban-client set sshd unbanip <IP>"
-        echo "5. 查看日志: tail -f /var/log/fail2ban.log"
-        echo "6. 查看自定义配置文件: cat /etc/fail2ban/jail.local"
-        echo "7. 卸载 fail2ban: apt purge fail2ban"
+        echo -e "${YELLOW}常用操作：${NC}"
+        echo "1. 查看状态"
+        echo "2. 查看 SSH 状态"
+        echo "3. 封禁 IP"
+        echo "4. 解封 IP"
+        echo "5. 查看日志"
+        echo "6. 查看配置"
+        echo "7. 卸载 fail2ban"
         echo -e "${BLUE}========================================${NC}"
         read -p "请输入选项 (1-7) 或是否继续安装并配置 fail2ban？(y/n): " choice
         case "$choice" in
@@ -211,18 +211,40 @@ main() {
                 fail2ban-client status sshd
                 ;;
             3)
-                read -p "请输入要封禁的 IP 地址: " ip
-                if [[ -n "$ip" ]]; then
+                while true; do
+                    read -p "请输入要封禁的 IP 地址: " ip
+                    if [[ -z "$ip" ]]; then
+                        log_error "未输入 IP 地址，请重新输入。"
+                        read -n 1 -s -r -p "按任意键继续..."
+                        continue
+                    fi
+                    if [[ ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        log_error "输入的 IP 地址无效，请重新输入。"
+                        read -n 1 -s -r -p "按任意键继续..."
+                        continue
+                    fi
                     fail2ban-client set sshd banip "$ip"
                     log_info "已封禁 IP: $ip"
-                fi
+                    break
+                done
                 ;;
             4)
-                read -p "请输入要解封的 IP 地址: " ip
-                if [[ -n "$ip" ]]; then
+                while true; do
+                    read -p "请输入要解封的 IP 地址: " ip
+                    if [[ -z "$ip" ]]; then
+                        log_error "未输入 IP 地址，请重新输入。"
+                        read -n 1 -s -r -p "按任意键继续..."
+                        continue
+                    fi
+                    if [[ ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        log_error "输入的 IP 地址无效，请重新输入。"
+                        read -n 1 -s -r -p "按任意键继续..."
+                        continue
+                    fi
                     fail2ban-client set sshd unbanip "$ip"
                     log_info "已解封 IP: $ip"
-                fi
+                    break
+                done
                 ;;
             5)
                 tail -f /var/log/fail2ban.log
