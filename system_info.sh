@@ -158,23 +158,28 @@ uninstall() {
     echo -e "\033[32m系统信息工具已卸载！\033[0m"
 }
 
-# 交互式菜单
-echo -e "${PURPLE}=========================${NC}"
-echo -e "${PURPLE}请选择操作：${NC}"
-echo -e "${PURPLE}1. 安装 SSH 欢迎系统信息${NC}"
-echo -e "${PURPLE}2. 卸载脚本及系统信息${NC}"
-echo -e "${PURPLE}=========================${NC}"
-read -p "请输入选项 (1 或 2): " choice
+# 主逻辑
+if [[ $1 == "-u" ]]; then
+    uninstall
+else
+    # 交互式菜单
+    echo -e "${PURPLE}=========================${NC}"
+    echo -e "${PURPLE}请选择操作：${NC}"
+    echo -e "${PURPLE}1. 安装 SSH 欢迎系统信息${NC}"
+    echo -e "${PURPLE}2. 卸载脚本及系统信息${NC}"
+    echo -e "${PURPLE}=========================${NC}"
+    read -p "请输入选项 (1 或 2): " choice
 
-case $choice in
-    1)
-        install
-        ;;
-    2)
-        uninstall
-        ;;
-    *)
-        echo -e "${PURPLE}无效选项，退出脚本。${NC}"
-        exit 1
-        ;;
-esac
+    case $choice in
+        1)
+            install
+            ;;
+        2)
+            uninstall
+            ;;
+        *)
+            echo -e "${PURPLE}无效选项，退出脚本。${NC}"
+            exit 1
+            ;;
+    esac
+fi
