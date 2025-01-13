@@ -158,11 +158,8 @@ uninstall() {
     echo -e "\033[32m系统信息工具已卸载！\033[0m"
 }
 
-# 主逻辑
-if [[ $1 == "-u" ]]; then
-    uninstall
-else
-    # 交互式菜单
+# 强制显示交互式菜单
+show_menu() {
     echo -e "${PURPLE}=========================${NC}"
     echo -e "${PURPLE}请选择操作：${NC}"
     echo -e "${PURPLE}1. 安装 SSH 欢迎系统信息${NC}"
@@ -182,4 +179,11 @@ else
             exit 1
             ;;
     esac
+}
+
+# 主逻辑
+if [[ $1 == "-u" ]]; then
+    uninstall
+else
+    show_menu
 fi
