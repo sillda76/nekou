@@ -217,7 +217,10 @@ main() {
                 ;;
             3)
                 while true; do
-                    read -p "请输入要封禁的 IP 地址: " ip
+                    read -p "请输入要封禁的 IP 地址（输入 0 返回菜单）: " ip
+                    if [[ "$ip" == "0" ]]; then
+                        break
+                    fi
                     if [[ -z "$ip" ]]; then
                         log_error "未输入 IP 地址，请重新输入。"
                         read -n 1 -s -r -p "按任意键继续..."
@@ -237,7 +240,10 @@ main() {
                 ;;
             4)
                 while true; do
-                    read -p "请输入要解封的 IP 地址: " ip
+                    read -p "请输入要解封的 IP 地址（输入 0 返回菜单）: " ip
+                    if [[ "$ip" == "0" ]]; then
+                        break
+                    fi
                     if [[ -z "$ip" ]]; then
                         log_error "未输入 IP 地址，请重新输入。"
                         read -n 1 -s -r -p "按任意键继续..."
@@ -262,10 +268,15 @@ main() {
                 cat /etc/fail2ban/jail.local
                 ;;
             7)
-                log_info "正在卸载 fail2ban..."
-                apt purge -y fail2ban
-                log_info "fail2ban 已卸载。"
-                exit 0
+                read -p "是否确认卸载 fail2ban？(y/n): " uninstall_choice
+                if [[ "$uninstall_choice" == "y" || "$uninstall_choice" == "Y" ]]; then
+                    log_info "正在卸载 fail2ban..."
+                    apt purge -y fail2ban
+                    log_info "fail2ban 已卸载。"
+                    exit 0
+                else
+                    log_info "取消卸载，返回菜单。"
+                fi
                 ;;
             y|Y)
                 if command -v fail2ban-client &> /dev/null; then
