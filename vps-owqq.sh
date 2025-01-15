@@ -42,15 +42,72 @@ show_menu() {
     echo -e "${PURPLE}========================================${NC}"
 }
 
+# 显示1Panel子菜单
+show_1panel_menu() {
+    clear
+    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${GREEN}1Panel 管理${NC}"
+    echo -e "${BLUE}官网: https://1panel.cn/${NC}"
+    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${YELLOW}1. 查看1Panel面板信息${NC}"
+    echo -e "${CYAN}2. 修改1Panel面板密码${NC}"
+    echo -e "${ORANGE}3. 卸载1Panel面板${NC}"
+    echo -e "${MAGENTA}0. 返回主菜单${NC}"
+    echo -e "${PURPLE}========================================${NC}"
+}
+
 # 安装1Panel函数
 install_1panel() {
-    echo -e "${YELLOW}正在安装1Panel...${NC}"
-    if curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh && sh quick_start.sh; then
-        echo -e "${GREEN}1Panel 安装成功！${NC}"
+    if command -v 1pctl &>/dev/null; then
+        # 如果已安装，显示子菜单
+        while true; do
+            show_1panel_menu
+            read -p "请输入选项数字: " sub_choice
+            case $sub_choice in
+                1)
+                    echo -e "${YELLOW}正在查看1Panel面板信息...${NC}"
+                    1pctl user-info
+                    read -n 1 -s -r -p "按任意键返回菜单..."
+                    ;;
+                2)
+                    echo -e "${YELLOW}正在修改1Panel面板密码...${NC}"
+                    1pctl update password
+                    read -n 1 -s -r -p "按任意键返回菜单..."
+                    ;;
+                3)
+                    echo -e "${YELLOW}正在卸载1Panel面板...${NC}"
+                    1pctl uninstall
+                    echo -e "${GREEN}1Panel 卸载完成！${NC}"
+                    read -n 1 -s -r -p "按任意键返回菜单..."
+                    break
+                    ;;
+                0)
+                    echo -e "${MAGENTA}返回主菜单。${NC}"
+                    break
+                    ;;
+                "")
+                    echo -e "${RED}错误：未输入选项，请按任意键返回菜单。${NC}"
+                    read -n 1 -s -r -p ""
+                    ;;
+                *)
+                    echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
+                    read -n 1 -s -r -p ""
+                    ;;
+            esac
+        done
     else
-        echo -e "${RED}1Panel 安装失败，请检查网络连接或脚本是否正确。${NC}"
+        # 如果未安装，提示是否安装
+        echo -e "${YELLOW}1Panel 未安装。${NC}"
+        read -p "是否安装 1Panel？(y/n): " install_choice
+        if [[ "$install_choice" == "y" ]]; then
+            echo -e "${YELLOW}正在安装 1Panel...${NC}"
+            curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh && sh quick_start.sh
+            echo -e "${GREEN}1Panel 安装成功！${NC}"
+        else
+            echo -e "${YELLOW}已取消安装。${NC}"
+        fi
+        read -n 1 -s -r -p "按任意键返回菜单..."
     fi
-    read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 # 更新脚本函数
