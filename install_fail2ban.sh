@@ -173,6 +173,7 @@ show_status() {
     fail2ban-client status
     echo -e "${YELLOW}按任意键返回菜单...${NC}"
     read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
 }
 
 show_ssh_status() {
@@ -180,6 +181,7 @@ show_ssh_status() {
     fail2ban-client status sshd
     echo -e "${YELLOW}按任意键返回菜单...${NC}"
     read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
 }
 
 show_config() {
@@ -187,6 +189,7 @@ show_config() {
     cat /etc/fail2ban/jail.local
     echo -e "${YELLOW}按任意键返回菜单...${NC}"
     read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
 }
 
 show_logs() {
@@ -194,6 +197,7 @@ show_logs() {
     tail -f /var/log/fail2ban.log
     echo -e "${YELLOW}按任意键返回菜单...${NC}"
     read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
 }
 
 ban_ip() {
@@ -209,6 +213,7 @@ ban_ip() {
     fi
     echo -e "${YELLOW}按任意键返回菜单...${NC}"
     read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
 }
 
 unban_ip() {
@@ -224,6 +229,7 @@ unban_ip() {
     fi
     echo -e "${YELLOW}按任意键返回菜单...${NC}"
     read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
 }
 
 uninstall_fail2ban() {
@@ -280,7 +286,8 @@ interactive_menu() {
                 setup_cron_job
                 log_info "fail2ban 安装完成！"
                 echo -e "${YELLOW}按任意键返回菜单...${NC}"
-                read -r -s -n 1
+                read -r -s -n 1  # 等待用户按任意键
+                clear  # 返回菜单时清屏
                 ;;
             2) show_status ;;
             3) show_ssh_status ;;
@@ -293,7 +300,12 @@ interactive_menu() {
                 exit 0
                 ;;
             0) exit 0 ;;
-            *) echo -e "${RED}错误：无效的选项，请重新输入。${NC}" ;;
+            *) 
+                echo -e "${RED}错误：无效的选项，请重新输入。${NC}"
+                echo -e "${YELLOW}按任意键继续...${NC}"
+                read -r -s -n 1  # 等待用户按任意键
+                clear  # 返回菜单时清屏
+                ;;
         esac
     done
 }
