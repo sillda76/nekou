@@ -27,15 +27,15 @@ show_menu() {
     echo -e "${GREEN}https://github.com/sillda76/vps-scripts${NC}"
     echo -e "${BLUE}========================================${NC}"
     # 显示菜单选项
-    echo -e "${YELLOW} 1. 修改 SSH 端口${NC}"
-    echo -e "${CYAN} 2. 系统更新${NC}"
-    echo -e "${PURPLE} 3. 系统清理${NC}"
-    echo -e "${ORANGE} 4. 管理 Fail2Ban${NC}"
-    echo -e "${MAGENTA} 5. 禁 Ping 设置${NC}"
-    echo -e "${LIGHT_BLUE} 6. SSH 系统信息${NC}"
+    echo -e "${YELLOW}1. 修改 SSH 端口${NC}"
+    echo -e "${CYAN}2. 系统更新${NC}"
+    echo -e "${PURPLE}3. 系统清理${NC}"
+    echo -e "${ORANGE}4. 管理 Fail2Ban${NC}"
+    echo -e "${MAGENTA}5. 禁 Ping 设置${NC}"
+    echo -e "${LIGHT_BLUE}6. SSH 系统信息${NC}"
     echo -e "${LIGHT_GREEN}00. 更新脚本${NC}"
     echo -e "${LIGHT_RED}99. 卸载脚本${NC}"
-    echo -e "${RED} 0. 退出脚本${NC}"
+    echo -e "${RED}0. 退出脚本${NC}"
     echo -e "${BLUE}========================================${NC}"
 }
 
