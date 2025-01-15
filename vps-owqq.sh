@@ -285,6 +285,8 @@ system_update() {
 # 系统清理函数
 linux_clean() {
     echo -e "${YELLOW}正在系统清理...${NC}"
+
+    # 清理步骤
     steps=(
         "清理包管理器缓存..."
         "删除系统日志..."
@@ -296,74 +298,91 @@ linux_clean() {
         "清理 Zypper 缓存..."
         "清理 Opkg 缓存..."
     )
+
+    # 总步骤数
     total_steps=${#steps[@]}
+
+    # 显示清理内容
     echo -e "${YELLOW}本次清理将执行以下操作：${NC}"
     for step in "${steps[@]}"; do
         echo -e "  - ${step}"
     done
     echo -e "${YELLOW}开始清理...${NC}"
+
+    # 初始化进度条
+    echo -e "\n\n"  # 为进度条预留空间
     for ((i = 0; i < total_steps; i++)); do
+        # 显示当前清理步骤
         echo -e "${YELLOW}${steps[$i]}${NC}"
+
+        # 执行清理操作
         case ${steps[$i]} in
             "清理包管理器缓存...")
                 if command -v dnf &>/dev/null; then
-                    dnf clean all
+                    dnf clean all -y > /dev/null 2>&1
                 elif command -v yum &>/dev/null; then
-                    yum clean all
+                    yum clean all -y > /dev/null 2>&1
                 elif command -v apt &>/dev/null; then
-                    apt clean -y && apt autoclean -y
+                    apt clean -y > /dev/null 2>&1
+                    apt autoclean -y > /dev/null 2>&1
                 elif command -v apk &>/dev/null; then
-                    apk cache clean
+                    apk cache clean > /dev/null 2>&1
                 elif command -v pacman &>/dev/null; then
-                    pacman -Scc --noconfirm
+                    pacman -Scc --noconfirm > /dev/null 2>&1
                 elif command -v zypper &>/dev/null; then
-                    zypper clean --all
+                    zypper clean --all -y > /dev/null 2>&1
                 elif command -v opkg &>/dev/null; then
-                    opkg clean
+                    opkg clean > /dev/null 2>&1
                 fi
                 ;;
             "删除系统日志...")
-                journalctl --rotate && journalctl --vacuum-time=1s && journalctl --vacuum-size=500M
+                journalctl --rotate > /dev/null 2>&1
+                journalctl --vacuum-time=1s > /dev/null 2>&1
+                journalctl --vacuum-size=500M > /dev/null 2>&1
                 ;;
             "删除临时文件...")
-                rm -rf /tmp/* && rm -rf /var/tmp/*
+                rm -rf /tmp/* > /dev/null 2>&1
+                rm -rf /var/tmp/* > /dev/null 2>&1
                 ;;
             "清理 APK 缓存...")
                 if command -v apk &>/dev/null; then
-                    apk cache clean
+                    apk cache clean > /dev/null 2>&1
                 fi
                 ;;
             "清理 YUM/DNF 缓存...")
                 if command -v dnf &>/dev/null; then
-                    dnf clean all
+                    dnf clean all -y > /dev/null 2>&1
                 elif command -v yum &>/dev/null; then
-                    yum clean all
+                    yum clean all -y > /dev/null 2>&1
                 fi
                 ;;
             "清理 APT 缓存...")
                 if command -v apt &>/dev/null; then
-                    apt clean -y && apt autoclean -y
+                    apt clean -y > /dev/null 2>&1
+                    apt autoclean -y > /dev/null 2>&1
                 fi
                 ;;
             "清理 Pacman 缓存...")
                 if command -v pacman &>/dev/null; then
-                    pacman -Scc --noconfirm
+                    pacman -Scc --noconfirm > /dev/null 2>&1
                 fi
                 ;;
             "清理 Zypper 缓存...")
                 if command -v zypper &>/dev/null; then
-                    zypper clean --all
+                    zypper clean --all -y > /dev/null 2>&1
                 fi
                 ;;
             "清理 Opkg 缓存...")
                 if command -v opkg &>/dev/null; then
-                    opkg clean
+                    opkg clean > /dev/null 2>&1
                 fi
                 ;;
         esac
+
+        # 更新进度条
         progress=$(( (i + 1) * 100 / total_steps ))
-        tput sc
-        tput cup $(tput lines) 0
+        tput sc  # 保存光标位置
+        tput cup $(tput lines) 0  # 将光标移动到屏幕底部
         echo -ne "${GREEN}清理进度: ["
         for ((j = 0; j < progress / 2; j++)); do
             echo -n "="
@@ -372,9 +391,9 @@ linux_clean() {
             echo -n " "
         done
         echo -ne "] ${progress}%${NC}"
-        tput rc
-        sleep 1
+        tput rc  # 恢复光标位置
     done
+
     echo -e "\n${GREEN}系统清理完成！${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
