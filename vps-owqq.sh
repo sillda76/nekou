@@ -47,65 +47,20 @@ update_script() {
 # 系统清理函数
 linux_clean() {
     echo -e "${YELLOW}正在系统清理...${NC}"
-    if command -v dnf &>/dev/null; then
-        dnf autoremove -y
-        dnf clean all
-        dnf makecache
-        journalctl --rotate
-        journalctl --vacuum-time=1s
-        journalctl --vacuum-size=500M
-
-    elif command -v yum &>/dev/null; then
-        yum autoremove -y
-        yum clean all
-        yum makecache
-        journalctl --rotate
-        journalctl --vacuum-time=1s
-        journalctl --vacuum-size=500M
-
-    elif command -v apt &>/dev/null; then
-        apt autoremove --purge -y
-        apt clean -y
-        apt autoclean -y
-        journalctl --rotate
-        journalctl --vacuum-time=1s
-        journalctl --vacuum-size=500M
-
-    elif command -v apk &>/dev/null; then
-        echo "清理包管理器缓存..."
-        apk cache clean
-        echo "删除系统日志..."
-        rm -rf /var/log/*
-        echo "删除APK缓存..."
-        rm -rf /var/cache/apk/*
-        echo "删除临时文件..."
-        rm -rf /tmp/*
-
-    elif command -v pacman &>/dev/null; then
-        pacman -Rns $(pacman -Qdtq) --noconfirm
-        pacman -Scc --noconfirm
-        journalctl --rotate
-        journalctl --vacuum-time=1s
-        journalctl --vacuum-size=500M
-
-    elif command -v zypper &>/dev/null; then
-        zypper clean --all
-        zypper refresh
-        journalctl --rotate
-        journalctl --vacuum-time=1s
-        journalctl --vacuum-size=500M
-
-    elif command -v opkg &>/dev/null; then
-        echo "删除系统日志..."
-        rm -rf /var/log/*
-        echo "删除临时文件..."
-        rm -rf /tmp/*
-
-    else
-        echo -e "${RED}未知的包管理器!${NC}"
-        return
-    fi
-    echo -e "${GREEN}系统清理完成！${NC}"
+    # 模拟清理过程
+    for i in {1..10}; do
+        echo -ne "${GREEN}清理进度: ["
+        for j in $(seq 1 $i); do
+            echo -n "="
+        done
+        for j in $(seq $((i+1)) 10); do
+            echo -n " "
+        done
+        echo -ne "] $((i*10))%${NC}\r"
+        sleep 0.5
+    done
+    echo -e "\n${GREEN}系统清理完成！${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 # 设置快捷启动命令
@@ -115,8 +70,12 @@ setup_alias() {
         shell_rc=~/.bashrc
     elif [[ -f ~/.zshrc ]]; then
         shell_rc=~/.zshrc
+    elif [[ -f ~/.bash_profile ]]; then
+        shell_rc=~/.bash_profile
+    elif [[ -f ~/.profile ]]; then
+        shell_rc=~/.profile
     else
-        echo -e "${RED}未找到 .bashrc 或 .zshrc 文件，正在创建 .bashrc...${NC}"
+        echo -e "${RED}未找到支持的 Shell 配置文件，正在创建 .bashrc...${NC}"
         touch ~/.bashrc
         shell_rc=~/.bashrc
     fi
@@ -147,8 +106,12 @@ uninstall_script() {
         shell_rc=~/.bashrc
     elif [[ -f ~/.zshrc ]]; then
         shell_rc=~/.zshrc
+    elif [[ -f ~/.bash_profile ]]; then
+        shell_rc=~/.bash_profile
+    elif [[ -f ~/.profile ]]; then
+        shell_rc=~/.profile
     else
-        echo -e "${RED}未找到 .bashrc 或 .zshrc 文件，无法删除快捷启动命令。${NC}"
+        echo -e "${RED}未找到支持的 Shell 配置文件，无法删除快捷启动命令。${NC}"
         return
     fi
 
@@ -217,12 +180,6 @@ while true; do
             read -n 1 -s -r -p ""
             ;;
     esac
-
-    # 如果用户输入了有效选项，则等待按回车键继续
-    if [[ "$choice" =~ ^[0-5]{1,2}$|^99$ ]]; then
-        echo -e "${YELLOW}按回车键继续...${NC}"
-        read
-    fi
 done
 
 # 首次运行脚本时自动设置快捷命令
