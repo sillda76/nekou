@@ -36,6 +36,7 @@ show_menu() {
     echo -e "${LIGHT_BLUE}5. 设置禁Ping${NC}"
     echo -e "${TEAL}6. 添加系统信息${NC}"
     echo -e "${LIGHT_GREEN}7. 安装1Panel${NC}"
+    echo -e "${LIGHT_BLUE}8. 系统工具${NC}"
     echo -e "${LIGHT_RED}00. 更新脚本${NC}"
     echo -e "${RED}99. 卸载脚本${NC}"
     echo -e "${MAGENTA}0. 退出脚本${NC}"
@@ -56,10 +57,64 @@ show_1panel_menu() {
     echo -e "${PURPLE}========================================${NC}"
 }
 
+# 显示系统工具子菜单
+show_system_tools_menu() {
+    clear
+    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${GREEN}系统工具${NC}"
+    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${YELLOW}1. 安装 htop (系统监控工具)${NC}"
+    echo -e "${CYAN}2. 安装 iftop (网络流量监控工具)${NC}"
+    echo -e "${ORANGE}3. 安装 vim (文本编辑器)${NC}"
+    echo -e "${PINK}4. 安装 curl (网络工具)${NC}"
+    echo -e "${LIGHT_BLUE}5. 安装 wget (下载工具)${NC}"
+    echo -e "${TEAL}6. 安装 git (版本控制工具)${NC}"
+    echo -e "${LIGHT_GREEN}7. 安装 tmux (终端复用工具)${NC}"
+    echo -e "${LIGHT_BLUE}8. 安装 unzip (解压工具)${NC}"
+    echo -e "${LIGHT_RED}9. 安装 tar (归档工具)${NC}"
+    echo -e "${MAGENTA}10. 安装 nano (文本编辑器)${NC}"
+    echo -e "${LIGHT_GREEN}11. 一键安装全部系统基础工具${NC}"
+    echo -e "${MAGENTA}0. 返回主菜单${NC}"
+    echo -e "${PURPLE}========================================${NC}"
+}
+
+# 安装系统工具函数
+install_system_tool() {
+    local tool_name=$1
+    local install_command=$2
+    echo -e "${YELLOW}正在安装 ${tool_name}...${NC}"
+    if eval "$install_command"; then
+        echo -e "${GREEN}${tool_name} 安装成功！${NC}"
+    else
+        echo -e "${RED}${tool_name} 安装失败，请检查网络连接或包管理器。${NC}"
+    fi
+    read -n 1 -s -r -p "按任意键返回菜单..."
+}
+
+# 一键安装全部系统基础工具
+install_all_system_tools() {
+    tools=(
+        "htop"
+        "iftop"
+        "vim"
+        "curl"
+        "wget"
+        "git"
+        "tmux"
+        "unzip"
+        "tar"
+        "nano"
+    )
+    for tool in "${tools[@]}"; do
+        install_system_tool "$tool" "install_package $tool"
+    done
+    echo -e "${GREEN}所有系统基础工具安装完成！${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
+}
+
 # 安装1Panel函数
 install_1panel() {
     if command -v 1pctl &>/dev/null; then
-        # 如果已安装，显示子菜单
         while true; do
             show_1panel_menu
             read -p "请输入选项数字: " sub_choice
@@ -75,9 +130,15 @@ install_1panel() {
                     read -n 1 -s -r -p "按任意键返回菜单..."
                     ;;
                 3)
-                    echo -e "${YELLOW}正在卸载1Panel面板...${NC}"
-                    1pctl uninstall
-                    echo -e "${GREEN}1Panel 卸载完成！${NC}"
+                    echo -e "${YELLOW}是否确认卸载1Panel？(y/n): ${NC}"
+                    read uninstall_choice
+                    if [[ "$uninstall_choice" == "y" ]]; then
+                        echo -e "${YELLOW}正在卸载1Panel面板...${NC}"
+                        1pctl uninstall
+                        echo -e "${GREEN}1Panel 卸载完成！${NC}"
+                    else
+                        echo -e "${YELLOW}已取消卸载。${NC}"
+                    fi
                     read -n 1 -s -r -p "按任意键返回菜单..."
                     break
                     ;;
@@ -96,7 +157,6 @@ install_1panel() {
             esac
         done
     else
-        # 如果未安装，提示是否安装
         echo -e "${YELLOW}1Panel 未安装。${NC}"
         read -p "是否安装 1Panel？(y/n): " install_choice
         if [[ "$install_choice" == "y" ]]; then
@@ -107,6 +167,82 @@ install_1panel() {
             echo -e "${YELLOW}已取消安装。${NC}"
         fi
         read -n 1 -s -r -p "按任意键返回菜单..."
+    fi
+}
+
+# 系统工具函数
+system_tools() {
+    while true; do
+        show_system_tools_menu
+        read -p "请输入选项数字: " sub_choice
+        case $sub_choice in
+            1)
+                install_system_tool "htop" "install_package htop"
+                ;;
+            2)
+                install_system_tool "iftop" "install_package iftop"
+                ;;
+            3)
+                install_system_tool "vim" "install_package vim"
+                ;;
+            4)
+                install_system_tool "curl" "install_package curl"
+                ;;
+            5)
+                install_system_tool "wget" "install_package wget"
+                ;;
+            6)
+                install_system_tool "git" "install_package git"
+                ;;
+            7)
+                install_system_tool "tmux" "install_package tmux"
+                ;;
+            8)
+                install_system_tool "unzip" "install_package unzip"
+                ;;
+            9)
+                install_system_tool "tar" "install_package tar"
+                ;;
+            10)
+                install_system_tool "nano" "install_package nano"
+                ;;
+            11)
+                install_all_system_tools
+                ;;
+            0)
+                echo -e "${MAGENTA}返回主菜单。${NC}"
+                break
+                ;;
+            "")
+                echo -e "${RED}错误：未输入选项，请按任意键返回菜单。${NC}"
+                read -n 1 -s -r -p ""
+                ;;
+            *)
+                echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
+                read -n 1 -s -r -p ""
+                ;;
+        esac
+    done
+}
+
+# 安装包管理器通用函数
+install_package() {
+    local package=$1
+    if command -v apt &>/dev/null; then
+        apt install -y "$package"
+    elif command -v yum &>/dev/null; then
+        yum install -y "$package"
+    elif command -v dnf &>/dev/null; then
+        dnf install -y "$package"
+    elif command -v pacman &>/dev/null; then
+        pacman -S --noconfirm "$package"
+    elif command -v zypper &>/dev/null; then
+        zypper install -y "$package"
+    elif command -v apk &>/dev/null; then
+        apk add --no-cache "$package"
+    else
+        echo -e "${RED}未知的包管理器，无法安装 ${package}。${NC}"
+        return 1
     fi
 }
 
@@ -320,6 +456,7 @@ while true; do
         5) bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/toggle_ping.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh) ;;
         7) install_1panel ;;
+        8) system_tools ;;
         00) update_script ;;
         99) uninstall_script ;;
         0) echo -e "${MAGENTA}退出脚本。${NC}"; break ;;
