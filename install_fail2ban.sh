@@ -233,6 +233,12 @@ unban_ip() {
 }
 
 uninstall_fail2ban() {
+    read -p "确定要卸载 fail2ban 吗？(y/n): " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        log_info "取消卸载。"
+        return
+    fi
+
     log_info "正在卸载 fail2ban..."
     apt purge -y fail2ban
 
@@ -295,12 +301,9 @@ interactive_menu() {
             5) show_logs ;;
             6) ban_ip ;;
             7) unban_ip ;;
-            8)
-                uninstall_fail2ban
-                exit 0
-                ;;
+            8) uninstall_fail2ban ;;
             0) exit 0 ;;
-            *) 
+            *)
                 echo -e "${RED}错误：无效的选项，请重新输入。${NC}"
                 echo -e "${YELLOW}按任意键继续...${NC}"
                 read -r -s -n 1  # 等待用户按任意键
