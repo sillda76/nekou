@@ -221,7 +221,6 @@ unban_ip() {
 
 interactive_menu() {
     while true; do
-        clear
         echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
         echo -e "${BLUE}║          ${BOLD}fail2ban 安装与管理脚本${NC}       ║${NC}"
         echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
