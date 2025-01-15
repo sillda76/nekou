@@ -189,6 +189,13 @@ show_config() {
     read -r -s -n 1  # 等待用户按任意键
 }
 
+show_logs() {
+    echo -e "${GREEN}[信息]${NC} 正在查看 fail2ban 日志..."
+    tail -f /var/log/fail2ban.log
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
+}
+
 ban_ip() {
     read -p "请输入要封禁的 IP 地址（输入 0 返回菜单）: " ip
     if [[ "$ip" == "0" ]]; then
@@ -253,13 +260,15 @@ interactive_menu() {
         echo -e "${GREEN}1. 安装 fail2ban${NC}    - 安装并配置 fail2ban"
         echo -e "${GREEN}2. 查看状态${NC}       - 查看 fail2ban 的运行状态"
         echo -e "${GREEN}3. 查看 SSH 状态${NC}  - 查看 SSH 服务的封禁情况"
-        echo -e "${YELLOW}4. 封禁 IP${NC}        - 手动封禁指定 IP 地址"
-        echo -e "${YELLOW}5. 解封 IP${NC}        - 手动解封指定 IP 地址"
-        echo -e "${RED}6. 卸载 fail2ban${NC}  - 卸载 fail2ban 服务"
+        echo -e "${GREEN}4. 查看配置${NC}       - 查看 fail2ban 的配置文件"
+        echo -e "${GREEN}5. 查看日志${NC}       - 实时查看 fail2ban 日志"
+        echo -e "${YELLOW}6. 封禁 IP${NC}        - 手动封禁指定 IP 地址"
+        echo -e "${YELLOW}7. 解封 IP${NC}        - 手动解封指定 IP 地址"
+        echo -e "${RED}8. 卸载 fail2ban${NC}  - 卸载 fail2ban 服务"
         echo -e "${CYAN}════════════════════════════════════════════${NC}"
         echo -e "${PURPLE}0. 退出脚本${NC}"
         echo -e "${CYAN}════════════════════════════════════════════${NC}"
-        read -p "请输入选项编号 (0-6): " choice
+        read -p "请输入选项编号 (0-8): " choice
         case "$choice" in
             1)
                 log_info "开始安装 fail2ban..."
@@ -275,17 +284,17 @@ interactive_menu() {
                 ;;
             2) show_status ;;
             3) show_ssh_status ;;
-            4) ban_ip ;;
-            5) unban_ip ;;
-            6)
+            4) show_config ;;
+            5) show_logs ;;
+            6) ban_ip ;;
+            7) unban_ip ;;
+            8)
                 uninstall_fail2ban
                 exit 0
                 ;;
             0) exit 0 ;;
             *) echo -e "${RED}错误：无效的选项，请重新输入。${NC}" ;;
         esac
-        echo -e "${YELLOW}按任意键继续...${NC}"
-        read -r -s -n 1
     done
 }
 
