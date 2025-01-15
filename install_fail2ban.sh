@@ -6,11 +6,14 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+PURPLE='\033[0;35m'
+BOLD='\033[1m'
 NC='\033[0m'
 
-DEFAULT_BANTIME=1800
-DEFAULT_MAXRETRY=5
-DEFAULT_FINDTIME=600
+DEFAULT_BANTIME=3600  # 封禁时间设置为 3600 秒（1 小时）
+DEFAULT_MAXRETRY=6    # 最大重试次数设置为 6 次
+DEFAULT_FINDTIME=600  # 检测时间保持默认的 600 秒（10 分钟）
 DEFAULT_IGNOREIP="127.0.0.1/8 ::1"
 
 BANTIME=$DEFAULT_BANTIME
@@ -98,11 +101,6 @@ install_fail2ban() {
 
 configure_fail2ban() {
     log_info "正在配置 fail2ban..."
-
-    if [ -f /etc/fail2ban/jail.local ]; then
-        log_warn "正在备份现有的 jail.local 文件..."
-        cp /etc/fail2ban/jail.local /etc/fail2ban/jail.local.backup.$(date +%Y%m%d%H%M%S)
-    fi
 
     LOGPATH=""
     for logfile in "/var/log/auth.log" "/var/log/secure" "/var/log/messages"; do
@@ -223,69 +221,53 @@ unban_ip() {
 
 interactive_menu() {
     while true; do
-        echo -e "${BLUE}========================================${NC}"
-        echo -e "${BLUE}GitHub: https://github.com/sillda76/vps-scripts${NC}"
-        echo -e "${BLUE}----------------------------------------${NC}"
-        echo "欢迎使用 fail2ban 自动安装和配置脚本"
-        echo "本脚本将执行以下操作："
-        echo "- 检查系统环境和权限"
-        echo "- 安装 fail2ban 和 rsyslog（仅限 Debian 12 及以上版本）"
-        echo "- 配置 fail2ban，保护 SSH 服务"
-        echo "- 启动并启用 fail2ban 服务"
-        echo "- 设置每7天清理 fail2ban 日志的定时任务"
-        echo "- 显示配置状态和常用命令"
-        echo -e "${GREEN}========================================${NC}"
-        echo -e "${YELLOW}常用操作：${NC}"
-        echo "1. 查看状态"
-        echo "2. 查看 SSH 状态"
-        echo "3. 封禁 IP"
-        echo "4. 解封 IP"
-        echo "5. 查看日志"
-        echo "6. 查看配置"
-        echo "7. 卸载 fail2ban"
-        echo -e "${BLUE}========================================${NC}"
-        read -p "请输入选项 (1-7) 或是否继续安装并配置 fail2ban？(y/n): " choice
+        clear
+        echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+        echo -e "${BLUE}║          ${BOLD}fail2ban 安装与管理脚本${NC}       ║${NC}"
+        echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
+        echo -e "${CYAN}════════════════════════════════════════════${NC}"
+        echo -e "${GREEN}1. 安装 fail2ban${NC}    - 安装并配置 fail2ban"
+        echo -e "${GREEN}2. 查看状态${NC}       - 查看 fail2ban 的运行状态"
+        echo -e "${GREEN}3. 查看 SSH 状态${NC}  - 查看 SSH 服务的封禁情况"
+        echo -e "${YELLOW}4. 封禁 IP${NC}        - 手动封禁指定 IP 地址"
+        echo -e "${YELLOW}5. 解封 IP${NC}        - 手动解封指定 IP 地址"
+        echo -e "${RED}6. 卸载 fail2ban${NC}  - 卸载 fail2ban 服务"
+        echo -e "${CYAN}════════════════════════════════════════════${NC}"
+        echo -e "${PURPLE}0. 退出脚本${NC}"
+        echo -e "${CYAN}════════════════════════════════════════════${NC}"
+        read -p "请输入选项编号 (0-6): " choice
         case "$choice" in
-            1) show_status ;;
-            2) show_ssh_status ;;
-            3) ban_ip ;;
-            4) unban_ip ;;
-            5) tail -f /var/log/fail2ban.log ;;
-            6) show_config ;;
-            7)
+            1)
+                log_info "开始安装 fail2ban..."
+                check_root
+                check_system
+                install_fail2ban
+                configure_fail2ban
+                start_service
+                setup_cron_job
+                log_info "fail2ban 安装完成！"
+                echo -e "${YELLOW}按任意键返回菜单...${NC}"
+                read -r -s -n 1
+                ;;
+            2) show_status ;;
+            3) show_ssh_status ;;
+            4) ban_ip ;;
+            5) unban_ip ;;
+            6)
                 apt purge -y fail2ban
                 log_info "fail2ban 已卸载。"
                 exit 0
                 ;;
-            y|Y)
-                check_fail2ban_installed  # 检测 fail2ban 是否已安装
-                break
-                ;;
-            n|N) exit 0 ;;
-            *) log_error "无效的选项" ;;
+            0) exit 0 ;;
+            *) echo -e "${RED}错误：无效的选项，请重新输入。${NC}" ;;
         esac
+        echo -e "${YELLOW}按任意键继续...${NC}"
+        read -r -s -n 1
     done
 }
 
 main() {
     interactive_menu
-    check_root
-    check_system
-    install_fail2ban
-    configure_fail2ban
-    start_service
-    setup_cron_job
-    show_status
-
-    # 安装完成后提示是否返回菜单
-    echo -e "${GREEN}安装完成！${NC}"
-    read -p "按回车键退出脚本，或输入 y 返回菜单: " choice
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-        interactive_menu
-    else
-        log_info "脚本已退出。"
-        exit 0
-    fi
 }
 
 main
