@@ -5,6 +5,13 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+ORANGE='\033[38;5;208m'
+MAGENTA='\033[0;35m'
+LIGHT_BLUE='\033[1;34m'
+LIGHT_GREEN='\033[1;32m'
+LIGHT_RED='\033[1;31m'
 NC='\033[0m' # 恢复默认颜色
 
 # 当前脚本路径
@@ -17,17 +24,17 @@ SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/ma
 show_menu() {
     clear  # 每次显示菜单时清屏
     echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}          VPS 管理脚本                 ${NC}"
+    echo -e "${GREEN}https://github.com/sillda76/vps-scripts${NC}"
     echo -e "${BLUE}========================================${NC}"
     # 显示菜单选项
-    echo -e "${GREEN} 1. 修改 SSH 端口${NC}"
-    echo -e "${GREEN} 2. 系统更新${NC}"
-    echo -e "${GREEN} 3. 系统清理${NC}"
-    echo -e "${GREEN} 4. 管理 Fail2Ban${NC}"
-    echo -e "${GREEN} 5. 禁 Ping 设置${NC}"
-    echo -e "${GREEN} 6. SSH 系统信息${NC}"
-    echo -e "${GREEN}00. 更新脚本${NC}"
-    echo -e "${GREEN}99. 卸载脚本${NC}"
+    echo -e "${YELLOW} 1. 修改 SSH 端口${NC}"
+    echo -e "${CYAN} 2. 系统更新${NC}"
+    echo -e "${PURPLE} 3. 系统清理${NC}"
+    echo -e "${ORANGE} 4. 管理 Fail2Ban${NC}"
+    echo -e "${MAGENTA} 5. 禁 Ping 设置${NC}"
+    echo -e "${LIGHT_BLUE} 6. SSH 系统信息${NC}"
+    echo -e "${LIGHT_GREEN}00. 更新脚本${NC}"
+    echo -e "${LIGHT_RED}99. 卸载脚本${NC}"
     echo -e "${RED} 0. 退出脚本${NC}"
     echo -e "${BLUE}========================================${NC}"
 }
