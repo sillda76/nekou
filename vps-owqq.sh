@@ -119,9 +119,8 @@ setup_alias() {
 
     if ! grep -q "alias q=" "$shell_rc"; then
         echo "alias q='bash <(curl -s $SCRIPT_URL)'" >> "$shell_rc"
-        echo -e "${GREEN}快捷启动命令 'q' 已设置。请重新加载 shell 配置：source $shell_rc${NC}"
-    else
-        echo -e "${YELLOW}快捷启动命令 'q' 已存在。${NC}"
+        # 静默重新加载 shell 配置
+        source "$shell_rc" >/dev/null 2>&1
     fi
 }
 
@@ -199,5 +198,8 @@ while true; do
     fi
 done
 
-# 设置快捷启动命令
-setup_alias
+# 首次运行脚本时自动设置快捷命令
+if [[ ! -f ~/.vps-script-setup ]]; then
+    setup_alias
+    touch ~/.vps-script-setup  # 标记已设置
+fi
