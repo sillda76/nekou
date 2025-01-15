@@ -219,6 +219,31 @@ unban_ip() {
     read -r -s -n 1  # 等待用户按任意键
 }
 
+uninstall_fail2ban() {
+    log_info "正在卸载 fail2ban..."
+    apt purge -y fail2ban
+
+    # 删除配置文件
+    if [[ -d /etc/fail2ban ]]; then
+        log_info "正在删除 fail2ban 配置文件..."
+        rm -rf /etc/fail2ban
+    fi
+
+    # 删除日志文件
+    if [[ -f /var/log/fail2ban.log ]]; then
+        log_info "正在删除 fail2ban 日志文件..."
+        rm -f /var/log/fail2ban.log
+    fi
+
+    # 删除定时任务
+    if grep -q "fail2ban" /etc/crontab; then
+        log_info "正在删除 fail2ban 定时任务..."
+        sed -i '/fail2ban/d' /etc/crontab
+    fi
+
+    log_info "fail2ban 已完全卸载。"
+}
+
 interactive_menu() {
     while true; do
         echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
@@ -253,8 +278,7 @@ interactive_menu() {
             4) ban_ip ;;
             5) unban_ip ;;
             6)
-                apt purge -y fail2ban
-                log_info "fail2ban 已卸载。"
+                uninstall_fail2ban
                 exit 0
                 ;;
             0) exit 0 ;;
