@@ -7,6 +7,9 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # 恢复默认颜色
 
+# 当前脚本路径
+CURRENT_SCRIPT_PATH="$(pwd)/vps-owqq.sh"
+
 # 脚本 URL
 SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/vps-owqq.sh"
 
@@ -30,8 +33,8 @@ show_menu() {
 # 更新脚本函数
 update_script() {
     echo -e "${YELLOW}正在更新脚本...${NC}"
-    if curl -s "$SCRIPT_URL" -o "$0"; then
-        chmod +x "$0"  # 赋予执行权限
+    if curl -s "$SCRIPT_URL" -o "$CURRENT_SCRIPT_PATH"; then
+        chmod +x "$CURRENT_SCRIPT_PATH"  # 赋予执行权限
         echo -e "${GREEN}脚本更新成功！按任意键返回菜单。${NC}"
         read -n 1 -s -r -p ""
         return  # 返回菜单，而不是退出脚本
@@ -119,7 +122,7 @@ setup_alias() {
     fi
 
     if ! grep -q "alias q=" "$shell_rc"; then
-        echo "alias q='bash <(curl -s $SCRIPT_URL)'" >> "$shell_rc"
+        echo "alias q='$CURRENT_SCRIPT_PATH'" >> "$shell_rc"
         echo -e "${GREEN}快捷命令 'q' 已添加到 $shell_rc。${NC}"
     else
         echo -e "${YELLOW}快捷命令 'q' 已存在。${NC}"
@@ -160,6 +163,14 @@ uninstall_script() {
     if [[ -f ~/.vps-script-setup ]]; then
         rm -f ~/.vps-script-setup
         echo -e "${GREEN}标记文件 ~/.vps-script-setup 已删除。${NC}"
+    fi
+
+    # 删除当前目录下的脚本文件
+    if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
+        rm -f "$CURRENT_SCRIPT_PATH"
+        echo -e "${GREEN}脚本文件 $CURRENT_SCRIPT_PATH 已删除。${NC}"
+    else
+        echo -e "${YELLOW}脚本文件 $CURRENT_SCRIPT_PATH 不存在。${NC}"
     fi
 
     echo -e "${GREEN}脚本卸载完成。${NC}"
@@ -216,6 +227,7 @@ done
 
 # 首次运行脚本时自动设置快捷命令
 if [[ ! -f ~/.vps-script-setup ]]; then
+    # 设置快捷命令
     setup_alias
     touch ~/.vps-script-setup  # 标记已设置
     echo -e "${GREEN}首次运行完成，快捷命令已设置。${NC}"
