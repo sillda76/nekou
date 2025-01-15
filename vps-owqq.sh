@@ -146,6 +146,20 @@ uninstall_script() {
         echo -e "${YELLOW}快捷启动命令 'q' 不存在。${NC}"
     fi
 
+    # 删除脚本文件
+    if [[ -f "$0" ]]; then
+        rm -f "$0"
+        echo -e "${GREEN}脚本文件已删除：$0${NC}"
+    else
+        echo -e "${YELLOW}脚本文件不存在：$0${NC}"
+    fi
+
+    # 删除首次运行标记文件
+    if [[ -f ~/.vps-script-setup ]]; then
+        rm -f ~/.vps-script-setup
+        echo -e "${GREEN}首次运行标记文件已删除。${NC}"
+    fi
+
     echo -e "${GREEN}脚本卸载完成。${NC}"
     exit 0
 }
