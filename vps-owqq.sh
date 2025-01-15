@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# 定义颜色变量
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-ORANGE='\033[38;5;208m'
-MAGENTA='\033[0;35m'
+# 定义颜色变量（加粗）
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+PURPLE='\033[1;35m'
+CYAN='\033[1;36m'
+ORANGE='\033[1;38;5;208m'
+MAGENTA='\033[1;35m'
 LIGHT_BLUE='\033[1;34m'
 LIGHT_GREEN='\033[1;32m'
 LIGHT_RED='\033[1;31m'
@@ -23,10 +23,11 @@ SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/ma
 # 显示菜单
 show_menu() {
     clear  # 每次显示菜单时清屏
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${GREEN}https://github.com/sillda76/vps-scripts${NC}"
-    echo -e "${BLUE}========================================${NC}"
-    # 显示菜单选项
+    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${GREEN}VPS Manager${NC}"
+    echo -e "${BLUE}https://github.com/sillda76/vps-scripts${NC}"
+    echo -e "${PURPLE}========================================${NC}"
+    # 显示菜单选项（加粗）
     echo -e "${YELLOW}1. 修改 SSH 端口${NC}"
     echo -e "${CYAN}2. 系统更新${NC}"
     echo -e "${PURPLE}3. 系统清理${NC}"
@@ -36,7 +37,7 @@ show_menu() {
     echo -e "${LIGHT_GREEN}00. 更新脚本${NC}"
     echo -e "${LIGHT_RED}99. 卸载脚本${NC}"
     echo -e "${RED}0. 退出脚本${NC}"
-    echo -e "${BLUE}========================================${NC}"
+    echo -e "${PURPLE}========================================${NC}"
 }
 
 # 更新脚本函数
