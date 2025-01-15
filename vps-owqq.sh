@@ -309,8 +309,6 @@ linux_clean() {
     done
     echo -e "${YELLOW}开始清理...${NC}"
 
-    # 初始化进度条
-    echo -e "\n\n"  # 为进度条预留空间
     for ((i = 0; i < total_steps; i++)); do
         # 显示当前清理步骤
         echo -e "${YELLOW}${steps[$i]}${NC}"
@@ -319,79 +317,65 @@ linux_clean() {
         case ${steps[$i]} in
             "清理包管理器缓存...")
                 if command -v dnf &>/dev/null; then
-                    dnf clean all -y > /dev/null 2>&1
+                    dnf clean all
                 elif command -v yum &>/dev/null; then
-                    yum clean all -y > /dev/null 2>&1
+                    yum clean all
                 elif command -v apt &>/dev/null; then
-                    apt clean -y > /dev/null 2>&1
-                    apt autoclean -y > /dev/null 2>&1
+                    apt clean
+                    apt autoclean
                 elif command -v apk &>/dev/null; then
-                    apk cache clean > /dev/null 2>&1
+                    apk cache clean
                 elif command -v pacman &>/dev/null; then
-                    pacman -Scc --noconfirm > /dev/null 2>&1
+                    pacman -Scc --noconfirm
                 elif command -v zypper &>/dev/null; then
-                    zypper clean --all -y > /dev/null 2>&1
+                    zypper clean --all
                 elif command -v opkg &>/dev/null; then
-                    opkg clean > /dev/null 2>&1
+                    opkg clean
                 fi
                 ;;
             "删除系统日志...")
-                journalctl --rotate > /dev/null 2>&1
-                journalctl --vacuum-time=1s > /dev/null 2>&1
-                journalctl --vacuum-size=500M > /dev/null 2>&1
+                journalctl --rotate
+                journalctl --vacuum-time=1s
+                journalctl --vacuum-size=500M
                 ;;
             "删除临时文件...")
-                rm -rf /tmp/* > /dev/null 2>&1
-                rm -rf /var/tmp/* > /dev/null 2>&1
+                rm -rf /tmp/*
+                rm -rf /var/tmp/*
                 ;;
             "清理 APK 缓存...")
                 if command -v apk &>/dev/null; then
-                    apk cache clean > /dev/null 2>&1
+                    apk cache clean
                 fi
                 ;;
             "清理 YUM/DNF 缓存...")
                 if command -v dnf &>/dev/null; then
-                    dnf clean all -y > /dev/null 2>&1
+                    dnf clean all
                 elif command -v yum &>/dev/null; then
-                    yum clean all -y > /dev/null 2>&1
+                    yum clean all
                 fi
                 ;;
             "清理 APT 缓存...")
                 if command -v apt &>/dev/null; then
-                    apt clean -y > /dev/null 2>&1
-                    apt autoclean -y > /dev/null 2>&1
+                    apt clean
+                    apt autoclean
                 fi
                 ;;
             "清理 Pacman 缓存...")
                 if command -v pacman &>/dev/null; then
-                    pacman -Scc --noconfirm > /dev/null 2>&1
+                    pacman -Scc --noconfirm
                 fi
                 ;;
             "清理 Zypper 缓存...")
                 if command -v zypper &>/dev/null; then
-                    zypper clean --all -y > /dev/null 2>&1
+                    zypper clean --all
                 fi
                 ;;
             "清理 Opkg 缓存...")
                 if command -v opkg &>/dev/null; then
-                    opkg clean > /dev/null 2>&1
+                    opkg clean
                 fi
                 ;;
         esac
-
-        # 更新进度条
-        progress=$(( (i + 1) * 100 / total_steps ))
-        tput sc  # 保存光标位置
-        tput cup $(tput lines) 0  # 将光标移动到屏幕底部
-        echo -ne "${GREEN}清理进度: ["
-        for ((j = 0; j < progress / 2; j++)); do
-            echo -n "="
-        done
-        for ((j = progress / 2; j < 50; j++)); do
-            echo -n " "
-        done
-        echo -ne "] ${progress}%${NC}"
-        tput rc  # 恢复光标位置
     done
 
     echo -e "\n${GREEN}系统清理完成！${NC}"
