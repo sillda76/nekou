@@ -20,10 +20,11 @@ show_menu() {
     echo -e "${BLUE}          VPS 管理脚本                 ${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo -e "${GREEN}1. 修改 SSH 端口${NC}"
-    echo -e "${GREEN}2. 安装 SSH 启动时显示系统信息${NC}"
+    echo -e "${GREEN}2. 系统更新${NC}"
     echo -e "${GREEN}3. 系统清理${NC}"
     echo -e "${GREEN}4. 安装/管理 Fail2Ban${NC}"
     echo -e "${GREEN}5. 开启/关闭禁 Ping${NC}"
+    echo -e "${GREEN}6. 安装 SSH 启动时显示系统信息${NC}"
     echo -e "${GREEN}00. 更新脚本${NC}"
     echo -e "${GREEN}99. 卸载脚本${NC}"
     echo -e "${RED}0. 退出脚本${NC}"
@@ -37,11 +38,61 @@ update_script() {
         chmod +x "$CURRENT_SCRIPT_PATH"  # 赋予执行权限
         echo -e "${GREEN}脚本更新成功！按任意键返回菜单。${NC}"
         read -n 1 -s -r -p ""
-        return  # 返回菜单，而不是退出脚本
+        # 重新运行脚本
+        exec "$CURRENT_SCRIPT_PATH"
     else
         echo -e "${RED}脚本更新失败，请检查网络连接或 URL 是否正确。${NC}"
         read -n 1 -s -r -p "按任意键返回菜单..."
     fi
+}
+
+# 系统更新函数
+system_update() {
+    echo -e "${YELLOW}正在系统更新...${NC}"
+
+    if command -v apt &>/dev/null; then
+        echo -e "${YELLOW}使用 APT 包管理器进行系统更新...${NC}"
+        echo -e "${YELLOW}更新软件包列表...${NC}"
+        apt update -y
+        echo -e "${YELLOW}升级已安装的软件包...${NC}"
+        apt upgrade -y
+        echo -e "${YELLOW}升级系统版本...${NC}"
+        apt dist-upgrade -y
+        echo -e "${YELLOW}清理不再需要的包...${NC}"
+        apt autoremove -y
+    elif command -v yum &>/dev/null; then
+        echo -e "${YELLOW}使用 YUM 包管理器进行系统更新...${NC}"
+        echo -e "${YELLOW}更新软件包...${NC}"
+        yum update -y
+        echo -e "${YELLOW}升级系统...${NC}"
+        yum upgrade -y
+    elif command -v dnf &>/dev/null; then
+        echo -e "${YELLOW}使用 DNF 包管理器进行系统更新...${NC}"
+        echo -e "${YELLOW}更新软件包...${NC}"
+        dnf update -y
+        echo -e "${YELLOW}升级系统...${NC}"
+        dnf upgrade -y
+    elif command -v pacman &>/dev/null; then
+        echo -e "${YELLOW}使用 Pacman 包管理器进行系统更新...${NC}"
+        echo -e "${YELLOW}同步软件包数据库并升级系统...${NC}"
+        pacman -Syu --noconfirm
+    elif command -v zypper &>/dev/null; then
+        echo -e "${YELLOW}使用 Zypper 包管理器进行系统更新...${NC}"
+        echo -e "${YELLOW}刷新软件包列表...${NC}"
+        zypper refresh
+        echo -e "${YELLOW}更新软件包...${NC}"
+        zypper update -y
+    elif command -v apk &>/dev/null; then
+        echo -e "${YELLOW}使用 APK 包管理器进行系统更新...${NC}"
+        echo -e "${YELLOW}更新软件包列表...${NC}"
+        apk update
+        echo -e "${YELLOW}升级已安装的软件包...${NC}"
+        apk upgrade
+    else
+        echo -e "${RED}未知的包管理器，无法执行系统更新。${NC}"
+    fi
+    echo -e "${GREEN}系统更新完成！${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 # 系统清理函数
@@ -250,7 +301,7 @@ while true; do
             bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/ssh_port_chg.sh)
             ;;
         2)
-            bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh)
+            system_update
             ;;
         3)
             linux_clean
@@ -260,6 +311,9 @@ while true; do
             ;;
         5)
             bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/toggle_ping.sh)
+            ;;
+        6)
+            bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh)
             ;;
         00)
             update_script
