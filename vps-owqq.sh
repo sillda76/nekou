@@ -55,6 +55,7 @@ while true; do
 
     # 如果用户输入了有效选项，则等待按回车键继续
     if [[ "$choice" =~ ^[0-4]$ ]]; then
-        read -p "按回车键继续..."
+        echo -e "${YELLOW}按回车键继续...${NC}"
+        read
     fi
 done
