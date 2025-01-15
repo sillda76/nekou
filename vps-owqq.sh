@@ -20,9 +20,9 @@ show_menu() {
     echo -e "${BLUE}          VPS 管理脚本                 ${NC}"
     echo -e "${BLUE}========================================${NC}"
     # 分两栏显示菜单选项
-    echo -e "${GREEN}1. 修改SSH端口${NC}\t\t${GREEN}2. 系统更新${NC}"
-    echo -e "${GREEN}3. 系统清理${NC}\t\t\t${GREEN}4. Fail2Ban${NC}"
-    echo -e "${GREEN}5. 禁Ping设置${NC}\t\t${GREEN}6. SSH启动系统信息${NC}"
+    echo -e "${GREEN}1. 修改 SSH 端口${NC}\t\t${GREEN}2. 系统更新${NC}"
+    echo -e "${GREEN}3. 系统清理${NC}\t\t\t${GREEN}4. 管理 Fail2Ban${NC}"
+    echo -e "${GREEN}5. 禁 Ping 设置${NC}\t\t${GREEN}6. SSH 系统信息${NC}"
     echo -e "${GREEN}00. 更新脚本${NC}\t\t\t${GREEN}99. 卸载脚本${NC}"
     echo -e "${RED}0. 退出脚本${NC}"
     echo -e "${BLUE}========================================${NC}"
