@@ -113,14 +113,24 @@ setup_alias() {
     elif [[ -f ~/.zshrc ]]; then
         shell_rc=~/.zshrc
     else
-        echo -e "${RED}未找到 .bashrc 或 .zshrc 文件，无法设置快捷启动命令。${NC}"
-        return
+        echo -e "${RED}未找到 .bashrc 或 .zshrc 文件，正在创建 .bashrc...${NC}"
+        touch ~/.bashrc
+        shell_rc=~/.bashrc
     fi
 
     if ! grep -q "alias q=" "$shell_rc"; then
         echo "alias q='bash <(curl -s $SCRIPT_URL)'" >> "$shell_rc"
-        # 静默重新加载 shell 配置
-        source "$shell_rc" >/dev/null 2>&1
+        echo -e "${GREEN}快捷命令 'q' 已添加到 $shell_rc。${NC}"
+    else
+        echo -e "${YELLOW}快捷命令 'q' 已存在。${NC}"
+    fi
+
+    # 重新加载配置文件
+    if [[ -n "$shell_rc" ]]; then
+        source "$shell_rc"
+        echo -e "${GREEN}配置文件 $shell_rc 已重新加载。${NC}"
+    else
+        echo -e "${RED}无法重新加载配置文件。${NC}"
     fi
 }
 
@@ -144,6 +154,12 @@ uninstall_script() {
         echo -e "${GREEN}快捷启动命令 'q' 已删除。${NC}"
     else
         echo -e "${YELLOW}快捷启动命令 'q' 不存在。${NC}"
+    fi
+
+    # 删除标记文件
+    if [[ -f ~/.vps-script-setup ]]; then
+        rm -f ~/.vps-script-setup
+        echo -e "${GREEN}标记文件 ~/.vps-script-setup 已删除。${NC}"
     fi
 
     echo -e "${GREEN}脚本卸载完成。${NC}"
@@ -202,4 +218,5 @@ done
 if [[ ! -f ~/.vps-script-setup ]]; then
     setup_alias
     touch ~/.vps-script-setup  # 标记已设置
+    echo -e "${GREEN}首次运行完成，快捷命令已设置。${NC}"
 fi
