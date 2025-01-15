@@ -22,6 +22,7 @@ show_menu() {
     echo -e "${GREEN}4. 安装/管理 Fail2Ban${NC}"
     echo -e "${GREEN}5. 开启/关闭禁 Ping${NC}"
     echo -e "${GREEN}00. 更新脚本${NC}"
+    echo -e "${GREEN}99. 卸载脚本${NC}"
     echo -e "${RED}0. 退出脚本${NC}"
     echo -e "${BLUE}========================================${NC}"
 }
@@ -30,10 +31,13 @@ show_menu() {
 update_script() {
     echo -e "${YELLOW}正在更新脚本...${NC}"
     if curl -s "$SCRIPT_URL" -o "$0"; then
-        echo -e "${GREEN}脚本更新成功！请重新运行脚本。${NC}"
-        exit 0
+        chmod +x "$0"  # 赋予执行权限
+        echo -e "${GREEN}脚本更新成功！按任意键返回菜单。${NC}"
+        read -n 1 -s -r -p ""
+        return  # 返回菜单，而不是退出脚本
     else
         echo -e "${RED}脚本更新失败，请检查网络连接或 URL 是否正确。${NC}"
+        read -n 1 -s -r -p "按任意键返回菜单..."
     fi
 }
 
@@ -101,6 +105,52 @@ linux_clean() {
     echo -e "${GREEN}系统清理完成！${NC}"
 }
 
+# 设置快捷启动命令
+setup_alias() {
+    local shell_rc
+    if [[ -f ~/.bashrc ]]; then
+        shell_rc=~/.bashrc
+    elif [[ -f ~/.zshrc ]]; then
+        shell_rc=~/.zshrc
+    else
+        echo -e "${RED}未找到 .bashrc 或 .zshrc 文件，无法设置快捷启动命令。${NC}"
+        return
+    fi
+
+    if ! grep -q "alias q=" "$shell_rc"; then
+        echo "alias q='bash <(curl -s $SCRIPT_URL)'" >> "$shell_rc"
+        echo -e "${GREEN}快捷启动命令 'q' 已设置。请重新加载 shell 配置：source $shell_rc${NC}"
+    else
+        echo -e "${YELLOW}快捷启动命令 'q' 已存在。${NC}"
+    fi
+}
+
+# 卸载脚本函数
+uninstall_script() {
+    echo -e "${YELLOW}正在卸载脚本...${NC}"
+
+    # 删除快捷启动命令
+    local shell_rc
+    if [[ -f ~/.bashrc ]]; then
+        shell_rc=~/.bashrc
+    elif [[ -f ~/.zshrc ]]; then
+        shell_rc=~/.zshrc
+    else
+        echo -e "${RED}未找到 .bashrc 或 .zshrc 文件，无法删除快捷启动命令。${NC}"
+        return
+    fi
+
+    if grep -q "alias q=" "$shell_rc"; then
+        sed -i '/alias q=/d' "$shell_rc"
+        echo -e "${GREEN}快捷启动命令 'q' 已删除。${NC}"
+    else
+        echo -e "${YELLOW}快捷启动命令 'q' 不存在。${NC}"
+    fi
+
+    echo -e "${GREEN}脚本卸载完成。${NC}"
+    exit 0
+}
+
 # 主循环
 while true; do
     show_menu
@@ -125,6 +175,9 @@ while true; do
         00)
             update_script
             ;;
+        99)
+            uninstall_script
+            ;;
         0)
             echo -e "${RED}退出脚本。${NC}"
             break
@@ -140,8 +193,11 @@ while true; do
     esac
 
     # 如果用户输入了有效选项，则等待按回车键继续
-    if [[ "$choice" =~ ^[0-5]{1,2}$ ]]; then
+    if [[ "$choice" =~ ^[0-5]{1,2}$|^99$ ]]; then
         echo -e "${YELLOW}按回车键继续...${NC}"
         read
     fi
 done
+
+# 设置快捷启动命令
+setup_alias
