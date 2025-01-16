@@ -74,6 +74,7 @@ show_system_tools_menu() {
     echo -e "${LIGHT_RED}9. 安装 tar (归档工具)${NC}"
     echo -e "${MAGENTA}10. 安装 nano (文本编辑器)${NC}"
     echo -e "${LIGHT_GREEN}11. 一键安装全部系统基础工具${NC}"
+    echo -e "${YELLOW}12. 安装 ffmpeg (多媒体处理工具)${NC}"  # 新增选项
     echo -e "${MAGENTA}0. 返回主菜单${NC}"
     echo -e "${PURPLE}========================================${NC}"
 }
@@ -208,6 +209,9 @@ system_tools() {
                 ;;
             11)
                 install_all_system_tools
+                ;;
+            12)  # 新增的 ffmpeg 选项
+                install_system_tool "ffmpeg" "install_package ffmpeg"
                 ;;
             0)
                 echo -e "${MAGENTA}返回主菜单。${NC}"
