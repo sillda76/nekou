@@ -28,9 +28,9 @@ get_public_ipv4() {
   fi
 }
 
-# 获取本机公网 IPv6 地址
-get_public_ipv6() {
-  local ipv6_address=$(curl -s https://api64.ipify.org)
+# 获取本机 IPv6 地址
+get_ipv6_address() {
+  local ipv6_address=$(ip -6 addr show scope global 2>/dev/null | grep inet6 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
   if [ -z "$ipv6_address" ]; then
     echo "无 IPv6"
   else
@@ -53,9 +53,9 @@ get_icmp_status() {
 
 # 显示菜单
 show_menu() {
-  # 获取本机公网 IPv4 和 IPv6 地址
+  # 获取本机 IPv4 和 IPv6 地址
   ipv4_address=$(get_public_ipv4)
-  ipv6_address=$(get_public_ipv6)
+  ipv6_address=$(get_ipv6_address)
 
   # 获取当前 IPv4 和 IPv6 的禁 Ping 状态
   if [ "$ipv4_address" != "无 IPv4" ]; then
@@ -112,7 +112,7 @@ toggle_ipv4_icmp_ignore() {
 
 # 切换 IPv6 禁 Ping 状态
 toggle_ipv6_icmp_ignore() {
-  if [ "$(get_public_ipv6)" == "无 IPv6" ]; then
+  if [ "$(get_ipv6_address)" == "无 IPv6" ]; then
     echo -e "${RED}错误：本机未配置 IPv6 地址，无法操作。${NC}"
     return 1
   fi
