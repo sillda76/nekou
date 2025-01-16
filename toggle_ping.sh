@@ -29,7 +29,7 @@ get_ip_address() {
   echo -e "${BLUE}========== 本机 IP 地址 ==========${NC}"
   
   # 获取 IPv4 地址
-  ipv4_address=$(curl -s https://icanhazip.com || echo "")
+  ipv4_address=$(curl -4 -s https://icanhazip.com || echo "")
   # 检查是否为有效的 IPv4 地址
   if [[ "$ipv4_address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
     echo -e "${GREEN}IPv4: $ipv4_address${NC}"
@@ -38,7 +38,7 @@ get_ip_address() {
   fi
 
   # 获取 IPv6 地址
-  ipv6_address=$(curl -s https://icanhazip.com || echo "")
+  ipv6_address=$(curl -6 -s https://icanhazip.com || echo "")
   # 检查是否为有效的 IPv6 地址
   if [[ "$ipv6_address" =~ ^[0-9a-fA-F:]+$ ]]; then
     echo -e "${CYAN}IPv6: $ipv6_address${NC}"
