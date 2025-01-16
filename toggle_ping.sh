@@ -91,6 +91,7 @@ get_ipv6_ping_status() {
 toggle_ipv4_ping() {
   if ! ip -4 route &> /dev/null; then
     echo -e "${RED}错误：未检测到 IPv4 网络。${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
     return 1
   fi
 
@@ -115,6 +116,7 @@ toggle_ipv4_ping() {
 toggle_ipv6_ping() {
   if ! ip -6 route &> /dev/null; then
     echo -e "${RED}错误：未检测到 IPv6 网络。${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
     return 1
   fi
 
