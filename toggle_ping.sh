@@ -19,18 +19,26 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+# 清屏函数
+clear_screen() {
+  clear
+}
+
 # 获取本机 IP 地址
 get_ip_address() {
   echo -e "${BLUE}========== 本机 IP 地址 ==========${NC}"
   
   # 获取 IPv4 地址
-  ipv4_address=$(curl -s https://api.ipify.org || echo "")
-  if [ -n "$ipv4_address" ]; then
+  ipv4_address=$(curl -s https://icanhazip.com || echo "")
+  # 检查是否为有效的 IPv4 地址
+  if [[ "$ipv4_address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
     echo -e "${GREEN}IPv4: $ipv4_address${NC}"
+  else
+    ipv4_address="" # 如果不是有效的 IPv4 地址，则清空
   fi
 
   # 获取 IPv6 地址
-  ipv6_address=$(curl -s https://ident.me || curl -s https://ifconfig.co || echo "")
+  ipv6_address=$(curl -s https://icanhazip.com || echo "")
   # 检查是否为有效的 IPv6 地址
   if [[ "$ipv6_address" =~ ^[0-9a-fA-F:]+$ ]]; then
     echo -e "${CYAN}IPv6: $ipv6_address${NC}"
@@ -46,6 +54,7 @@ get_ip_address() {
 
 # 显示菜单
 show_menu() {
+  clear_screen # 清屏
   get_ip_address
   echo -e "${BLUE}============================${NC}"
   echo -e "${PURPLE}请选择要执行的操作：${NC}"
