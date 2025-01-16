@@ -22,15 +22,20 @@ fi
 # 获取本机 IP 地址
 get_ip_address() {
   echo -e "${BLUE}========== 本机 IP 地址 ==========${NC}"
+  
+  # 获取 IPv4 地址
   ipv4_address=$(curl -s https://api.ipify.org || echo "")
-  ipv6_address=$(curl -s https://ifconfig.co/ip || echo "")
-
   if [ -n "$ipv4_address" ]; then
     echo -e "${GREEN}IPv4: $ipv4_address${NC}"
   fi
 
-  if [ -n "$ipv6_address" ] && [ "$ipv6_address" != "$ipv4_address" ]; then
+  # 获取 IPv6 地址
+  ipv6_address=$(curl -s https://icanhazip.com || curl -s https://ifconfig.co || echo "")
+  # 检查是否为有效的 IPv6 地址
+  if [[ "$ipv6_address" =~ ^[0-9a-fA-F:]+$ ]]; then
     echo -e "${CYAN}IPv6: $ipv6_address${NC}"
+  else
+    ipv6_address="" # 如果不是有效的 IPv6 地址，则清空
   fi
 
   if [ -z "$ipv4_address" ] && [ -z "$ipv6_address" ]; then
