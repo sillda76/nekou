@@ -30,7 +30,7 @@ get_ip_address() {
   fi
 
   # 获取 IPv6 地址
-  ipv6_address=$(curl -s https://icanhazip.com || curl -s https://ifconfig.co || echo "")
+  ipv6_address=$(curl -s https://ident.me || curl -s https://ifconfig.co || echo "")
   # 检查是否为有效的 IPv6 地址
   if [[ "$ipv6_address" =~ ^[0-9a-fA-F:]+$ ]]; then
     echo -e "${CYAN}IPv6: $ipv6_address${NC}"
