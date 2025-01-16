@@ -5,8 +5,12 @@ CONFIG_FILE="/etc/sysctl.conf"
 # 颜色变量
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+LIGHT_GREEN='\033[1;32m' # 亮绿色
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m' # 青色
+PURPLE='\033[0;35m' # 紫色
+ORANGE='\033[0;33m' # 橙色
 NC='\033[0m' # 恢复默认颜色
 
 # 检查是否以root用户运行
@@ -18,15 +22,15 @@ fi
 # 获取本机 IP 地址
 get_ip_address() {
   echo -e "${BLUE}========== 本机 IP 地址 ==========${NC}"
-  ipv4_address=$(curl -s https://ipinfo.io/ip || echo "")
-  ipv6_address=$(curl -s https://ifconfig.co || echo "")
+  ipv4_address=$(curl -s https://api.ipify.org || echo "")
+  ipv6_address=$(curl -s https://ifconfig.co/ip || echo "")
 
   if [ -n "$ipv4_address" ]; then
     echo -e "${GREEN}IPv4: $ipv4_address${NC}"
   fi
 
-  if [ -n "$ipv6_address" ]; then
-    echo -e "${GREEN}IPv6: $ipv6_address${NC}"
+  if [ -n "$ipv6_address" ] && [ "$ipv6_address" != "$ipv4_address" ]; then
+    echo -e "${CYAN}IPv6: $ipv6_address${NC}"
   fi
 
   if [ -z "$ipv4_address" ] && [ -z "$ipv6_address" ]; then
@@ -39,11 +43,11 @@ get_ip_address() {
 show_menu() {
   get_ip_address
   echo -e "${BLUE}============================${NC}"
-  echo -e "${BLUE}请选择要执行的操作：${NC}"
-  echo -e "1. IPv4 禁 Ping 状态 (当前状态: $(get_ipv4_ping_status))"
-  echo -e "2. IPv6 禁 Ping 状态 (当前状态: $(get_ipv6_ping_status))"
-  echo -e "3. 查看当前 sysctl 配置"
-  echo -e "0. 退出脚本"
+  echo -e "${PURPLE}请选择要执行的操作：${NC}"
+  echo -e "${RED}1. IPv4 禁 Ping 状态 (当前状态: $(get_ipv4_ping_status))${NC}"
+  echo -e "${GREEN}2. IPv6 禁 Ping 状态 (当前状态: $(get_ipv6_ping_status))${NC}"
+  echo -e "${CYAN}3. 查看当前 sysctl 配置${NC}"
+  echo -e "${ORANGE}0. 退出脚本${NC}"
   echo -e "${BLUE}============================${NC}"
 }
 
@@ -54,7 +58,7 @@ get_ipv4_ping_status() {
   elif grep -q "^net.ipv4.icmp_echo_ignore_all=1" "$CONFIG_FILE"; then
     echo -e "${RED}已启用${NC}"
   else
-    echo -e "${GREEN}未启用${NC}"
+    echo -e "${LIGHT_GREEN}未启用${NC}"
   fi
 }
 
@@ -65,7 +69,7 @@ get_ipv6_ping_status() {
   elif grep -q "^net.ipv6.icmp_echo_ignore_all=1" "$CONFIG_FILE"; then
     echo -e "${RED}已启用${NC}"
   else
-    echo -e "${GREEN}未启用${NC}"
+    echo -e "${LIGHT_GREEN}未启用${NC}"
   fi
 }
 
@@ -140,7 +144,7 @@ while true; do
       view_sysctl_config
       ;;
     0)
-      echo -e "${BLUE}退出脚本...${NC}"
+      echo -e "${ORANGE}退出脚本...${NC}"
       exit 0
       ;;
     *)
