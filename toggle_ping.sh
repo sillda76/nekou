@@ -1,6 +1,7 @@
 #!/bin/bash
 
 CONFIG_FILE="/etc/sysctl.conf"
+IP6TABLES_RULES_FILE="/etc/ip6tables.rules"
 
 # 颜色变量
 RED='\033[0;31m'
@@ -60,8 +61,9 @@ show_menu() {
   echo -e "${PURPLE}请选择要执行的操作：${NC}"
   echo -e "${RED}1. IPv4 禁 Ping 状态 (当前状态: $(get_ipv4_ping_status))${NC}"
   echo -e "${GREEN}2. IPv6 禁 Ping 状态 (当前状态: $(get_ipv6_ping_status))${NC}"
-  echo -e "${CYAN}3. 查看当前 sysctl 配置${NC}"
-  echo -e "${ORANGE}0. 退出脚本${NC}"
+  echo -e "${CYAN}3. 查看 IPv4 禁 Ping 配置${NC}"
+  echo -e "${ORANGE}4. 查看 IPv6 禁 Ping 配置${NC}"
+  echo -e "${BLUE}0. 退出脚本${NC}"
   echo -e "${BLUE}============================${NC}"
 }
 
@@ -80,7 +82,7 @@ get_ipv4_ping_status() {
 get_ipv6_ping_status() {
   if ! ip -6 route &> /dev/null; then
     echo -e "${YELLOW}无 IPv6${NC}"
-  elif grep -q "^net.ipv6.icmp_echo_ignore_all=1" "$CONFIG_FILE"; then
+  elif ip6tables -L INPUT -v -n | grep -q "icmpv6.*echo-request.*DROP"; then
     echo -e "${RED}已启用${NC}"
   else
     echo -e "${LIGHT_GREEN}未启用${NC}"
@@ -120,28 +122,32 @@ toggle_ipv6_ping() {
     return 1
   fi
 
-  if grep -q "^net.ipv6.icmp_echo_ignore_all=1" "$CONFIG_FILE"; then
+  if ip6tables -L INPUT -v -n | grep -q "icmpv6.*echo-request.*DROP"; then
     echo -e "${GREEN}正在恢复 IPv6 Ping...${NC}"
-    sed -i 's/^net.ipv6.icmp_echo_ignore_all=1/net.ipv6.icmp_echo_ignore_all=0/' "$CONFIG_FILE"
+    ip6tables -D INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
   else
     echo -e "${RED}正在设置 IPv6 禁 Ping...${NC}"
-    sed -i '/^net.ipv6.icmp_echo_ignore_all/d' "$CONFIG_FILE"
-    echo "net.ipv6.icmp_echo_ignore_all=1" >> "$CONFIG_FILE"
+    ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
   fi
 
-  echo -e "${BLUE}使配置生效...${NC}"
-  if ! sysctl -p; then
-    echo -e "${RED}错误：无法应用配置。${NC}"
-    return 1
-  fi
-  echo -e "IPv6 Ping 状态已更新：$(get_ipv6_ping_status)"
+  # 保存规则
+  ip6tables-save > "$IP6TABLES_RULES_FILE"
+  echo -e "${BLUE}IPv6 Ping 状态已更新：$(get_ipv6_ping_status)${NC}"
 }
 
-# 查看当前 sysctl 配置
-view_sysctl_config() {
-  echo -e "${BLUE}当前的 sysctl 配置文件内容如下：${NC}"
+# 查看 IPv4 禁 Ping 配置
+view_ipv4_ping_config() {
+  echo -e "${BLUE}当前的 IPv4 禁 Ping 配置如下：${NC}"
   echo -e "${BLUE}----------------------------------${NC}"
-  cat "$CONFIG_FILE"
+  grep "^net.ipv4.icmp_echo_ignore_all" "$CONFIG_FILE" || echo -e "${YELLOW}未找到相关配置。${NC}"
+  echo -e "${BLUE}----------------------------------${NC}"
+}
+
+# 查看 IPv6 禁 Ping 配置
+view_ipv6_ping_config() {
+  echo -e "${BLUE}当前的 IPv6 禁 Ping 配置如下：${NC}"
+  echo -e "${BLUE}----------------------------------${NC}"
+  ip6tables -L INPUT -v -n | grep "icmpv6.*echo-request.*DROP" || echo -e "${YELLOW}未找到相关配置。${NC}"
   echo -e "${BLUE}----------------------------------${NC}"
 }
 
@@ -157,7 +163,10 @@ while true; do
       toggle_ipv6_ping
       ;;
     3)
-      view_sysctl_config
+      view_ipv4_ping_config
+      ;;
+    4)
+      view_ipv6_ping_config
       ;;
     0)
       echo -e "${ORANGE}退出脚本...${NC}"
