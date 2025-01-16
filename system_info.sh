@@ -1,213 +1,165 @@
 #!/bin/bash
 
+CONFIG_FILE="/etc/sysctl.conf"
+
 # 颜色变量
-RED='\033[1;31m'
-GREEN='\033[1;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[1;36m'
-BLACK='\033[1;30m'
-ORANGE='\033[1;38;5;208m'  # 橙色
-NC='\033[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+LIGHT_GREEN='\033[1;32m' # 亮绿色
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m' # 青色
+PURPLE='\033[0;35m' # 紫色
+ORANGE='\033[0;33m' # 橙色
+NC='\033[0m' # 恢复默认颜色
 
-# 进度条函数
-progress_bar() {
-    local progress=$1
-    local total=$2
-    local bar_width=20
-    local filled=$((progress * bar_width / total))
-    local empty=$((bar_width - filled))
-
-    printf "["
-    for ((i=0; i<filled; i++)); do
-        if ((i < filled / 3)); then
-            printf "${GREEN}=${NC}"
-        elif ((i < 2 * filled / 3)); then
-            printf "${YELLOW}=${NC}"
-        else
-            printf "${RED}=${NC}"
-        fi
-    done
-    for ((i=0; i<empty; i++)); do
-        printf "${BLACK}=${NC}"
-    done
-    printf "]"
-}
-
-# 安装依赖工具
-install_dependencies() {
-    if ! command -v bc &> /dev/null; then
-        echo -e "${YELLOW}未找到 bc 工具，正在安装...${NC}"
-        sudo apt install bc -y || { echo -e "${RED}安装 bc 失败！${NC}"; exit 1; }
-    fi
-    sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
-}
-
-# 获取公网 IP
-get_public_ip() {
-    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
-
-    if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
-    fi
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
-    fi
-    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e "${RED}No Public IP${NC}"
-    fi
-}
-
-# 安装函数
-install() {
-    mkdir -p ~/.local
-
-    install_dependencies
-
-    if [[ -f /etc/motd ]]; then
-        sudo cp /etc/motd /etc/motd.bak
-        sudo truncate -s 0 /etc/motd
-    fi
-
-    cat << EOF > ~/.local/sysinfo.sh
-#!/bin/bash
-
-RED='\033[1;31m'
-GREEN='\033[1;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[1;36m'
-BLACK='\033[1;30m'
-ORANGE='\033[1;38;5;208m'
-NC='\033[0m'
-
-progress_bar() {
-    local progress=\$1
-    local total=\$2
-    local bar_width=20
-    local filled=\$((progress * bar_width / total))
-    local empty=\$((bar_width - filled))
-
-    printf "["
-    for ((i=0; i<filled; i++)); do
-        if ((i < filled / 3)); then
-            printf "\${GREEN}=\${NC}"
-        elif ((i < 2 * filled / 3)); then
-            printf "\${YELLOW}=\${NC}"
-        else
-            printf "\${RED}=\${NC}"
-        fi
-    done
-    for ((i=0; i<empty; i++)); do
-        printf "\${BLACK}=\${NC}"
-    done
-    printf "]"
-}
-
-os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
-uptime_info=\$(uptime -p 2>/dev/null | sed 's/up //g')
-cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
-cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
-memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
-memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
-swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
-swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
-disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
-disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
-
-echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
-echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
-echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
-
-echo -ne "\${ORANGE}Memory:\${NC}    "
-progress_bar \$memory_used \$memory_total
-echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
-
-if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
-    swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
-    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
+# 检查是否以root用户运行
+if [ "$EUID" -ne 0 ]; then
+  echo -e "${RED}请以root用户运行此脚本${NC}"
+  exit 1
 fi
 
-echo -ne "\${ORANGE}Disk:\${NC}      "
-progress_bar \$disk_used \$disk_total
-echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
+# 获取本机 IP 地址
+get_ip_address() {
+  echo -e "${BLUE}========== 本机 IP 地址 ==========${NC}"
+  
+  # 获取 IPv4 地址
+  ipv4_address=$(curl -s https://api.ipify.org || echo "")
+  if [ -n "$ipv4_address" ]; then
+    echo -e "${GREEN}IPv4: $ipv4_address${NC}"
+  fi
 
-get_public_ip() {
-    ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+  # 获取 IPv6 地址
+  ipv6_address=$(curl -s https://icanhazip.com || echo "")
+  # 检查是否为有效的 IPv6 地址
+  if [[ "$ipv6_address" =~ ^[0-9a-fA-F:]+$ ]]; then
+    echo -e "${CYAN}IPv6: $ipv6_address${NC}"
+  else
+    ipv6_address="" # 如果不是有效的 IPv6 地址，则清空
+  fi
 
-    if [[ -n "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
-    fi
-    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* && "\$ipv6" != "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
-    fi
-    if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
-        echo -e "\${RED}No Public IP\${NC}"
-    fi
-}
-
-get_public_ip
-EOF
-
-    chmod +x ~/.local/sysinfo.sh
-
-    if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
-        echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
-        echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
-        echo '    bash ~/.local/sysinfo.sh' >> ~/.bashrc
-        echo 'fi' >> ~/.bashrc
-        echo '# SYSINFO SSH LOGIC END' >> ~/.bashrc
-    fi
-
-    source ~/.bashrc >/dev/null 2>&1
-    echo -e "${GREEN}系统信息工具安装完成！${NC}"
-}
-
-# 卸载函数
-uninstall() {
-    rm -f ~/.local/sysinfo.sh
-    sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
-
-    if [[ -f /etc/motd.bak ]]; then
-        sudo mv /etc/motd.bak /etc/motd
-    else
-        sudo truncate -s 0 /etc/motd
-    fi
-
-    echo -e "${GREEN}系统信息工具已卸载！${NC}"
+  if [ -z "$ipv4_address" ] && [ -z "$ipv6_address" ]; then
+    echo -e "${YELLOW}未检测到有效的 IPv4 或 IPv6 地址。${NC}"
+  fi
+  echo -e "${BLUE}================================${NC}"
 }
 
 # 显示菜单
 show_menu() {
-    while true; do
-        echo -e "${ORANGE}=========================${NC}"
-        echo -e "${ORANGE}请选择操作：${NC}"
-        echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
-        echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}0. 退出脚本${NC}"
-        echo -e "${ORANGE}=========================${NC}"
-        read -p "请输入选项 (0、1 或 2): " choice
-
-        case $choice in
-            1)
-                install
-                exit 0
-                ;;
-            2)
-                uninstall
-                exit 0
-                ;;
-            0)
-                echo -e "${ORANGE}退出脚本。${NC}"
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
-                read -n 1 -s -r
-                ;;
-        esac
-    done
+  get_ip_address
+  echo -e "${BLUE}============================${NC}"
+  echo -e "${PURPLE}请选择要执行的操作：${NC}"
+  echo -e "${RED}1. IPv4 禁 Ping 状态 (当前状态: $(get_ipv4_ping_status))${NC}"
+  echo -e "${GREEN}2. IPv6 禁 Ping 状态 (当前状态: $(get_ipv6_ping_status))${NC}"
+  echo -e "${CYAN}3. 查看当前 sysctl 配置${NC}"
+  echo -e "${ORANGE}0. 退出脚本${NC}"
+  echo -e "${BLUE}============================${NC}"
 }
 
-# 主逻辑
-show_menu
+# 获取 IPv4 Ping 状态
+get_ipv4_ping_status() {
+  if ! ip -4 route &> /dev/null; then
+    echo -e "${YELLOW}无 IPv4${NC}"
+  elif grep -q "^net.ipv4.icmp_echo_ignore_all=1" "$CONFIG_FILE"; then
+    echo -e "${RED}已启用${NC}"
+  else
+    echo -e "${LIGHT_GREEN}未启用${NC}"
+  fi
+}
+
+# 获取 IPv6 Ping 状态
+get_ipv6_ping_status() {
+  if ! ip -6 route &> /dev/null; then
+    echo -e "${YELLOW}无 IPv6${NC}"
+  elif grep -q "^net.ipv6.icmp_echo_ignore_all=1" "$CONFIG_FILE"; then
+    echo -e "${RED}已启用${NC}"
+  else
+    echo -e "${LIGHT_GREEN}未启用${NC}"
+  fi
+}
+
+# 设置/恢复 IPv4 Ping
+toggle_ipv4_ping() {
+  if ! ip -4 route &> /dev/null; then
+    echo -e "${RED}错误：未检测到 IPv4 网络。${NC}"
+    return 1
+  fi
+
+  if grep -q "^net.ipv4.icmp_echo_ignore_all=1" "$CONFIG_FILE"; then
+    echo -e "${GREEN}正在恢复 IPv4 Ping...${NC}"
+    sed -i 's/^net.ipv4.icmp_echo_ignore_all=1/net.ipv4.icmp_echo_ignore_all=0/' "$CONFIG_FILE"
+  else
+    echo -e "${RED}正在设置 IPv4 禁 Ping...${NC}"
+    sed -i '/^net.ipv4.icmp_echo_ignore_all/d' "$CONFIG_FILE"
+    echo "net.ipv4.icmp_echo_ignore_all=1" >> "$CONFIG_FILE"
+  fi
+
+  echo -e "${BLUE}使配置生效...${NC}"
+  if ! sysctl -p; then
+    echo -e "${RED}错误：无法应用配置。${NC}"
+    return 1
+  fi
+  echo -e "IPv4 Ping 状态已更新：$(get_ipv4_ping_status)"
+}
+
+# 设置/恢复 IPv6 Ping
+toggle_ipv6_ping() {
+  if ! ip -6 route &> /dev/null; then
+    echo -e "${RED}错误：未检测到 IPv6 网络。${NC}"
+    return 1
+  fi
+
+  if grep -q "^net.ipv6.icmp_echo_ignore_all=1" "$CONFIG_FILE"; then
+    echo -e "${GREEN}正在恢复 IPv6 Ping...${NC}"
+    sed -i 's/^net.ipv6.icmp_echo_ignore_all=1/net.ipv6.icmp_echo_ignore_all=0/' "$CONFIG_FILE"
+  else
+    echo -e "${RED}正在设置 IPv6 禁 Ping...${NC}"
+    sed -i '/^net.ipv6.icmp_echo_ignore_all/d' "$CONFIG_FILE"
+    echo "net.ipv6.icmp_echo_ignore_all=1" >> "$CONFIG_FILE"
+  fi
+
+  echo -e "${BLUE}使配置生效...${NC}"
+  if ! sysctl -p; then
+    echo -e "${RED}错误：无法应用配置。${NC}"
+    return 1
+  fi
+  echo -e "IPv6 Ping 状态已更新：$(get_ipv6_ping_status)"
+}
+
+# 查看当前 sysctl 配置
+view_sysctl_config() {
+  echo -e "${BLUE}当前的 sysctl 配置文件内容如下：${NC}"
+  echo -e "${BLUE}----------------------------------${NC}"
+  cat "$CONFIG_FILE"
+  echo -e "${BLUE}----------------------------------${NC}"
+}
+
+# 主循环
+while true; do
+  show_menu
+  read -p "请输入选项: " choice
+  case $choice in
+    1)
+      toggle_ipv4_ping
+      ;;
+    2)
+      toggle_ipv6_ping
+      ;;
+    3)
+      view_sysctl_config
+      ;;
+    0)
+      echo -e "${ORANGE}退出脚本...${NC}"
+      exit 0
+      ;;
+    *)
+      echo -e "${RED}错误：无效选项，请按任意键返回菜单...${NC}"
+      read -n 1 -s  # 等待用户按任意键
+      continue
+      ;;
+  esac
+
+  # 提示按任意键返回菜单
+  read -n 1 -s -r -p "$(echo -e ${BLUE}操作完成，按任意键返回菜单...${NC})"
+  echo
+done
