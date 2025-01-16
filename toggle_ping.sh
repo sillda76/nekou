@@ -172,6 +172,6 @@ while true; do
   esac
 
   # 提示按任意键返回菜单
-  read -n 1 -s -r -p "$(echo -e ${CYAN}操作完成，按任意键返回菜单...${NC})"
+  read -n 1 -s -r -p "$(echo -e "${CYAN}操作完成，按任意键返回菜单...${NC}")"
   echo
 done
