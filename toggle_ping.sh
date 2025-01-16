@@ -114,11 +114,33 @@ toggle_ipv4_ping() {
   echo -e "IPv4 Ping 状态已更新：$(get_ipv4_ping_status)"
 }
 
+# 检查并安装 ip6tables
+install_ip6tables() {
+  if ! command -v ip6tables &> /dev/null; then
+    echo -e "${YELLOW}未检测到 ip6tables，正在安装...${NC}"
+    if apt-get install -y ip6tables &> /dev/null; then
+      echo -e "${GREEN}ip6tables 安装成功。${NC}"
+    else
+      echo -e "${RED}错误：无法安装 ip6tables。${NC}"
+      return 1
+    fi
+  else
+    echo -e "${GREEN}ip6tables 已安装。${NC}"
+  fi
+  return 0
+}
+
 # 设置/恢复 IPv6 Ping
 toggle_ipv6_ping() {
   if ! ip -6 route &> /dev/null; then
     echo -e "${RED}错误：未检测到 IPv6 网络。${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
+    return 1
+  fi
+
+  # 检查并安装 ip6tables
+  if ! install_ip6tables; then
+    echo -e "${RED}错误：无法继续配置 IPv6 禁 Ping。${NC}"
     return 1
   fi
 
@@ -131,7 +153,11 @@ toggle_ipv6_ping() {
   fi
 
   # 保存规则
-  ip6tables-save > "$IP6TABLES_RULES_FILE"
+  if ! ip6tables-save > "$IP6TABLES_RULES_FILE"; then
+    echo -e "${RED}错误：无法保存 IPv6 规则。${NC}"
+    return 1
+  fi
+
   echo -e "${BLUE}IPv6 Ping 状态已更新：$(get_ipv6_ping_status)${NC}"
 }
 
