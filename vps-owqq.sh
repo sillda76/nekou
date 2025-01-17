@@ -33,7 +33,7 @@ show_menu() {
     echo -e "${CYAN}2. 系统更新${NC}"
     echo -e "${ORANGE}3. 系统清理${NC}"
     echo -e "${PINK}4. Fail2ban配置${NC}"
-    echo -e "${LIGHT_BLUE}5. 设置禁Ping${NC}"
+    echo -e "${LIGHT_BLUE}5. iptables${NC}"
     echo -e "${TEAL}6. 添加系统信息${NC}"
     echo -e "${LIGHT_GREEN}7. 安装1Panel${NC}"
     echo -e "${LIGHT_BLUE}8. 系统工具${NC}"
@@ -558,7 +558,7 @@ while true; do
         2) system_update ;;
         3) linux_clean ;;
         4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/install_fail2ban.sh) ;;
-        5) bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/toggle_ping.sh) ;;
+        5) bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/iptables_menu.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh) ;;
         7) install_1panel ;;
         8) system_tools ;;
