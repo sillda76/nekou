@@ -82,13 +82,62 @@ check_system_version() {
 }
 
 get_ssh_port() {
-    SSH_PORT=$(ss -tnlp | awk '/sshd/ && /LISTEN/ {print $4}' | awk -F: '{print $NF}' | head -1)
-    if [ -z "$SSH_PORT" ]; then
-        SSH_PORT=22
-        log_warn "未检测到自定义SSH端口，使用默认端口22。"
+    echo -e "${CYAN}════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}1. 自动获取 SSH 端口${NC}"
+    echo -e "${GREEN}2. 手动填写 SSH 端口${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════${NC}"
+    read -p "请选择获取 SSH 端口的方式 (1/2): " choice
+
+    if [[ "$choice" == "1" ]]; then
+        # 自动获取 SSH 端口
+        SSH_PORT=$(ss -tnlp | awk '/sshd/ && /LISTEN/ {print $4}' | awk -F: '{print $NF}' | head -1)
+        if [ -z "$SSH_PORT" ]; then
+            log_warn "未检测到 SSH 端口。"
+            read -p "是否手动填写 SSH 端口？(y/n): " manual_choice
+            if [[ "$manual_choice" == "y" || "$manual_choice" == "Y" ]]; then
+                while true; do
+                    read -p "请输入 SSH 端口号 (1-65535): " SSH_PORT
+                    if [[ "$SSH_PORT" =~ ^[0-9]+$ ]] && ((SSH_PORT >= 1 && SSH_PORT <= 65535)); then
+                        # 确认端口号
+                        read -p "您输入的 SSH 端口号是 $SSH_PORT，确认无误吗？(y/n): " confirm
+                        if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                            break
+                        else
+                            log_info "请重新输入 SSH 端口号。"
+                        fi
+                    else
+                        log_error "输入的端口号无效，请输入 1 到 65535 之间的数字。"
+                    fi
+                done
+            else
+                log_info "使用默认 SSH 端口 22。"
+                SSH_PORT=22
+            fi
+        else
+            log_info "检测到的 SSH 端口: $SSH_PORT"
+        fi
+    elif [[ "$choice" == "2" ]]; then
+        # 手动填写 SSH 端口
+        while true; do
+            read -p "请输入 SSH 端口号 (1-65535): " SSH_PORT
+            if [[ "$SSH_PORT" =~ ^[0-9]+$ ]] && ((SSH_PORT >= 1 && SSH_PORT <= 65535)); then
+                # 确认端口号
+                read -p "您输入的 SSH 端口号是 $SSH_PORT，确认无误吗？(y/n): " confirm
+                if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                    break
+                else
+                    log_info "请重新输入 SSH 端口号。"
+                fi
+            else
+                log_error "输入的端口号无效，请输入 1 到 65535 之间的数字。"
+            fi
+        done
     else
-        log_info "检测到的SSH端口: $SSH_PORT"
+        log_error "无效的选择，使用默认端口 22。"
+        SSH_PORT=22
     fi
+
+    log_info "Fail2ban监听的SSH端口: $SSH_PORT"
 }
 
 install_fail2ban() {
