@@ -93,7 +93,13 @@ curl -s -o vps-owqq.sh https://raw.githubusercontent.com/sillda76/vps-scripts/re
 
 ## 许可证
 
-本项目采用 [MIT 许可证](https://opensource.org/licenses/MIT)，您可以自由使用、修改和分发脚本。
+本项目采用 **Apache License 2.0**，您可以自由使用、修改和分发脚本，但需遵守以下条件：
+
+1. **保留版权声明**：在分发或修改后的代码中，必须保留原始的版权声明和许可证文件。
+2. **声明变更**：如果您对代码进行了修改，必须在文件中注明所做的更改。
+3. **免责声明**：代码按“原样”提供，作者不承担任何责任。
+
+完整的许可证内容请参阅 [LICENSE](LICENSE) 文件。
 
 ---
 
@@ -102,5 +108,3 @@ curl -s -o vps-owqq.sh https://raw.githubusercontent.com/sillda76/vps-scripts/re
 感谢所有贡献者和用户的支持！如果您觉得这个脚本有用，请给项目点个 ⭐️ 支持一下！
 
 ---
-
-将上述内容保存为 `README.md` 文件并上传到您的 GitHub 仓库，即可在项目主页显示完整的介绍信息。如果有其他需求，欢迎随时告诉我！
