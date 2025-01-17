@@ -70,25 +70,45 @@ check_ipv6_ping_status() {
     fi
 }
 
+# 启用 IPv4 禁 Ping
+enable_ipv4_ping_block() {
+    iptables -A INPUT -p icmp --icmp-type echo-request -j DROP
+    echo -e "${GREEN}IPv4 禁 Ping 已启用。${NC}"
+}
+
+# 禁用 IPv4 禁 Ping
+disable_ipv4_ping_block() {
+    iptables -D INPUT -p icmp --icmp-type echo-request -j DROP
+    echo -e "${YELLOW}IPv4 禁 Ping 已禁用。${NC}"
+}
+
+# 启用 IPv6 禁 Ping
+enable_ipv6_ping_block() {
+    ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
+    echo -e "${GREEN}IPv6 禁 Ping 已启用。${NC}"
+}
+
+# 禁用 IPv6 禁 Ping
+disable_ipv6_ping_block() {
+    ip6tables -D INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
+    echo -e "${YELLOW}IPv6 禁 Ping 已禁用。${NC}"
+}
+
 # 切换 IPv4 禁 Ping 状态
 toggle_ipv4_ping_block() {
     if iptables -L INPUT -v -n | grep -q "icmp.*DROP"; then
-        iptables -D INPUT -p icmp --icmp-type echo-request -j DROP
-        echo -e "${YELLOW}IPv4 禁 Ping 已禁用。${NC}"
+        disable_ipv4_ping_block
     else
-        iptables -A INPUT -p icmp --icmp-type echo-request -j DROP
-        echo -e "${GREEN}IPv4 禁 Ping 已启用。${NC}"
+        enable_ipv4_ping_block
     fi
 }
 
 # 切换 IPv6 禁 Ping 状态
 toggle_ipv6_ping_block() {
     if ip6tables -L INPUT -v -n | grep -q "icmpv6.*DROP"; then
-        ip6tables -D INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
-        echo -e "${YELLOW}IPv6 禁 Ping 已禁用。${NC}"
+        disable_ipv6_ping_block
     else
-        ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
-        echo -e "${GREEN}IPv6 禁 Ping 已启用。${NC}"
+        enable_ipv6_ping_block
     fi
 }
 
