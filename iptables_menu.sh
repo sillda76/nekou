@@ -15,7 +15,7 @@ get_public_ip() {
     echo -e "${BLUE}===== 本机公网 IP =====${NC}"
     ipv4=$(curl -s https://ifconfig.me/ip)
     ipv6=$(curl -s https://ifconfig.me/ip --ipv6)
-    
+    
     if [ -n "$ipv4" ]; then
         echo -e "${CYAN}IPv4: ${GREEN}$ipv4${NC}"
     else
@@ -101,6 +101,8 @@ toggle_ipv4_ping_block() {
     else
         enable_ipv4_ping_block
     fi
+    # 切换状态后立即刷新菜单
+    show_menu
 }
 
 # 切换 IPv6 禁 Ping 状态
@@ -110,6 +112,8 @@ toggle_ipv6_ping_block() {
     else
         enable_ipv6_ping_block
     fi
+    # 切换状态后立即刷新菜单
+    show_menu
 }
 
 # 显示菜单
