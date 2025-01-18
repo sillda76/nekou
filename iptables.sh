@@ -59,10 +59,17 @@ toggle_ipv6_ping() {
 # 保存规则以确保重启后生效
 save_rules() {
     echo "正在保存规则为永久规则..."
+    
+    # 确保 /etc/iptables 目录存在
+    if [ ! -d /etc/iptables ]; then
+        mkdir -p /etc/iptables
+    fi
+
+    # 保存规则到对应文件
     iptables-save > /etc/iptables/rules.v4
     ip6tables-save > /etc/iptables/rules.v6
 
-    # 确保规则在重启时加载
+    # 确保 /etc/network/interfaces 包含规则加载命令
     if ! grep -q "iptables-restore < /etc/iptables/rules.v4" /etc/network/interfaces 2>/dev/null; then
         echo "pre-up iptables-restore < /etc/iptables/rules.v4" >> /etc/network/interfaces
     fi
