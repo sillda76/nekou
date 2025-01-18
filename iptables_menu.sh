@@ -10,12 +10,16 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # 恢复默认颜色
 
+# 全局变量：记录规则编号
+ipv4_rule_number=""
+ipv6_rule_number=""
+
 # 获取本机公网 IP
 get_public_ip() {
     echo -e "${BLUE}===== 本机公网 IP =====${NC}"
     ipv4=$(curl -s https://ifconfig.me/ip)
     ipv6=$(curl -s https://ifconfig.me/ip --ipv6)
-    
+    
     if [ -n "$ipv4" ]; then
         echo -e "${CYAN}IPv4: ${GREEN}$ipv4${NC}"
     else
@@ -70,28 +74,54 @@ check_ipv6_ping_status() {
     fi
 }
 
+# 获取 IPv4 禁 Ping 规则编号
+get_ipv4_rule_number() {
+    ipv4_rule_number=$(iptables -L INPUT --line-numbers | grep "icmp.*DROP" | awk '{print $1}')
+}
+
+# 获取 IPv6 禁 Ping 规则编号
+get_ipv6_rule_number() {
+    ipv6_rule_number=$(ip6tables -L INPUT --line-numbers | grep "icmpv6.*DROP" | awk '{print $1}')
+}
+
 # 启用 IPv4 禁 Ping
 enable_ipv4_ping_block() {
+    # 添加规则并获取规则编号
     iptables -A INPUT -p icmp --icmp-type echo-request -j DROP
-    echo -e "${GREEN}IPv4 禁 Ping 已启用。${NC}"
+    get_ipv4_rule_number
+    echo -e "${GREEN}IPv4 禁 Ping 已启用。规则编号: $ipv4_rule_number${NC}"
 }
 
 # 禁用 IPv4 禁 Ping
 disable_ipv4_ping_block() {
-    iptables -D INPUT -p icmp --icmp-type echo-request -j DROP
-    echo -e "${YELLOW}IPv4 禁 Ping 已禁用。${NC}"
+    get_ipv4_rule_number
+    if [ -n "$ipv4_rule_number" ]; then
+        iptables -D INPUT $ipv4_rule_number
+        echo -e "${YELLOW}IPv4 禁 Ping 已禁用。规则编号: $ipv4_rule_number${NC}"
+        ipv4_rule_number=""
+    else
+        echo -e "${RED}未找到 IPv4 禁 Ping 规则编号，无法禁用。${NC}"
+    fi
 }
 
 # 启用 IPv6 禁 Ping
 enable_ipv6_ping_block() {
+    # 添加规则并获取规则编号
     ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
-    echo -e "${GREEN}IPv6 禁 Ping 已启用。${NC}"
+    get_ipv6_rule_number
+    echo -e "${GREEN}IPv6 禁 Ping 已启用。规则编号: $ipv6_rule_number${NC}"
 }
 
 # 禁用 IPv6 禁 Ping
 disable_ipv6_ping_block() {
-    ip6tables -D INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
-    echo -e "${YELLOW}IPv6 禁 Ping 已禁用。${NC}"
+    get_ipv6_rule_number
+    if [ -n "$ipv6_rule_number" ]; then
+        ip6tables -D INPUT $ipv6_rule_number
+        echo -e "${YELLOW}IPv6 禁 Ping 已禁用。规则编号: $ipv6_rule_number${NC}"
+        ipv6_rule_number=""
+    else
+        echo -e "${RED}未找到 IPv6 禁 Ping 规则编号，无法禁用。${NC}"
+    fi
 }
 
 # 切换 IPv4 禁 Ping 状态
@@ -124,11 +154,17 @@ show_menu() {
     # 显示 IPv4 选项（如果检测到 IPv4）
     if [ -n "$ipv4" ]; then
         echo -e "${MAGENTA}1. IPv4 禁 Ping 状态${NC} (当前状态: $(check_ipv4_ping_status))"
+        if [ -n "$ipv4_rule_number" ]; then
+            echo -e "   规则编号: ${GREEN}$ipv4_rule_number${NC}"
+        fi
     fi
 
     # 显示 IPv6 选项（如果检测到 IPv6）
     if [ -n "$ipv6" ]; then
         echo -e "${MAGENTA}2. IPv6 禁 Ping 状态${NC} (当前状态: $(check_ipv6_ping_status))"
+        if [ -n "$ipv6_rule_number" ]; then
+            echo -e "   规则编号: ${GREEN}$ipv6_rule_number${NC}"
+        fi
     fi
 
     echo -e "${MAGENTA}0. 退出${NC}"
