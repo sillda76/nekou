@@ -2,24 +2,22 @@
 
 # 检查当前是否禁用了Ping (IPv4)
 check_ipv4_ping() {
-    iptables -L INPUT -v -n | grep -q "icmp type 8.*DROP"
-    if [ $? -eq 0 ]; then
-        echo "已禁用 IPv4 Ping"
+    if iptables -L INPUT -v -n | grep -q "icmp type 8.*DROP"; then
+        echo "当前 IPv4 Ping 规则：已禁用"
         return 1
     else
-        echo "未禁用 IPv4 Ping"
+        echo "当前 IPv4 Ping 规则：未禁用"
         return 0
     fi
 }
 
 # 检查当前是否禁用了Ping (IPv6)
 check_ipv6_ping() {
-    ip6tables -L INPUT -v -n | grep -q "icmpv6 type 128.*DROP"
-    if [ $? -eq 0 ]; then
-        echo "已禁用 IPv6 Ping"
+    if ip6tables -L INPUT -v -n | grep -q "icmpv6 type 128.*DROP"; then
+        echo "当前 IPv6 Ping 规则：已禁用"
         return 1
     else
-        echo "未禁用 IPv6 Ping"
+        echo "当前 IPv6 Ping 规则：未禁用"
         return 0
     fi
 }
@@ -36,8 +34,7 @@ toggle_ipv4_ping() {
         iptables -D INPUT -p icmp --icmp-type echo-request -j DROP
         echo "IPv4 Ping 已启用"
     fi
-    echo "当前 IPv4 Ping 规则："
-    iptables -L INPUT -v -n | grep "icmp type 8"
+    check_ipv4_ping
 }
 
 # 禁用或启用IPv6 Ping
@@ -52,8 +49,7 @@ toggle_ipv6_ping() {
         ip6tables -D INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
         echo "IPv6 Ping 已启用"
     fi
-    echo "当前 IPv6 Ping 规则："
-    ip6tables -L INPUT -v -n | grep "icmpv6 type 128"
+    check_ipv6_ping
 }
 
 # 保存规则以确保重启后生效
