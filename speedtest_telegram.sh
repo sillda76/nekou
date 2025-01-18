@@ -53,18 +53,35 @@ echo -e "${GREEN}[3/4] 正在下载Speedtest结果图片...${NC}"
 IMAGE_FILE="speedtest_result.png"
 curl -o "$IMAGE_FILE" "$IMAGE_URL" > /dev/null 2>&1
 
+# 检查图片文件是否存在且有效
+if [ ! -f "$IMAGE_FILE" ]; then
+    echo -e "${RED}错误：未找到下载的图片文件。请检查网络连接。${NC}"
+    exit 1
+fi
+
+if ! file "$IMAGE_FILE" | grep -q "PNG image"; then
+    echo -e "${RED}错误：下载的图片文件无效或格式不正确。${NC}"
+    exit 1
+fi
+
 # 发送图片到Telegram
 echo -e "${GREEN}[4/4] 正在发送图片到Telegram...${NC}"
 python3 <<END
 import os
 import asyncio
 from telegram import Bot
+from telegram.error import TelegramError
 
 async def send_photo():
-    bot = Bot(token="$TELEGRAM_BOT_TOKEN")
-    with open("$IMAGE_FILE", 'rb') as file:
-        await bot.send_photo(chat_id="$CHAT_ID", photo=file)
-        print("图片已成功发送到Telegram！")
+    try:
+        bot = Bot(token="$TELEGRAM_BOT_TOKEN")
+        with open("$IMAGE_FILE", 'rb') as file:
+            await bot.send_photo(chat_id="$CHAT_ID", photo=file)
+            print("图片已成功发送到Telegram！")
+    except TelegramError as e:
+        print(f"发送图片失败: {e}")
+    except Exception as e:
+        print(f"发生未知错误: {e}")
 
 asyncio.run(send_photo())
 END
