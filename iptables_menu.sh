@@ -15,7 +15,7 @@ get_public_ip() {
     echo -e "${BLUE}===== 本机公网 IP =====${NC}"
     ipv4=$(curl -s https://ifconfig.me/ip)
     ipv6=$(curl -s https://ifconfig.me/ip --ipv6)
-    
+    
     if [ -n "$ipv4" ]; then
         echo -e "${CYAN}IPv4: ${GREEN}$ipv4${NC}"
     else
