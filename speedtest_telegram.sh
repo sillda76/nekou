@@ -10,43 +10,22 @@ fi
 TELEGRAM_BOT_TOKEN="$1"
 CHAT_ID="$2"
 
-# 安装必要的工具
+# 安装必要的工具（如果未安装）
 install_dependencies() {
-  echo "正在检查并安装依赖工具..."
   if ! command -v speedtest-cli &> /dev/null; then
     echo "正在安装 speedtest-cli..."
     sudo apt-get update && sudo apt-get install -y speedtest-cli
-    if [ $? -ne 0 ]; then
-      echo "错误：speedtest-cli 安装失败！"
-      exit 1
-    fi
   fi
 
   if ! command -v curl &> /dev/null; then
     echo "正在安装 curl..."
     sudo apt-get install -y curl
-    if [ $? -ne 0 ]; then
-      echo "错误：curl 安装失败！"
-      exit 1
-    fi
   fi
 
   if ! command -v jq &> /dev/null; then
     echo "正在安装 jq..."
     sudo apt-get install -y jq
-    if [ $? -ne 0 ]; then
-      echo "错误：jq 安装失败！"
-      exit 1
-    fi
   fi
-
-  echo "所有依赖工具已安装！"
-}
-
-# 对 IP 地址打码
-mask_ip() {
-  local IP=$1
-  echo "$IP" | awk -F. '{print $1"."$2".***.***"}'
 }
 
 # 运行 speedtest 并提取结果
@@ -63,13 +42,6 @@ run_speedtest() {
   UPLOAD_SPEED=$(echo "$SPEEDTEST_OUTPUT" | jq -r '.upload / 1000000 | round | tostring + " Mbps"')
   PING=$(echo "$SPEEDTEST_OUTPUT" | jq -r '.ping | tostring + " ms"')
   IMAGE_URL=$(echo "$SPEEDTEST_OUTPUT" | jq -r '.share')
-  SERVER_NAME=$(echo "$SPEEDTEST_OUTPUT" | jq -r '.server.name')
-  SERVER_LOCATION=$(echo "$SPEEDTEST_OUTPUT" | jq -r '.server.country + ", " + .server.cc')
-  CLIENT_IP=$(echo "$SPEEDTEST_OUTPUT" | jq -r '.client.ip')
-  CLIENT_ISP=$(echo "$SPEEDTEST_OUTPUT" | jq -r '.client.isp')
-
-  # 对 IP 地址打码
-  CLIENT_IP_MASKED=$(mask_ip "$CLIENT_IP")
 
   if [ -z "$IMAGE_URL" ]; then
     echo "错误：未找到测速结果图片链接！"
@@ -83,9 +55,6 @@ send_to_telegram() {
 - 📥 下载速度: $DOWNLOAD_SPEED
 - 📤 上传速度: $UPLOAD_SPEED
 - 🏓 延迟: $PING
-- 🌍 服务器: $SERVER_NAME ($SERVER_LOCATION)
-- 📡 客户端 ISP: $CLIENT_ISP
-- 🔒 客户端 IP: $CLIENT_IP_MASKED
 - 📷 [查看测速结果图片]($IMAGE_URL)"
 
   echo "正在发送测速结果到 Telegram..."
