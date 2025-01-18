@@ -10,22 +10,37 @@ fi
 TELEGRAM_BOT_TOKEN="$1"
 CHAT_ID="$2"
 
-# 安装必要的工具（如果未安装）
+# 安装必要的工具
 install_dependencies() {
+  echo "正在检查并安装依赖工具..."
   if ! command -v speedtest-cli &> /dev/null; then
     echo "正在安装 speedtest-cli..."
     sudo apt-get update && sudo apt-get install -y speedtest-cli
+    if [ $? -ne 0 ]; then
+      echo "错误：speedtest-cli 安装失败！"
+      exit 1
+    fi
   fi
 
   if ! command -v curl &> /dev/null; then
     echo "正在安装 curl..."
     sudo apt-get install -y curl
+    if [ $? -ne 0 ]; then
+      echo "错误：curl 安装失败！"
+      exit 1
+    fi
   fi
 
   if ! command -v jq &> /dev/null; then
     echo "正在安装 jq..."
     sudo apt-get install -y jq
+    if [ $? -ne 0 ]; then
+      echo "错误：jq 安装失败！"
+      exit 1
+    fi
   fi
+
+  echo "所有依赖工具已安装！"
 }
 
 # 对 IP 地址打码
