@@ -57,12 +57,16 @@ curl -o "$IMAGE_FILE" "$IMAGE_URL" > /dev/null 2>&1
 echo -e "${GREEN}[4/4] 正在发送图片到Telegram...${NC}"
 python3 <<END
 import os
+import asyncio
 from telegram import Bot
 
-bot = Bot(token="$TELEGRAM_BOT_TOKEN")
-with open("$IMAGE_FILE", 'rb') as file:
-    bot.send_photo(chat_id="$CHAT_ID", photo=file)
-    print("图片已成功发送到Telegram！")
+async def send_photo():
+    bot = Bot(token="$TELEGRAM_BOT_TOKEN")
+    with open("$IMAGE_FILE", 'rb') as file:
+        await bot.send_photo(chat_id="$CHAT_ID", photo=file)
+        print("图片已成功发送到Telegram！")
+
+asyncio.run(send_photo())
 END
 
 # 清理临时文件
