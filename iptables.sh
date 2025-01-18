@@ -2,7 +2,7 @@
 
 # 检查当前是否禁用了Ping (IPv4)
 check_ipv4_ping() {
-    iptables -L INPUT -v -n | grep -q "icmp type 8"
+    iptables -L INPUT -v -n | grep -q "icmp type 8.*DROP"
     if [ $? -eq 0 ]; then
         echo "已禁用 IPv4 Ping"
         return 1
@@ -14,7 +14,7 @@ check_ipv4_ping() {
 
 # 检查当前是否禁用了Ping (IPv6)
 check_ipv6_ping() {
-    ip6tables -L INPUT -v -n | grep -q "icmpv6 type 128"
+    ip6tables -L INPUT -v -n | grep -q "icmpv6 type 128.*DROP"
     if [ $? -eq 0 ]; then
         echo "已禁用 IPv6 Ping"
         return 1
@@ -36,7 +36,8 @@ toggle_ipv4_ping() {
         iptables -D INPUT -p icmp --icmp-type echo-request -j DROP
         echo "IPv4 Ping 已启用"
     fi
-    save_rules
+    echo "当前 IPv4 Ping 规则："
+    iptables -L INPUT -v -n | grep "icmp type 8"
 }
 
 # 禁用或启用IPv6 Ping
@@ -51,18 +52,13 @@ toggle_ipv6_ping() {
         ip6tables -D INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
         echo "IPv6 Ping 已启用"
     fi
-    save_rules
+    echo "当前 IPv6 Ping 规则："
+    ip6tables -L INPUT -v -n | grep "icmpv6 type 128"
 }
 
 # 保存规则以确保重启后生效
 save_rules() {
     echo "正在保存规则为永久规则..."
-    if ! command -v iptables-save &>/dev/null; then
-        echo "iptables-save 未安装，请安装后重试！"
-        exit 1
-    fi
-
-    # 保存 IPv4 和 IPv6 规则
     iptables-save > /etc/iptables/rules.v4
     ip6tables-save > /etc/iptables/rules.v6
 
