@@ -139,8 +139,12 @@ echo -e "\${ORANGE}Uptime:   \${NC}\${uptime_info:-N/A}"
 echo -e "\${ORANGE}CPU:      \${NC}\${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
 
 echo -ne "\${ORANGE}Mem:      \${NC}"
-progress_bar \$memory_used \$memory_total
-echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
+if [[ -n "\$memory_used" && -n "\$memory_total" && "\$memory_total" -ne 0 ]]; then
+    progress_bar \$memory_used \$memory_total
+    echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
+else
+    echo "N/A"
+fi
 
 if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
     swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
@@ -148,8 +152,12 @@ if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
 fi
 
 echo -ne "\${ORANGE}Disk:     \${NC}"
-progress_bar \$disk_used \$disk_total
-echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
+if [[ -n "\$disk_used" && -n "\$disk_total" && "\$disk_total" -ne 0 ]]; then
+    progress_bar \$disk_used \$disk_total
+    echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
+else
+    echo "N/A"
+fi
 
 get_total_traffic() {
     local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
