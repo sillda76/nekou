@@ -50,7 +50,7 @@ get_public_ip() {
     if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
     fi
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* ]]; then
         echo -e "${GREEN}IPv6:${NC} $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
@@ -77,7 +77,7 @@ GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
-ORANGE='\033[1;38;5;208m'
+ORANGE='\033[1;38;5;208m'  # 橙色
 NC='\033[0m'
 
 progress_bar() {
@@ -138,7 +138,7 @@ get_public_ip() {
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
     fi
-    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* && "\$ipv6" != "\$ipv4" ]]; then
+    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
     fi
     if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
