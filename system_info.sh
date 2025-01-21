@@ -14,8 +14,10 @@ NC='\033[0m'
 check_installed() {
     if [[ -f ~/.local/sysinfo.sh ]] && grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
         echo -e "${GREEN}已安装${NC}"
+        return 0
     else
         echo -e "${RED}未安装${NC}"
+        return 1
     fi
 }
 
@@ -68,8 +70,41 @@ get_public_ip() {
     fi
 }
 
+# 卸载函数
+uninstall() {
+    echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
+    rm -f ~/.local/sysinfo.sh
+    sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
+
+    if [[ -f /etc/motd.bak ]]; then
+        echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
+        sudo mv /etc/motd.bak /etc/motd
+        echo -e "${GREEN}还原完成，备份文件路径：/etc/motd.bak${NC}"
+    else
+        if [[ -f /etc/motd ]]; then
+            echo -e "${YELLOW}清空 /etc/motd 文件...${NC}"
+            sudo truncate -s 0 /etc/motd
+        fi
+    fi
+
+    echo -e "${GREEN}系统信息工具已卸载！${NC}"
+}
+
 # 安装函数
 install() {
+    if check_installed; then
+        echo -e "${YELLOW}系统信息工具已安装，是否继续安装？${NC}"
+        read -p "继续安装将卸载并重新安装，是否继续？[y/N]: " confirm
+        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+            echo -e "${YELLOW}已取消安装。${NC}"
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            return
+        else
+            echo -e "${YELLOW}正在卸载旧版本...${NC}"
+            uninstall
+        fi
+    fi
+
     mkdir -p ~/.local
 
     echo -e "${YELLOW}正在安装依赖工具...${NC}"
@@ -120,7 +155,14 @@ progress_bar() {
 
 # 获取系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
-uptime_info=\$(uptime -p 2>/dev/null | sed 's/up //g')
+
+# 将 uptime 转换为“days, hours, minutes”格式
+uptime_seconds=\$(cat /proc/uptime | awk '{print \$1}')
+uptime_days=\$(bc <<< "scale=0; \$uptime_seconds / 86400")
+uptime_hours=\$(bc <<< "scale=0; (\$uptime_seconds % 86400) / 3600")
+uptime_minutes=\$(bc <<< "scale=0; (\$uptime_seconds % 3600) / 60")
+uptime_info="\${uptime_days} days, \${uptime_hours} hours, \${uptime_minutes} minutes"
+
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
 load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')  # 获取负载信息
@@ -217,27 +259,6 @@ EOF
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
-# 卸载函数
-uninstall() {
-    echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
-    rm -f ~/.local/sysinfo.sh
-    sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
-
-    if [[ -f /etc/motd.bak ]]; then
-        echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
-        sudo mv /etc/motd.bak /etc/motd
-        echo -e "${GREEN}还原完成，备份文件路径：/etc/motd.bak${NC}"
-    else
-        if [[ -f /etc/motd ]]; then
-            echo -e "${YELLOW}清空 /etc/motd 文件...${NC}"
-            sudo truncate -s 0 /etc/motd
-        fi
-    fi
-
-    echo -e "${GREEN}系统信息工具已卸载！${NC}"
-    read -n 1 -s -r -p "按任意键返回菜单..."
-}
-
 # 显示菜单
 show_menu() {
     while true; do
@@ -256,6 +277,7 @@ show_menu() {
                 ;;
             2)
                 uninstall
+                read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             0)
                 echo -e "${ORANGE}退出脚本。${NC}"
