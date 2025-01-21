@@ -220,7 +220,9 @@ uninstall() {
     if [[ -f /etc/motd.bak ]]; then
         sudo mv /etc/motd.bak /etc/motd
     else
-        sudo truncate -s 0 /etc/motd
+        if [[ -f /etc/motd ]]; then
+            sudo truncate -s 0 /etc/motd
+        fi
     fi
 
     echo -e "${GREEN}系统信息工具已卸载！${NC}"
