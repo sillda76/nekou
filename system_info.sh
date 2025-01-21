@@ -72,13 +72,17 @@ get_public_ip() {
 install() {
     mkdir -p ~/.local
 
+    echo -e "${YELLOW}正在安装依赖工具...${NC}"
     install_dependencies
 
     if [[ -f /etc/motd ]]; then
+        echo -e "${YELLOW}备份 /etc/motd 文件到 /etc/motd.bak...${NC}"
         sudo cp /etc/motd /etc/motd.bak
         sudo truncate -s 0 /etc/motd
+        echo -e "${GREEN}备份完成，备份文件路径：/etc/motd.bak${NC}"
     fi
 
+    echo -e "${YELLOW}正在创建系统信息脚本...${NC}"
     cat << EOF > ~/.local/sysinfo.sh
 #!/bin/bash
 
@@ -209,18 +213,23 @@ EOF
 
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
+    echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 # 卸载函数
 uninstall() {
+    echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
     rm -f ~/.local/sysinfo.sh
     sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
 
     if [[ -f /etc/motd.bak ]]; then
+        echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
         sudo mv /etc/motd.bak /etc/motd
+        echo -e "${GREEN}还原完成，备份文件路径：/etc/motd.bak${NC}"
     else
         if [[ -f /etc/motd ]]; then
+            echo -e "${YELLOW}清空 /etc/motd 文件...${NC}"
             sudo truncate -s 0 /etc/motd
         fi
     fi
