@@ -7,7 +7,17 @@ YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'  # 橙色
+BLUE='\033[1;34m'  # 蓝色
 NC='\033[0m'
+
+# 检查是否已安装
+check_installed() {
+    if [[ -f ~/.local/sysinfo.sh ]] && grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
+        echo -e "${GREEN}已安装${NC}"
+    else
+        echo -e "${RED}未安装${NC}"
+    fi
+}
 
 # 进度条函数
 progress_bar() {
@@ -78,6 +88,7 @@ YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'  # 橙色
+BLUE='\033[1;34m'  # 蓝色
 NC='\033[0m'
 
 progress_bar() {
@@ -142,7 +153,7 @@ get_network_traffic() {
     local rx_traffic=\$(format_bytes \$rx_bytes)
     local tx_traffic=\$(format_bytes \$tx_bytes)
 
-    echo -e "\${ORANGE}Traffic:\${NC} TX: \${YELLOW}\$tx_traffic\${NC}, RX: \${GREEN}\$rx_traffic\${NC}"
+    echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
 }
 
 # 输出系统信息
@@ -198,6 +209,7 @@ EOF
 
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 # 卸载函数
@@ -212,6 +224,7 @@ uninstall() {
     fi
 
     echo -e "${GREEN}系统信息工具已卸载！${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 # 显示菜单
@@ -222,17 +235,16 @@ show_menu() {
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
+        echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
         read -p "请输入选项 (0、1 或 2): " choice
 
         case $choice in
             1)
                 install
-                exit 0
                 ;;
             2)
                 uninstall
-                exit 0
                 ;;
             0)
                 echo -e "${ORANGE}退出脚本。${NC}"
