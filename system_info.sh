@@ -103,10 +103,12 @@ progress_bar() {
     printf "]"
 }
 
+# 获取系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 uptime_info=\$(uptime -p 2>/dev/null | sed 's/up //g')
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
+load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')  # 获取负载信息
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
 memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
 swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
@@ -114,9 +116,40 @@ swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
+# 获取网络流量信息
+get_network_traffic() {
+    local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
+    if [[ -z "\$interface" ]]; then
+        echo "Traffic: No active interface"
+        return
+    fi
+
+    local rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
+    local tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
+
+    # 转换单位为 MB、GB 或 TB
+    format_bytes() {
+        local bytes=\$1
+        if (( bytes >= 1099511627776 )); then
+            echo "\$(awk "BEGIN {printf \"%.2f TB\", \$bytes / 1099511627776}")"
+        elif (( bytes >= 1073741824 )); then
+            echo "\$(awk "BEGIN {printf \"%.2f GB\", \$bytes / 1073741824}")"
+        else
+            echo "\$(awk "BEGIN {printf \"%.2f MB\", \$bytes / 1048576}")"
+        fi
+    }
+
+    local rx_traffic=\$(format_bytes \$rx_bytes)
+    local tx_traffic=\$(format_bytes \$tx_bytes)
+
+    echo -e "\${ORANGE}Traffic:\${NC} RX: \$rx_traffic, TX: \$tx_traffic"
+}
+
+# 输出系统信息
 echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
 echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
 echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
+echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"  # 输出负载信息
 
 echo -ne "\${ORANGE}Memory:\${NC}    "
 progress_bar \$memory_used \$memory_total
@@ -131,6 +164,10 @@ echo -ne "\${ORANGE}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
 
+# 输出网络流量信息
+get_network_traffic
+
+# 获取公网 IP
 get_public_ip() {
     ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
