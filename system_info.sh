@@ -60,7 +60,7 @@ get_public_ip() {
     if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
     fi
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* ]]; then
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
         echo -e "${GREEN}IPv6:${NC} $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
@@ -186,7 +186,7 @@ get_public_ip() {
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
     fi
-    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* ]]; then
+    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* && "\$ipv6" != "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
     fi
     if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
