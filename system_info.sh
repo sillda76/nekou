@@ -130,6 +130,7 @@ ORANGE='\033[1;38;5;208m'  # 橙色
 BLUE='\033[1;34m'  # 蓝色
 NC='\033[0m'
 
+# 进度条函数
 progress_bar() {
     local progress=\$1
     local total=\$2
@@ -153,19 +154,22 @@ progress_bar() {
     printf "]"
 }
 
+# 获取 CPU 占用率
+get_cpu_usage() {
+    local cpu_usage=\$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *$[0-9.]*$%* id.*/\1/" | awk '{print 100 - \$1}')
+    echo "\${cpu_usage%.*}%"
+}
+
 # 获取系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
-
-# 将 uptime 转换为“days, hours, minutes”格式
 uptime_seconds=\$(cat /proc/uptime | awk '{print \$1}')
 uptime_days=\$(bc <<< "scale=0; \$uptime_seconds / 86400")
 uptime_hours=\$(bc <<< "scale=0; (\$uptime_seconds % 86400) / 3600")
 uptime_minutes=\$(bc <<< "scale=0; (\$uptime_seconds % 3600) / 60")
 uptime_info="\${uptime_days} days, \${uptime_hours} hours, \${uptime_minutes} minutes"
-
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
-load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')  # 获取负载信息
+load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
 memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
 swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
@@ -184,7 +188,6 @@ get_network_traffic() {
     local rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
     local tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
 
-    # 转换单位为 MB、GB 或 TB
     format_bytes() {
         local bytes=\$1
         if (( bytes >= 1099511627776 )); then
@@ -206,7 +209,7 @@ get_network_traffic() {
 echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
 echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
 echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
-echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"  # 输出负载信息
+echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A} \${ORANGE}CPU:\${NC} \${GREEN}\$(get_cpu_usage)\${NC}"
 
 echo -ne "\${ORANGE}Memory:\${NC}    "
 progress_bar \$memory_used \$memory_total
