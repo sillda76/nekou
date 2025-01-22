@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 检查是否传递了 Telegram Bot Token 和 Chat ID
+# 检查是否已经传递了 Telegram Bot Token 和 Chat ID
 if [ -z "$1" ] || [ -z "$2" ]; then
   echo "使用方法: $0 <Telegram Bot Token> <Chat ID>"
   exit 1
