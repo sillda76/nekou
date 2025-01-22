@@ -73,18 +73,45 @@ get_public_ip() {
 # 卸载函数
 uninstall() {
     echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
-    rm -f ~/.local/sysinfo.sh
-    sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
 
+    # 删除系统信息脚本
+    if [[ -f ~/.local/sysinfo.sh ]]; then
+        rm -f ~/.local/sysinfo.sh
+        echo -e "${GREEN}已删除系统信息脚本：~/.local/sysinfo.sh${NC}"
+    fi
+
+    # 从 .bashrc 中移除相关代码
+    if grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
+        sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
+        echo -e "${GREEN}已从 ~/.bashrc 中移除相关代码${NC}"
+    fi
+
+    # 还原 /etc/motd 文件
     if [[ -f /etc/motd.bak ]]; then
         echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
         sudo mv /etc/motd.bak /etc/motd
         echo -e "${GREEN}还原完成，备份文件路径：/etc/motd.bak${NC}"
     else
-        if [[ -f /etc/motd ]]; then
-            echo -e "${YELLOW}清空 /etc/motd 文件...${NC}"
-            sudo truncate -s 0 /etc/motd
+        echo -e "${YELLOW}未找到 /etc/motd.bak 备份文件，正在从 GitHub 下载...${NC}"
+        sudo curl -s -o /etc/motd.bak https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/motd.bak
+        if [[ $? -eq 0 ]]; then
+            echo -e "${GREEN}下载完成，备份文件路径：/etc/motd.bak${NC}"
+            echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
+            sudo mv /etc/motd.bak /etc/motd
+            echo -e "${GREEN}还原完成${NC}"
+        else
+            echo -e "${RED}下载 motd.bak 文件失败！${NC}"
+            if [[ -f /etc/motd ]]; then
+                echo -e "${YELLOW}清空 /etc/motd 文件...${NC}"
+                sudo truncate -s 0 /etc/motd
+            fi
         fi
+    fi
+
+    # 清理备份文件
+    if [[ -f /etc/motd.bak ]]; then
+        sudo rm -f /etc/motd.bak
+        echo -e "${GREEN}已清理备份文件：/etc/motd.bak${NC}"
     fi
 
     echo -e "${GREEN}系统信息工具已卸载！${NC}"
@@ -272,7 +299,7 @@ show_menu() {
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
-        read -p "请输入选项 (0、1 或 2): " choice
+        read -p "请输入选项 : " choice
 
         case $choice in
             1)
