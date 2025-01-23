@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# 定义颜色变量
+# 颜色变量
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
-ORANGE='\033[1;38;5;208m'
-BLUE='\033[1;34m'
+ORANGE='\033[1;38;5;208m'  # 橙色
+BLUE='\033[1;34m'  # 蓝色
 NC='\033[0m'
 
 # 检查是否已安装
@@ -48,7 +48,7 @@ progress_bar() {
 # 安装依赖工具
 install_dependencies() {
     if ! command -v bc &> /dev/null; then
-        echo -e "${YELLOW}正在安装 bc 工具...${NC}"
+        echo -e "${YELLOW}未找到 bc 工具，正在安装...${NC}"
         sudo apt install bc -y || { echo -e "${RED}安装 bc 失败！${NC}"; exit 1; }
     fi
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
@@ -74,22 +74,19 @@ get_public_ip() {
 uninstall() {
     echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
 
-    if ! check_installed; then
-        echo -e "${RED}未检测到系统信息工具，无需卸载。${NC}"
-        read -n 1 -s -r -p "按任意键返回菜单..."
-        return
-    fi
-
+    # 删除系统信息脚本
     if [[ -f ~/.local/sysinfo.sh ]]; then
         echo -e "${YELLOW}删除系统信息脚本...${NC}"
         rm -f ~/.local/sysinfo.sh
     fi
 
+    # 清理 ~/.bashrc 中的配置
     if grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
-        echo -e "${YELLOW}移除 ~/.bashrc 中的系统信息逻辑...${NC}"
+        echo -e "${YELLOW}清理 ~/.bashrc 配置...${NC}"
         sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
     fi
 
+    # 还原 /etc/motd 文件
     if [[ -f /etc/motd.bak ]]; then
         echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
         sudo mv /etc/motd.bak /etc/motd
@@ -98,16 +95,13 @@ uninstall() {
         sudo truncate -s 0 /etc/motd
     fi
 
-    if [[ -f ~/.local/sysinfo.sh.bak ]]; then
-        echo -e "${YELLOW}清理备份文件...${NC}"
-        rm -f ~/.local/sysinfo.sh.bak
-    fi
-    if [[ -f /etc/motd.bak ]]; then
-        sudo rm -f /etc/motd.bak
+    # 删除其他临时文件或备份文件
+    if [[ -f ~/.local/sysinfo_backup.tar.gz ]]; then
+        echo -e "${YELLOW}删除临时备份文件...${NC}"
+        rm -f ~/.local/sysinfo_backup.tar.gz
     fi
 
-    echo -e "${GREEN}系统信息工具已成功卸载！${NC}"
-    read -n 1 -s -r -p "按任意键返回菜单..."
+    echo -e "${GREEN}系统信息工具已卸载！${NC}"
 }
 
 # 安装函数
@@ -146,8 +140,8 @@ GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
-ORANGE='\033[1;38;5;208m'
-BLUE='\033[1;34m'
+ORANGE='\033[1;38;5;208m'  # 橙色
+BLUE='\033[1;34m'  # 蓝色
 NC='\033[0m'
 
 progress_bar() {
@@ -173,8 +167,10 @@ progress_bar() {
     printf "]"
 }
 
+# 获取系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 
+# 将 uptime 转换为“days, hours, minutes”格式
 uptime_seconds=\$(cat /proc/uptime | awk '{print \$1}')
 uptime_days=\$(bc <<< "scale=0; \$uptime_seconds / 86400")
 uptime_hours=\$(bc <<< "scale=0; (\$uptime_seconds % 86400) / 3600")
@@ -183,8 +179,9 @@ uptime_info="\${uptime_days} days, \${uptime_hours} hours, \${uptime_minutes} mi
 
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
-load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')
+load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')  # 获取负载信息
 
+# 使用 top 获取 CPU 占用率
 cpu_usage=\$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - \$1"%"}')
 
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
@@ -194,6 +191,7 @@ swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
+# 获取网络流量信息
 get_network_traffic() {
     local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
     if [[ -z "\$interface" ]]; then
@@ -204,6 +202,7 @@ get_network_traffic() {
     local rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
     local tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
 
+    # 转换单位为 MB、GB 或 TB
     format_bytes() {
         local bytes=\$1
         if (( bytes >= 1099511627776 )); then
@@ -221,10 +220,11 @@ get_network_traffic() {
     echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
 }
 
+# 输出系统信息
 echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
 echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
 echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
-echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A} \${ORANGE}CPU:\${NC} \${cpu_usage:-N/A}"
+echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A} \${ORANGE}CPU:\${NC} \${cpu_usage:-N/A}"  # 输出负载信息和 CPU 占用率
 
 echo -ne "\${ORANGE}Memory:\${NC}    "
 progress_bar \$memory_used \$memory_total
@@ -239,8 +239,10 @@ echo -ne "\${ORANGE}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
 
+# 输出网络流量信息
 get_network_traffic
 
+# 获取公网 IP
 get_public_ip() {
     ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
@@ -272,9 +274,6 @@ EOF
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    if [[ -f /etc/motd.bak ]]; then
-        echo -e "${YELLOW}备份文件路径：/etc/motd.bak${NC}"
-    fi
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
@@ -288,7 +287,7 @@ show_menu() {
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
-        read -p "请输入选项 : " choice
+        read -p "请输入选项 (0、1 或 2): " choice
 
         case $choice in
             1)
