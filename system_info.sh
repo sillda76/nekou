@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# 颜色变量
+# 定义颜色变量
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
-ORANGE='\033[1;38;5;208m'  # 橙色
-BLUE='\033[1;34m'  # 蓝色
+ORANGE='\033[1;38;5;208m'
+BLUE='\033[1;34m'
 NC='\033[0m'
 
 # 检查是否已安装
@@ -48,7 +48,7 @@ progress_bar() {
 # 安装依赖工具
 install_dependencies() {
     if ! command -v bc &> /dev/null; then
-        echo -e "${YELLOW}未找到 bc 工具，正在安装...${NC}"
+        echo -e "${YELLOW}正在安装 bc 工具...${NC}"
         sudo apt install bc -y || { echo -e "${RED}安装 bc 失败！${NC}"; exit 1; }
     fi
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
@@ -74,47 +74,40 @@ get_public_ip() {
 uninstall() {
     echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
 
-    # 删除系统信息脚本
+    if ! check_installed; then
+        echo -e "${RED}未检测到系统信息工具，无需卸载。${NC}"
+        read -n 1 -s -r -p "按任意键返回菜单..."
+        return
+    fi
+
     if [[ -f ~/.local/sysinfo.sh ]]; then
+        echo -e "${YELLOW}删除系统信息脚本...${NC}"
         rm -f ~/.local/sysinfo.sh
-        echo -e "${GREEN}已删除系统信息脚本：~/.local/sysinfo.sh${NC}"
     fi
 
-    # 从 .bashrc 中移除相关代码
     if grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
+        echo -e "${YELLOW}移除 ~/.bashrc 中的系统信息逻辑...${NC}"
         sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
-        echo -e "${GREEN}已从 ~/.bashrc 中移除相关代码${NC}"
     fi
 
-    # 还原 /etc/motd 文件
     if [[ -f /etc/motd.bak ]]; then
         echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
         sudo mv /etc/motd.bak /etc/motd
-        echo -e "${GREEN}还原完成，备份文件路径：/etc/motd.bak${NC}"
-    else
-        echo -e "${YELLOW}未找到 /etc/motd.bak 备份文件，正在从 GitHub 下载...${NC}"
-        sudo curl -s -o /etc/motd.bak https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/motd.bak
-        if [[ $? -eq 0 ]]; then
-            echo -e "${GREEN}下载完成，备份文件路径：/etc/motd.bak${NC}"
-            echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
-            sudo mv /etc/motd.bak /etc/motd
-            echo -e "${GREEN}还原完成${NC}"
-        else
-            echo -e "${RED}下载 motd.bak 文件失败！${NC}"
-            if [[ -f /etc/motd ]]; then
-                echo -e "${YELLOW}清空 /etc/motd 文件...${NC}"
-                sudo truncate -s 0 /etc/motd
-            fi
-        fi
+    elif [[ -f /etc/motd ]]; then
+        echo -e "${YELLOW}清空 /etc/motd 文件...${NC}"
+        sudo truncate -s 0 /etc/motd
     fi
 
-    # 清理备份文件
+    if [[ -f ~/.local/sysinfo.sh.bak ]]; then
+        echo -e "${YELLOW}清理备份文件...${NC}"
+        rm -f ~/.local/sysinfo.sh.bak
+    fi
     if [[ -f /etc/motd.bak ]]; then
         sudo rm -f /etc/motd.bak
-        echo -e "${GREEN}已清理备份文件：/etc/motd.bak${NC}"
     fi
 
-    echo -e "${GREEN}系统信息工具已卸载！${NC}"
+    echo -e "${GREEN}系统信息工具已成功卸载！${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 # 安装函数
@@ -153,11 +146,10 @@ GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
 BLACK='\033[1;30m'
-ORANGE='\033[1;38;5;208m'  # 橙色
-BLUE='\033[1;34m'  # 蓝色
+ORANGE='\033[1;38;5;208m'
+BLUE='\033[1;34m'
 NC='\033[0m'
 
-# 进度条函数
 progress_bar() {
     local progress=\$1
     local total=\$2
@@ -181,22 +173,20 @@ progress_bar() {
     printf "]"
 }
 
-# 获取 CPU 占用率
-get_cpu_usage() {
-    local cpu_usage=\$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *$[0-9.]*$%* id.*/\1/" | awk '{print 100 - \$1}')
-    echo "\${cpu_usage%.*}%"
-}
-
-# 获取系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
+
 uptime_seconds=\$(cat /proc/uptime | awk '{print \$1}')
 uptime_days=\$(bc <<< "scale=0; \$uptime_seconds / 86400")
 uptime_hours=\$(bc <<< "scale=0; (\$uptime_seconds % 86400) / 3600")
 uptime_minutes=\$(bc <<< "scale=0; (\$uptime_seconds % 3600) / 60")
 uptime_info="\${uptime_days} days, \${uptime_hours} hours, \${uptime_minutes} minutes"
+
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
 load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')
+
+cpu_usage=\$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - \$1"%"}')
+
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
 memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
 swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
@@ -204,7 +194,6 @@ swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
-# 获取网络流量信息
 get_network_traffic() {
     local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
     if [[ -z "\$interface" ]]; then
@@ -232,11 +221,10 @@ get_network_traffic() {
     echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
 }
 
-# 输出系统信息
 echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
 echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
 echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
-echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A} \${ORANGE}CPU:\${NC} \${GREEN}\$(get_cpu_usage)\${NC}"
+echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A} \${ORANGE}CPU:\${NC} \${cpu_usage:-N/A}"
 
 echo -ne "\${ORANGE}Memory:\${NC}    "
 progress_bar \$memory_used \$memory_total
@@ -251,10 +239,8 @@ echo -ne "\${ORANGE}Disk:\${NC}      "
 progress_bar \$disk_used \$disk_total
 echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
 
-# 输出网络流量信息
 get_network_traffic
 
-# 获取公网 IP
 get_public_ip() {
     ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
@@ -286,6 +272,9 @@ EOF
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
+    if [[ -f /etc/motd.bak ]]; then
+        echo -e "${YELLOW}备份文件路径：/etc/motd.bak${NC}"
+    fi
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
