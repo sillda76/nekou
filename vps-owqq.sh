@@ -404,26 +404,32 @@ linux_clean() {
 
 # 设置快捷启动命令
 setup_alias() {
-    local shell_rc=~/.profile  # 使用通用配置文件
+    local config_files=(~/.bashrc ~/.zshrc ~/.profile)  # 所有配置文件
 
-    # 如果 ~/.profile 不存在，则创建它
-    if [[ ! -f "$shell_rc" ]]; then
-        touch "$shell_rc"
-        echo -e "${GREEN}创建通用配置文件: $shell_rc${NC}"
-    fi
+    for shell_rc in "${config_files[@]}"; do
+        # 如果配置文件不存在，则创建它
+        if [[ ! -f "$shell_rc" ]]; then
+            touch "$shell_rc"
+            echo -e "${GREEN}创建配置文件: $shell_rc${NC}"
+        fi
 
-    # 检查是否已经存在快捷命令
-    if ! grep -q "alias q=" "$shell_rc"; then
-        echo "alias q='$CURRENT_SCRIPT_PATH'" >> "$shell_rc"
-        echo -e "${GREEN}快捷命令 'q' 已添加到 $shell_rc。${NC}"
-    else
-        echo -e "${YELLOW}快捷命令 'q' 已存在。${NC}"
-    fi
+        # 检查是否已经存在快捷命令
+        if ! grep -q "alias q=" "$shell_rc"; then
+            echo "alias q='$CURRENT_SCRIPT_PATH'" >> "$shell_rc"
+            echo -e "${GREEN}快捷命令 'q' 已添加到 $shell_rc。${NC}"
+        else
+            echo -e "${YELLOW}快捷命令 'q' 已存在于 $shell_rc。${NC}"
+        fi
+    done
 
-    # 重新加载配置文件
-    if [[ -n "$shell_rc" ]]; then
-        source "$shell_rc"
-        echo -e "${GREEN}配置文件 $shell_rc 已重新加载。${NC}"
+    # 重新加载当前 Shell 的配置文件
+    if [[ -n "$SHELL" ]]; then
+        source ~/.profile  # 重新加载通用配置文件
+        case $(basename "$SHELL") in
+            "zsh") source ~/.zshrc ;;
+            "bash") source ~/.bashrc ;;
+        esac
+        echo -e "${GREEN}配置文件已重新加载。${NC}"
     else
         echo -e "${RED}无法重新加载配置文件。${NC}"
     fi
@@ -432,15 +438,17 @@ setup_alias() {
 # 卸载脚本函数
 uninstall_script() {
     echo -e "${YELLOW}正在卸载脚本...${NC}"
-    local shell_rc=~/.profile  # 使用通用配置文件
+    local config_files=(~/.bashrc ~/.zshrc ~/.profile)  # 所有配置文件
 
-    # 删除快捷命令
-    if grep -q "alias q=" "$shell_rc"; then
-        sed -i '/alias q=/d' "$shell_rc"
-        echo -e "${GREEN}快捷启动命令 'q' 已删除。${NC}"
-    else
-        echo -e "${YELLOW}快捷启动命令 'q' 不存在。${NC}"
-    fi
+    for shell_rc in "${config_files[@]}"; do
+        # 删除快捷命令
+        if grep -q "alias q=" "$shell_rc"; then
+            sed -i '/alias q=/d' "$shell_rc"
+            echo -e "${GREEN}快捷启动命令 'q' 已从 $shell_rc 中删除。${NC}"
+        else
+            echo -e "${YELLOW}快捷启动命令 'q' 不存在于 $shell_rc。${NC}"
+        fi
+    done
 
     # 删除标记文件
     if [[ -f ~/.vps-script-setup ]]; then
