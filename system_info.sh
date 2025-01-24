@@ -30,7 +30,7 @@ check_installed() {
     done
 
     # 根据检查结果返回状态
-    if [[ $script_ok -eq 1 && $config_ok -eq 3 ]]; then
+    if [[ $script_ok -eq 1 && $config_ok -eq 1 ]]; then
         echo -e "${GREEN}已安装${NC}"
         return 0
     elif [[ $script_ok -eq 1 || $config_ok -gt 0 ]]; then
@@ -284,26 +284,28 @@ EOF
 
     chmod +x ~/.local/sysinfo.sh
 
-    # 写入多个配置文件
-    local config_files=(~/.bashrc ~/.zshrc ~/.profile)
-    for shell_rc in "${config_files[@]}"; do
-        if [[ ! -f "$shell_rc" ]]; then
-            touch "$shell_rc"
-        fi
-        if ! grep -q '# SYSINFO SSH LOGIC START' "$shell_rc"; then
-            echo '# SYSINFO SSH LOGIC START' >> "$shell_rc"
-            echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> "$shell_rc"
-            echo '    bash ~/.local/sysinfo.sh' >> "$shell_rc"
-            echo 'fi' >> "$shell_rc"
-            echo '# SYSINFO SSH LOGIC END' >> "$shell_rc"
-        fi
-    done
+    # 获取当前 Shell 类型
+    local current_shell=$(basename "$SHELL")
+
+    # 根据当前 Shell 选择配置文件
+    local shell_rc
+    case $current_shell in
+        "zsh") shell_rc=~/.zshrc ;;
+        "bash") shell_rc=~/.bashrc ;;
+        *) shell_rc=~/.profile ;;
+    esac
+
+    # 写入启动逻辑
+    if ! grep -q '# SYSINFO SSH LOGIC START' "$shell_rc"; then
+        echo '# SYSINFO SSH LOGIC START' >> "$shell_rc"
+        echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" && "$SHELL" == *"'$current_shell'"* ]]; then' >> "$shell_rc"
+        echo '    bash ~/.local/sysinfo.sh' >> "$shell_rc"
+        echo 'fi' >> "$shell_rc"
+        echo '# SYSINFO SSH LOGIC END' >> "$shell_rc"
+    fi
 
     # 重新加载配置文件
-    source ~/.bashrc >/dev/null 2>&1
-    source ~/.zshrc >/dev/null 2>&1
-    source ~/.profile >/dev/null 2>&1
-
+    source "$shell_rc" >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
