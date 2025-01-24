@@ -12,9 +12,30 @@ NC='\033[0m'
 
 # 检查是否已安装
 check_installed() {
-    if [[ -f ~/.local/sysinfo.sh ]] && grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
+    local script_file=~/.local/sysinfo.sh
+    local config_files=(~/.bashrc ~/.zshrc ~/.profile)
+    local script_ok=0
+    local config_ok=0
+
+    # 检查脚本文件是否存在且可执行
+    if [[ -f "$script_file" && -x "$script_file" ]]; then
+        script_ok=1
+    fi
+
+    # 检查配置文件是否包含启动逻辑
+    for shell_rc in "${config_files[@]}"; do
+        if [[ -f "$shell_rc" ]] && grep -q '# SYSINFO SSH LOGIC START' "$shell_rc"; then
+            config_ok=$((config_ok + 1))
+        fi
+    done
+
+    # 根据检查结果返回状态
+    if [[ $script_ok -eq 1 && $config_ok -eq 3 ]]; then
         echo -e "${GREEN}已安装${NC}"
         return 0
+    elif [[ $script_ok -eq 1 || $config_ok -gt 0 ]]; then
+        echo -e "${YELLOW}安装异常${NC}"
+        return 1
     else
         echo -e "${RED}未安装${NC}"
         return 1
@@ -80,11 +101,14 @@ uninstall() {
         rm -f ~/.local/sysinfo.sh
     fi
 
-    # 清理 ~/.bashrc 中的配置
-    if grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
-        echo -e "${YELLOW}清理 ~/.bashrc 配置...${NC}"
-        sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
-    fi
+    # 清理所有配置文件中的配置
+    local config_files=(~/.bashrc ~/.zshrc ~/.profile)
+    for shell_rc in "${config_files[@]}"; do
+        if grep -q '# SYSINFO SSH LOGIC START' "$shell_rc"; then
+            echo -e "${YELLOW}清理 $shell_rc 配置...${NC}"
+            sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' "$shell_rc"
+        fi
+    done
 
     # 还原 /etc/motd 文件
     if [[ -f /etc/motd.bak ]]; then
@@ -260,15 +284,26 @@ EOF
 
     chmod +x ~/.local/sysinfo.sh
 
-    if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
-        echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
-        echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
-        echo '    bash ~/.local/sysinfo.sh' >> ~/.bashrc
-        echo 'fi' >> ~/.bashrc
-        echo '# SYSINFO SSH LOGIC END' >> ~/.bashrc
-    fi
+    # 写入多个配置文件
+    local config_files=(~/.bashrc ~/.zshrc ~/.profile)
+    for shell_rc in "${config_files[@]}"; do
+        if [[ ! -f "$shell_rc" ]]; then
+            touch "$shell_rc"
+        fi
+        if ! grep -q '# SYSINFO SSH LOGIC START' "$shell_rc"; then
+            echo '# SYSINFO SSH LOGIC START' >> "$shell_rc"
+            echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> "$shell_rc"
+            echo '    bash ~/.local/sysinfo.sh' >> "$shell_rc"
+            echo 'fi' >> "$shell_rc"
+            echo '# SYSINFO SSH LOGIC END' >> "$shell_rc"
+        fi
+    done
 
+    # 重新加载配置文件
     source ~/.bashrc >/dev/null 2>&1
+    source ~/.zshrc >/dev/null 2>&1
+    source ~/.profile >/dev/null 2>&1
+
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
