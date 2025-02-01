@@ -1,55 +1,68 @@
 #!/bin/bash
 
+# 颜色变量
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+MAGENTA='\033[1;35m'
+CYAN='\033[1;36m'
+NC='\033[0m' # 恢复默认颜色
+
+# 加粗字体
+BOLD=$(tput bold)
+NORMAL=$(tput sgr0)
+
 # 脚本主标题
-echo "=============================="
-echo "        DMR直播录制           "
-echo "=============================="
+echo -e "${CYAN}==============================${NC}"
+echo -e "${CYAN}        ${BOLD}DMR直播录制${NORMAL}           ${NC}"
+echo -e "${CYAN}==============================${NC}"
 
 # 检测main.py是否在运行
 check_dmr() {
-    if pgrep -f "/opt/DanmakuRender-5/main.py" > /dev/null; then
-        echo "DMR状态：正在运行。"
+    if pgrep -f "python3 /opt/DanmakuRender-5/main.py" > /dev/null; then
+        echo -e "${GREEN}${BOLD}DMR状态：正在运行。${NC}${NORMAL}"
     else
-        echo "DMR状态：未运行。"
+        echo -e "${RED}${BOLD}DMR状态：未运行。${NC}${NORMAL}"
     fi
 }
 
 # 启动DMR
 start_dmr() {
-    if pgrep -f "/opt/DanmakuRender-5/main.py" > /dev/null; then
-        echo "DMR已经在运行中。"
+    if pgrep -f "python3 /opt/DanmakuRender-5/main.py" > /dev/null; then
+        echo -e "${YELLOW}${BOLD}DMR已经在运行中。${NC}${NORMAL}"
     else
-        echo "正在启动DMR..."
+        echo -e "${BLUE}${BOLD}正在启动DMR...${NC}${NORMAL}"
         cd /opt/DanmakuRender-5
         source venv/bin/activate
-        nohup python3 main.py &
-        echo "DMR已启动。"
+        nohup python3 main.py > nohup.out 2>&1 &
+        echo -e "${GREEN}${BOLD}DMR已启动。${NC}${NORMAL}"
     fi
 }
 
 # 停止DMR
 stop_dmr() {
-    if pgrep -f "/opt/DanmakuRender-5/main.py" > /dev/null; then
-        echo "正在停止DMR..."
-        pkill -f "/opt/DanmakuRender-5/main.py"
-        echo "DMR已停止。"
+    if pgrep -f "python3 /opt/DanmakuRender-5/main.py" > /dev/null; then
+        echo -e "${BLUE}${BOLD}正在停止DMR...${NC}${NORMAL}"
+        pkill -f "python3 /opt/DanmakuRender-5/main.py"
+        echo -e "${GREEN}${BOLD}DMR已停止。${NC}${NORMAL}"
     else
-        echo "DMR未运行，无需停止。"
+        echo -e "${YELLOW}${BOLD}DMR未运行，无需停止。${NC}${NORMAL}"
     fi
 }
 
 # 查看DMR日志
 view_log() {
-    echo "查看DMR日志："
+    echo -e "${MAGENTA}${BOLD}查看DMR日志：${NC}${NORMAL}"
     tail -f /opt/DanmakuRender-5/nohup.out
 }
 
 # 更新哔哩哔哩cookies
 update_cookies() {
-    echo "正在更新哔哩哔哩cookies..."
+    echo -e "${BLUE}${BOLD}正在更新哔哩哔哩cookies...${NC}${NORMAL}"
     cd /opt/DanmakuRender-5/tools
     ./biliup login
-    echo "cookies更新完成。"
+    echo -e "${GREEN}${BOLD}cookies更新完成。${NC}${NORMAL}"
 }
 
 # 主菜单
@@ -57,24 +70,24 @@ while true; do
     echo ""
     check_dmr  # 显示DMR状态
     echo ""
-    echo "请选择操作："
-    echo "1. 启动/停止DMR"
-    echo "2. 查看DMR日志"
-    echo "3. 更新哔哩哔哩cookies"
-    echo "0. 退出"
+    echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
+    echo -e "${CYAN}1. 启动/停止DMR${NC}"
+    echo -e "${CYAN}2. 查看DMR日志${NC}"
+    echo -e "${CYAN}3. 更新哔哩哔哩cookies${NC}"
+    echo -e "${CYAN}0. 退出${NC}"
     read -p "请输入选项（0-3）：" choice
 
     case $choice in
         1)
-            echo "1. 启动DMR"
-            echo "2. 停止DMR"
+            echo -e "${CYAN}1. 启动DMR${NC}"
+            echo -e "${CYAN}2. 停止DMR${NC}"
             read -p "请选择（1-2）：" dmr_choice
             if [ "$dmr_choice" == "1" ]; then
                 start_dmr
             elif [ "$dmr_choice" == "2" ]; then
                 stop_dmr
             else
-                echo "无效选项，按任意键返回菜单。"
+                echo -e "${RED}${BOLD}无效选项，按任意键返回菜单。${NC}${NORMAL}"
                 read -n 1 -s
             fi
             ;;
@@ -85,11 +98,11 @@ while true; do
             update_cookies
             ;;
         0)
-            echo "退出脚本。"
+            echo -e "${GREEN}${BOLD}退出脚本。${NC}${NORMAL}"
             break
             ;;
         *)
-            echo "无效选项，按任意键返回菜单。"
+            echo -e "${RED}${BOLD}无效选项，按任意键返回菜单。${NC}${NORMAL}"
             read -n 1 -s
             ;;
     esac
