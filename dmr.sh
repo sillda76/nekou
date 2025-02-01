@@ -76,7 +76,8 @@ stop_dmr() {
 
 # 查看日志
 view_log() {
-    echo -e "${CYAN}查看日志（按Ctrl+C返回）...${NC}"
+    echo -e "${CYAN}查看日志（按Ctrl+C返回菜单）...${NC}"
+    trap 'echo -e "\n${CYAN}返回菜单...${NC}"; sleep 1; return' SIGINT
     tail -f "$DMR_DIR/$LOG_FILE"
 }
 
