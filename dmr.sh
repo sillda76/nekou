@@ -40,7 +40,12 @@ check_dmr() {
 
     # 显示DMR状态
     if [ -n "$dmr_pid" ]; then
-        echo -e "${GREEN}${BOLD}当前状态：DMR正在运行 (PID: $dmr_pid)${NC}${NORMAL}"
+        echo -e "${GREEN}${BOLD}当前状态：DMR显示正在运行 (PID: $dmr_pid)${NC}${NORMAL}"
+        # 即使显示为运行，仍然检测实际状态
+        if ! ps -p $dmr_pid > /dev/null; then
+            echo -e "${RED}${BOLD}但实际上DMR未运行${NC}${NORMAL}"
+            dmr_pid=""
+        fi
     else
         echo -e "${RED}${BOLD}当前状态：DMR未运行${NC}${NORMAL}"
     fi
@@ -51,6 +56,8 @@ check_dmr() {
     else
         echo -e "${RED}${BOLD}ffmpeg：未运行${NC}${NORMAL}"
     fi
+
+    return $dmr_pid
 }
 
 # 启动DMR
@@ -59,16 +66,16 @@ start_dmr() {
         echo -e "${RED}无法进入DMR目录：$DMR_DIR${NC}"
         return 1
     fi
-    
+    
     if ! source venv/bin/activate; then
         echo -e "${RED}虚拟环境激活失败！${NC}"
         return 1
     fi
-    
+    
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     local pid=$!
     sleep 2
-    
+    
     if ps -p $pid > /dev/null; then
         echo -e "${GREEN}DMR启动成功 (PID: $pid)${NC}"
     else
@@ -79,7 +86,7 @@ start_dmr() {
 # 停止DMR
 stop_dmr() {
     pkill -f "$DMR_CMD"
-    
+    
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}DMR已成功停止${NC}"
     else
@@ -100,12 +107,12 @@ update_cookies() {
         echo -e "${RED}无法进入工具目录${NC}"
         return 1
     fi
-    
+    
     if [ ! -x "${COOKIES_TOOL_CMD%% *}" ]; then
         echo -e "${RED}找不到可执行文件${NC}"
         return 1
     fi
-    
+    
     $COOKIES_TOOL_CMD || echo -e "${RED}Cookie更新失败${NC}"
 }
 
@@ -115,33 +122,33 @@ biliup_upload() {
         echo -e "${RED}无法进入工具目录${NC}"
         return 1
     fi
-    
+    
     if [ ! -x "${BILIUP_CMD%% *}" ]; then
         echo -e "${RED}找不到biliup可执行文件${NC}"
         return 1
     fi
-    
+    
     read -p "请输入视频目录路径: " video_path
     if [ ! -d "$video_path" ]; then
         echo -e "${RED}视频目录不存在，请检查路径${NC}"
         return 1
     fi
-    
+    
     read -p "请输入视频分区tid（例如：17为单机游戏）: " tid
     if ! [[ "$tid" =~ ^[0-9]+$ ]]; then
         echo -e "${RED}分区tid必须为数字${NC}"
         return 1
     fi
-    
+    
     read -p "请输入视频标签（多个标签用逗号分隔）: " tags
     if [ -z "$tags" ]; then
         echo -e "${RED}标签不能为空${NC}"
         return 1
     fi
-    
+    
     echo -e "${BLUE}正在上传视频...${NC}"
     $BILIUP_CMD "$video_path" --tid "$tid" --tag "$tags"
-    
+    
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}视频上传成功${NC}"
     else
@@ -155,18 +162,18 @@ biliup_append() {
         echo -e "${RED}无法进入工具目录${NC}"
         return 1
     fi
-    
+    
     if [ ! -x "${BILIUP_APPEND_CMD%% *}" ]; then
         echo -e "${RED}找不到biliup可执行文件${NC}"
         return 1
     fi
-    
+    
     read -p "请输入要追加的视频BV号: " vid
     if [[ ! "$vid" =~ ^BV ]]; then
         echo -e "${RED}BV号格式错误，应以BV开头${NC}"
         return 1
     fi
-    
+    
     video_paths=()
     while true; do
         read -p "请输入要追加的视频路径: " path
@@ -175,21 +182,21 @@ biliup_append() {
             continue
         fi
         video_paths+=("$path")
-        
+        
         read -p "是否还有更多视频需要追加？(y/n): " more
         if [[ ! "$more" =~ ^[Yy]$ ]]; then
             break
         fi
     done
-    
+    
     if [ ${#video_paths[@]} -eq 0 ]; then
         echo -e "${RED}未提供任何视频路径${NC}"
         return 1
     fi
-    
+    
     echo -e "${BLUE}正在追加上传视频...${NC}"
     $BILIUP_APPEND_CMD --vid "$vid" "${video_paths[@]}"
-    
+    
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}视频追加上传成功${NC}"
     else
@@ -210,7 +217,7 @@ delete_recordings() {
         else
             echo -e "${YELLOW}文件夹不存在：$DMR_DIR/$RECORDINGS_DIR${NC}"
         fi
-        
+        
         if [ -d "$DMR_DIR/$DANMU_RECORDINGS_DIR" ]; then
             rm -rf "$DMR_DIR/$DANMU_RECORDINGS_DIR"
             echo -e "${GREEN}已删除：$DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
@@ -226,7 +233,7 @@ delete_recordings() {
 main_menu() {
     while true; do
         show_header
-        check_dmr
+        dmr_status=$(check_dmr)
         echo ""
         echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${CYAN}1. 启动/停止DMR服务${NC}"
@@ -237,21 +244,26 @@ main_menu() {
         echo -e "${CYAN}6. 一键删除直播回放文件夹${NC}"
         echo -e "${CYAN}0. 退出程序${NC}"
         echo ""
-        
+        
         read -p "请输入选项（0-6）：" choice
         case $choice in
             1)
                 show_header
-                if check_dmr; then
-                    read -p "DMR正在运行，是否要停止？(y/n) " confirm
+                if [ -n "$dmr_status" ]; then
+                    read -p "DMR显示正在运行，是否要停止？(y/n) " confirm
                     if [[ $confirm =~ ^[Yy]$ ]]; then
                         stop_dmr
                     else
                         echo -e "${YELLOW}取消停止操作${NC}"
                     fi
                 else
-                    echo -e "${BLUE}正在尝试启动DMR...${NC}"
-                    start_dmr
+                    echo -e "${BLUE}DMR未运行，正在尝试启动DMR...${NC}"
+                    read -p "确认启动DMR吗？(y/n) " confirm
+                    if [[ $confirm =~ ^[Yy]$ ]]; then
+                        start_dmr
+                    else
+                        echo -e "${YELLOW}取消启动操作${NC}"
+                    fi
                 fi
                 ;;
 
