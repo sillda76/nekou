@@ -38,7 +38,7 @@ show_menu() {
     echo -e "${LIGHT_GREEN}7. 安装1Panel${NC}"
     echo -e "${LIGHT_BLUE}8. 系统工具${NC}"
     echo -e "${LIGHT_RED}9. 虚拟环境${NC}"
-    echo -e "${PURPLE}10. DMR${NC}"  # 新增 DMR 选项
+    echo -e "${MAGENTA}10. DMR${NC}"  # 新增选项
     echo -e "${LIGHT_RED}00. 更新脚本${NC}"
     echo -e "${RED}99. 卸载脚本${NC}"
     echo -e "${MAGENTA}0. 退出脚本${NC}"
@@ -76,7 +76,7 @@ show_system_tools_menu() {
     echo -e "${LIGHT_RED}9. 安装 tar (归档工具)${NC}"
     echo -e "${MAGENTA}10. 安装 nano (文本编辑器)${NC}"
     echo -e "${LIGHT_GREEN}11. 一键安装全部系统基础工具${NC}"
-    echo -e "${YELLOW}12. 安装 ffmpeg (多媒体处理工具)${NC}"
+    echo -e "${YELLOW}12. 安装 ffmpeg (多媒体处理工具)${NC}"  # 新增选项
     echo -e "${MAGENTA}0. 返回主菜单${NC}"
     echo -e "${PURPLE}========================================${NC}"
 }
@@ -227,7 +227,7 @@ system_tools() {
             11)
                 install_all_system_tools
                 ;;
-            12)
+            12)  # 新增的 ffmpeg 选项
                 install_system_tool "ffmpeg" "install_package ffmpeg"
                 ;;
             0)
@@ -402,6 +402,7 @@ linux_clean() {
     echo -e "\n${GREEN}系统清理完成！${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
+
 # 设置快捷启动命令
 setup_alias() {
     local shell_rc
@@ -562,7 +563,8 @@ while true; do
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh) ;;
         7) install_1panel ;;
         8) system_tools ;;
-        9) virtualenv_management ;;  # 新增虚拟环境管理
+        9) virtualenv_management ;;
+        10) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/dmr.sh) ;;
         00) update_script ;;
         99) uninstall_script ;;
         0) echo -e "${MAGENTA}退出脚本。${NC}"; break ;;
