@@ -9,6 +9,10 @@ COOKIES_TOOL_CMD="./biliup login"
 BILIUP_CMD="./biliup upload"
 BILIUP_APPEND_CMD="./biliup append"
 
+# 直播回放文件夹名称
+RECORDINGS_DIR="直播回放"
+DANMU_RECORDINGS_DIR="直播回放（弹幕版）"
+
 # 颜色配置
 RED='\033[1;31m'
 GREEN='\033[1;32m'
@@ -29,14 +33,23 @@ show_header() {
     echo -e "${CYAN}==============================${NC}"
 }
 
-# 检查DMR状态
+# 检查DMR状态和ffmpeg进程
 check_dmr() {
-    if pgrep -f "$DMR_CMD" > /dev/null; then
-        echo -e "${GREEN}${BOLD}当前状态：DMR正在运行${NC}${NORMAL}"
-        return 0
+    local dmr_pid=$(pgrep -f "$DMR_CMD")
+    local ffmpeg_pid=$(pgrep -f "ffmpeg")
+
+    # 显示DMR状态
+    if [ -n "$dmr_pid" ]; then
+        echo -e "${GREEN}${BOLD}当前状态：DMR正在运行 (PID: $dmr_pid)${NC}${NORMAL}"
     else
         echo -e "${RED}${BOLD}当前状态：DMR未运行${NC}${NORMAL}"
-        return 1
+    fi
+
+    # 显示ffmpeg状态
+    if [ -n "$ffmpeg_pid" ]; then
+        echo -e "${GREEN}${BOLD}ffmpeg：正在渲染 (PID: $ffmpeg_pid)${NC}${NORMAL}"
+    else
+        echo -e "${RED}${BOLD}ffmpeg：未运行${NC}${NORMAL}"
     fi
 }
 
@@ -184,6 +197,31 @@ biliup_append() {
     fi
 }
 
+# 一键删除直播回放文件夹
+delete_recordings() {
+    echo -e "${RED}警告：此操作将删除以下文件夹及其内容：${NC}"
+    echo -e "${RED}1. $DMR_DIR/$RECORDINGS_DIR${NC}"
+    echo -e "${RED}2. $DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
+    read -p "确认删除吗？(y/n): " confirm
+    if [[ $confirm =~ ^[Yy]$ ]]; then
+        if [ -d "$DMR_DIR/$RECORDINGS_DIR" ]; then
+            rm -rf "$DMR_DIR/$RECORDINGS_DIR"
+            echo -e "${GREEN}已删除：$DMR_DIR/$RECORDINGS_DIR${NC}"
+        else
+            echo -e "${YELLOW}文件夹不存在：$DMR_DIR/$RECORDINGS_DIR${NC}"
+        fi
+        
+        if [ -d "$DMR_DIR/$DANMU_RECORDINGS_DIR" ]; then
+            rm -rf "$DMR_DIR/$DANMU_RECORDINGS_DIR"
+            echo -e "${GREEN}已删除：$DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
+        else
+            echo -e "${YELLOW}文件夹不存在：$DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
+        fi
+    else
+        echo -e "${YELLOW}取消删除操作${NC}"
+    fi
+}
+
 # 主界面
 main_menu() {
     while true; do
@@ -196,10 +234,11 @@ main_menu() {
         echo -e "${CYAN}3. 更新哔哩哔哩Cookies${NC}"
         echo -e "${CYAN}4. biliup快速上传${NC}"
         echo -e "${CYAN}5. biliup视频追加上传${NC}"
+        echo -e "${CYAN}6. 一键删除直播回放文件夹${NC}"
         echo -e "${CYAN}0. 退出程序${NC}"
         echo ""
         
-        read -p "请输入选项（0-5）：" choice
+        read -p "请输入选项（0-6）：" choice
         case $choice in
             1)
                 show_header
@@ -214,7 +253,6 @@ main_menu() {
                     echo -e "${BLUE}正在尝试启动DMR...${NC}"
                     start_dmr
                 fi
-                read -n 1 -s -r -p "操作已完成，按任意键返回..."
                 ;;
 
             2)
@@ -225,19 +263,21 @@ main_menu() {
             3)
                 show_header
                 update_cookies
-                read -n 1 -s -r -p "操作已完成，按任意键返回..."
                 ;;
 
             4)
                 show_header
                 biliup_upload
-                read -n 1 -s -r -p "操作已完成，按任意键返回..."
                 ;;
 
             5)
                 show_header
                 biliup_append
-                read -n 1 -s -r -p "操作已完成，按任意键返回..."
+                ;;
+
+            6)
+                show_header
+                delete_recordings
                 ;;
 
             0)
@@ -247,8 +287,12 @@ main_menu() {
             *)
                 echo -e "${RED}无效选项，请重新输入！${NC}"
                 sleep 1
+                continue
                 ;;
         esac
+
+        # 统一提示按任意键返回菜单
+        read -n 1 -s -r -p "按任意键返回菜单..."
     done
 }
 
