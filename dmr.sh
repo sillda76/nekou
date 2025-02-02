@@ -9,10 +9,6 @@ COOKIES_TOOL_CMD="./biliup login"
 BILIUP_CMD="./biliup upload"
 BILIUP_APPEND_CMD="./biliup append"
 
-# 直播回放文件夹名称
-RECORDINGS_DIR="直播回放"
-DANMU_RECORDINGS_DIR="直播回放（弹幕版）"
-
 # 颜色配置
 RED='\033[1;31m'
 GREEN='\033[1;32m'
@@ -33,31 +29,15 @@ show_header() {
     echo -e "${CYAN}==============================${NC}"
 }
 
-# 检查DMR状态和ffmpeg进程
+# 检查DMR状态
 check_dmr() {
-    local dmr_pid=$(pgrep -f "$DMR_CMD")
-    local ffmpeg_pid=$(pgrep -f "ffmpeg")
-
-    # 显示DMR状态
-    if [ -n "$dmr_pid" ]; then
-        echo -e "${GREEN}${BOLD}当前状态：DMR显示正在运行 (PID: $dmr_pid)${NC}${NORMAL}"
-        # 即使显示为运行，仍然检测实际状态
-        if ! ps -p $dmr_pid > /dev/null; then
-            echo -e "${RED}${BOLD}但实际上DMR未运行${NC}${NORMAL}"
-            dmr_pid=""
-        fi
+    if pgrep -f "$DMR_CMD" > /dev/null; then
+        echo -e "${GREEN}${BOLD}当前状态：DMR正在运行${NC}${NORMAL}"
+        return 0
     else
         echo -e "${RED}${BOLD}当前状态：DMR未运行${NC}${NORMAL}"
+        return 1
     fi
-
-    # 显示ffmpeg状态
-    if [ -n "$ffmpeg_pid" ]; then
-        echo -e "${GREEN}${BOLD}ffmpeg：正在渲染 (PID: $ffmpeg_pid)${NC}${NORMAL}"
-    else
-        echo -e "${RED}${BOLD}ffmpeg：未运行${NC}${NORMAL}"
-    fi
-
-    return $dmr_pid
 }
 
 # 启动DMR
@@ -204,36 +184,11 @@ biliup_append() {
     fi
 }
 
-# 一键删除直播回放文件夹
-delete_recordings() {
-    echo -e "${RED}警告：此操作将删除以下文件夹及其内容：${NC}"
-    echo -e "${RED}1. $DMR_DIR/$RECORDINGS_DIR${NC}"
-    echo -e "${RED}2. $DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
-    read -p "确认删除吗？(y/n): " confirm
-    if [[ $confirm =~ ^[Yy]$ ]]; then
-        if [ -d "$DMR_DIR/$RECORDINGS_DIR" ]; then
-            rm -rf "$DMR_DIR/$RECORDINGS_DIR"
-            echo -e "${GREEN}已删除：$DMR_DIR/$RECORDINGS_DIR${NC}"
-        else
-            echo -e "${YELLOW}文件夹不存在：$DMR_DIR/$RECORDINGS_DIR${NC}"
-        fi
-        
-        if [ -d "$DMR_DIR/$DANMU_RECORDINGS_DIR" ]; then
-            rm -rf "$DMR_DIR/$DANMU_RECORDINGS_DIR"
-            echo -e "${GREEN}已删除：$DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
-        else
-            echo -e "${YELLOW}文件夹不存在：$DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
-        fi
-    else
-        echo -e "${YELLOW}取消删除操作${NC}"
-    fi
-}
-
 # 主界面
 main_menu() {
     while true; do
         show_header
-        dmr_status=$(check_dmr)
+        check_dmr
         echo ""
         echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${CYAN}1. 启动/停止DMR服务${NC}"
@@ -241,29 +196,23 @@ main_menu() {
         echo -e "${CYAN}3. 更新哔哩哔哩Cookies${NC}"
         echo -e "${CYAN}4. biliup快速上传${NC}"
         echo -e "${CYAN}5. biliup视频追加上传${NC}"
-        echo -e "${CYAN}6. 一键删除直播回放文件夹${NC}"
         echo -e "${CYAN}0. 退出程序${NC}"
         echo ""
         
-        read -p "请输入选项（0-6）：" choice
+        read -p "请输入选项（0-5）：" choice
         case $choice in
             1)
                 show_header
-                if [ -n "$dmr_status" ]; then
-                    read -p "DMR显示正在运行，是否要停止？(y/n) " confirm
+                if check_dmr; then
+                    read -p "DMR正在运行，是否要停止？(y/n) " confirm
                     if [[ $confirm =~ ^[Yy]$ ]]; then
                         stop_dmr
                     else
                         echo -e "${YELLOW}取消停止操作${NC}"
                     fi
                 else
-                    echo -e "${BLUE}DMR未运行，正在尝试启动DMR...${NC}"
-                    read -p "确认启动DMR吗？(y/n) " confirm
-                    if [[ $confirm =~ ^[Yy]$ ]]; then
-                        start_dmr
-                    else
-                        echo -e "${YELLOW}取消启动操作${NC}"
-                    fi
+                    echo -e "${BLUE}正在尝试启动DMR...${NC}"
+                    start_dmr
                 fi
                 ;;
 
@@ -285,11 +234,6 @@ main_menu() {
             5)
                 show_header
                 biliup_append
-                ;;
-
-            6)
-                show_header
-                delete_recordings
                 ;;
 
             0)
