@@ -1,300 +1,369 @@
 #!/bin/bash
 
-# 配置变量
-DMR_DIR="/opt/DanmakuRender-5"
-DMR_CMD="python3 main.py"
-LOG_FILE="nohup.out"
-COOKIES_TOOL_DIR="tools"
-COOKIES_TOOL_CMD="./biliup login"
-BILIUP_CMD="./biliup upload"
-BILIUP_APPEND_CMD="./biliup append"
+set -e
 
-# 直播回放文件夹名称
-RECORDINGS_DIR="直播回放"
-DANMU_RECORDINGS_DIR="直播回放（弹幕版）"
-
-# 颜色配置
-RED='\033[1;31m'
-GREEN='\033[1;32m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[1;34m'
-CYAN='\033[1;36m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+PURPLE='\033[0;35m'
+BOLD='\033[1m'
 NC='\033[0m'
 
-# 加粗文本
-BOLD=$(tput bold)
-NORMAL=$(tput sgr0)
+DEFAULT_BANTIME=3600  # 封禁时间设置为 3600 秒（1 小时）
+DEFAULT_MAXRETRY=6    # 最大重试次数设置为 6 次
+DEFAULT_FINDTIME=600  # 检测时间保持默认的 600 秒（10 分钟）
+DEFAULT_IGNOREIP="127.0.0.1/8 ::1"
 
-# 显示标题
-show_header() {
-    clear
-    echo -e "${CYAN}==============================${NC}"
-    echo -e "${CYAN}        ${BOLD}DMR直播录制控制${NORMAL}        ${NC}"
-    echo -e "${CYAN}==============================${NC}"
+BANTIME=$DEFAULT_BANTIME
+MAXRETRY=$DEFAULT_MAXRETRY
+FINDTIME=$DEFAULT_FINDTIME
+IGNOREIP="$DEFAULT_IGNOREIP"
+
+log_info() {
+    echo -e "${GREEN}[信息]${NC} $1"
 }
 
-# 检查DMR状态和ffmpeg进程
-check_dmr() {
-    local dmr_pid=$(pgrep -f "$DMR_CMD")
-    local ffmpeg_pid=$(pgrep -f "ffmpeg")
-
-    # 显示DMR状态
-    if [ -n "$dmr_pid" ]; then
-        echo -e "${GREEN}${BOLD}当前状态：DMR正在运行 (PID: $dmr_pid)${NC}${NORMAL}"
-    else
-        echo -e "${RED}${BOLD}当前状态：DMR未运行${NC}${NORMAL}"
-    fi
-
-    # 显示ffmpeg状态
-    if [ -n "$ffmpeg_pid" ]; then
-        echo -e "${GREEN}${BOLD}ffmpeg：正在渲染 (PID: $ffmpeg_pid)${NC}${NORMAL}"
-    else
-        echo -e "${RED}${BOLD}ffmpeg：未运行${NC}${NORMAL}"
-    fi
+log_warn() {
+    echo -e "${YELLOW}[警告]${NC} $1"
 }
 
-# 启动DMR
-start_dmr() {
-    if ! cd "$DMR_DIR"; then
-        echo -e "${RED}无法进入DMR目录：$DMR_DIR${NC}"
-        return 1
-    fi
-    
-    if ! source venv/bin/activate; then
-        echo -e "${RED}虚拟环境激活失败！${NC}"
-        return 1
-    fi
-    
-    nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
-    local pid=$!
-    sleep 2
-    
-    if ps -p $pid > /dev/null; then
-        echo -e "${GREEN}DMR启动成功 (PID: $pid)${NC}"
-    else
-        echo -e "${RED}DMR启动失败，请检查日志${NC}"
-    fi
+log_error() {
+    echo -e "${RED}[错误]${NC} $1"
 }
 
-# 停止DMR
-stop_dmr() {
-    pkill -f "$DMR_CMD"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}DMR已成功停止${NC}"
-    else
-        echo -e "${RED}停止DMR失败，请手动检查${NC}"
-    fi
-}
-
-# 查看日志
-view_log() {
-    echo -e "${CYAN}查看日志（按Ctrl+C返回菜单）...${NC}"
-    trap 'echo -e "\n${CYAN}返回菜单...${NC}"; sleep 1; return' SIGINT
-    tail -f "$DMR_DIR/$LOG_FILE"
-}
-
-# 更新Cookies
-update_cookies() {
-    if ! cd "$DMR_DIR/$COOKIES_TOOL_DIR"; then
-        echo -e "${RED}无法进入工具目录${NC}"
-        return 1
-    fi
-    
-    if [ ! -x "${COOKIES_TOOL_CMD%% *}" ]; then
-        echo -e "${RED}找不到可执行文件${NC}"
-        return 1
-    fi
-    
-    $COOKIES_TOOL_CMD || echo -e "${RED}Cookie更新失败${NC}"
-}
-
-# biliup快速上传
-biliup_upload() {
-    if ! cd "$DMR_DIR/$COOKIES_TOOL_DIR"; then
-        echo -e "${RED}无法进入工具目录${NC}"
-        return 1
-    fi
-    
-    if [ ! -x "${BILIUP_CMD%% *}" ]; then
-        echo -e "${RED}找不到biliup可执行文件${NC}"
-        return 1
-    fi
-    
-    read -p "请输入视频目录路径: " video_path
-    if [ ! -d "$video_path" ]; then
-        echo -e "${RED}视频目录不存在，请检查路径${NC}"
-        return 1
-    fi
-    
-    read -p "请输入视频分区tid（例如：17为单机游戏）: " tid
-    if ! [[ "$tid" =~ ^[0-9]+$ ]]; then
-        echo -e "${RED}分区tid必须为数字${NC}"
-        return 1
-    fi
-    
-    read -p "请输入视频标签（多个标签用逗号分隔）: " tags
-    if [ -z "$tags" ]; then
-        echo -e "${RED}标签不能为空${NC}"
-        return 1
-    fi
-    
-    echo -e "${BLUE}正在上传视频...${NC}"
-    $BILIUP_CMD "$video_path" --tid "$tid" --tag "$tags"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}视频上传成功${NC}"
-    else
-        echo -e "${RED}视频上传失败，请检查日志${NC}"
-    fi
-}
-
-# biliup视频追加上传
-biliup_append() {
-    if ! cd "$DMR_DIR/$COOKIES_TOOL_DIR"; then
-        echo -e "${RED}无法进入工具目录${NC}"
-        return 1
-    fi
-    
-    if [ ! -x "${BILIUP_APPEND_CMD%% *}" ]; then
-        echo -e "${RED}找不到biliup可执行文件${NC}"
-        return 1
-    fi
-    
-    read -p "请输入要追加的视频BV号: " vid
-    if [[ ! "$vid" =~ ^BV ]]; then
-        echo -e "${RED}BV号格式错误，应以BV开头${NC}"
-        return 1
-    fi
-    
-    video_paths=()
-    while true; do
-        read -p "请输入要追加的视频路径: " path
-        if [ ! -f "$path" ]; then
-            echo -e "${RED}文件不存在，请检查路径${NC}"
-            continue
+check_fail2ban_installed() {
+    if command -v fail2ban-client &> /dev/null; then
+        log_warn "fail2ban 已安装。"
+        read -p "是否卸载并重新安装 fail2ban？(y/n): " choice
+        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+            log_info "正在卸载 fail2ban..."
+            apt purge -y fail2ban
+            log_info "fail2ban 已卸载。"
+        else
+            log_info "退出安装。"
+            exit 0  # 用户输入 n，退出脚本
         fi
-        video_paths+=("$path")
-        
-        read -p "是否还有更多视频需要追加？(y/n): " more
-        if [[ ! "$more" =~ ^[Yy]$ ]]; then
+    else
+        log_info "fail2ban 未安装，继续安装流程。"
+    fi
+}
+
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        log_error "此脚本必须以 root 权限运行"
+        exit 1
+    fi
+}
+
+check_system() {
+    if ! command -v apt-get &> /dev/null; then
+        log_error "此脚本仅支持 Debian/Ubuntu 系统"
+        exit 1
+    fi
+}
+
+check_system_version() {
+    if ! command -v iptables &> /dev/null; then
+        log_info "正在安装 iptables..."
+        apt-get install -y iptables
+    else
+        log_info "iptables 已安装，跳过安装步骤。"
+    fi
+
+    if [[ -f /etc/debian_version ]]; then
+        DEBIAN_VERSION=$(cat /etc/debian_version)
+        if [[ $DEBIAN_VERSION =~ ^12 ]]; then
+            log_info "正在安装 rsyslog..."
+            apt-get install -y rsyslog
+        fi
+    fi
+}
+
+get_ssh_port() {
+    echo -e "${CYAN}════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}1. 自动获取 SSH 端口${NC}"
+    echo -e "${GREEN}2. 手动填写 SSH 端口${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════${NC}"
+    read -p "请选择获取 SSH 端口的方式 (1/2): " choice
+
+    if [[ "$choice" == "1" ]]; then
+        # 自动获取 SSH 端口
+        SSH_PORT=$(ss -tnlp | awk '/sshd/ && /LISTEN/ {print $4}' | awk -F: '{print $NF}' | head -1)
+        if [ -z "$SSH_PORT" ]; then
+            log_warn "未检测到 SSH 端口。"
+            read -p "是否手动填写 SSH 端口？(y/n): " manual_choice
+            if [[ "$manual_choice" == "y" || "$manual_choice" == "Y" ]]; then
+                while true; do
+                    read -p "请输入 SSH 端口号 (1-65535): " SSH_PORT
+                    if [[ "$SSH_PORT" =~ ^[0-9]+$ ]] && ((SSH_PORT >= 1 && SSH_PORT <= 65535)); then
+                        # 确认端口号
+                        read -p "您输入的 SSH 端口号是 $SSH_PORT，确认无误吗？(y/n): " confirm
+                        if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                            break
+                        else
+                            log_info "请重新输入 SSH 端口号。"
+                        fi
+                    else
+                        log_error "输入的端口号无效，请输入 1 到 65535 之间的数字。"
+                    fi
+                done
+            else
+                log_info "使用默认 SSH 端口 22。"
+                SSH_PORT=22
+            fi
+        else
+            log_info "检测到的 SSH 端口: $SSH_PORT"
+        fi
+    elif [[ "$choice" == "2" ]]; then
+        # 手动填写 SSH 端口
+        while true; do
+            read -p "请输入 SSH 端口号 (1-65535): " SSH_PORT
+            if [[ "$SSH_PORT" =~ ^[0-9]+$ ]] && ((SSH_PORT >= 1 && SSH_PORT <= 65535)); then
+                # 确认端口号
+                read -p "您输入的 SSH 端口号是 $SSH_PORT，确认无误吗？(y/n): " confirm
+                if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                    break
+                else
+                    log_info "请重新输入 SSH 端口号。"
+                fi
+            else
+                log_error "输入的端口号无效，请输入 1 到 65535 之间的数字。"
+            fi
+        done
+    else
+        log_error "无效的选择，使用默认端口 22。"
+        SSH_PORT=22
+    fi
+
+    log_info "Fail2ban监听的SSH端口: $SSH_PORT"
+}
+
+install_fail2ban() {
+    log_info "正在更新软件包列表..."
+    apt-get update
+    check_system_version
+    log_info "正在安装 fail2ban..."
+    apt-get install -y fail2ban
+}
+
+configure_fail2ban() {
+    log_info "正在配置 fail2ban..."
+
+    LOGPATH=""
+    for logfile in "/var/log/auth.log" "/var/log/secure" "/var/log/messages"; do
+        if [[ -f "$logfile" ]]; then
+            LOGPATH="$logfile"
+            log_info "检测到 SSH 日志文件路径: $LOGPATH"
             break
         fi
     done
-    
-    if [ ${#video_paths[@]} -eq 0 ]; then
-        echo -e "${RED}未提供任何视频路径${NC}"
-        return 1
+
+    if [[ -z "$LOGPATH" ]]; then
+        log_warn "未找到 SSH 日志文件，跳过日志文件配置。"
     fi
-    
-    echo -e "${BLUE}正在追加上传视频...${NC}"
-    $BILIUP_APPEND_CMD --vid "$vid" "${video_paths[@]}"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}视频追加上传成功${NC}"
-    else
-        echo -e "${RED}视频追加上传失败，请检查日志${NC}"
+
+    # 获取 SSH 端口
+    get_ssh_port
+
+    # 生成配置文件
+    cat > /etc/fail2ban/jail.local << EOL
+[DEFAULT]
+allowipv6 = auto
+bantime = $BANTIME
+findtime = $FINDTIME
+maxretry = $MAXRETRY
+ignoreip = $IGNOREIP
+banaction = iptables-multiport
+loglevel = INFO
+logtarget = /var/log/fail2ban.log
+
+[sshd]
+enabled = true
+port = $SSH_PORT
+filter = sshd
+logpath = $LOGPATH
+maxretry = $MAXRETRY
+findtime = $FINDTIME
+bantime = $BANTIME
+EOL
+
+    if ! fail2ban-client -t; then
+        log_error "fail2ban 配置文件校验失败"
+        exit 1
     fi
 }
 
-# 一键删除直播回放文件夹
-delete_recordings() {
-    echo -e "${RED}警告：此操作将删除以下文件夹及其内容：${NC}"
-    echo -e "${RED}1. $DMR_DIR/$RECORDINGS_DIR${NC}"
-    echo -e "${RED}2. $DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
-    read -p "确认删除吗？(y/n): " confirm
-    if [[ $confirm =~ ^[Yy]$ ]]; then
-        if [ -d "$DMR_DIR/$RECORDINGS_DIR" ]; then
-            rm -rf "$DMR_DIR/$RECORDINGS_DIR"
-            echo -e "${GREEN}已删除：$DMR_DIR/$RECORDINGS_DIR${NC}"
-        else
-            echo -e "${YELLOW}文件夹不存在：$DMR_DIR/$RECORDINGS_DIR${NC}"
-        fi
-        
-        if [ -d "$DMR_DIR/$DANMU_RECORDINGS_DIR" ]; then
-            rm -rf "$DMR_DIR/$DANMU_RECORDINGS_DIR"
-            echo -e "${GREEN}已删除：$DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
-        else
-            echo -e "${YELLOW}文件夹不存在：$DMR_DIR/$DANMU_RECORDINGS_DIR${NC}"
-        fi
+start_service() {
+    log_info "正在启动 fail2ban 服务..."
+    systemctl start fail2ban
+    systemctl enable fail2ban
+
+    if systemctl is-active --quiet fail2ban; then
+        log_info "fail2ban 服务已成功启动"
     else
-        echo -e "${YELLOW}取消删除操作${NC}"
+        log_error "fail2ban 服务启动失败"
+        exit 1
     fi
 }
 
-# 主界面
-main_menu() {
+setup_cron_job() {
+    log_info "正在设置每7天清理 fail2ban 日志的定时任务..."
+    CRON_JOB="0 0 */7 * * root /usr/bin/bash -c '> /var/log/fail2ban.log'"
+    if ! grep -q "$CRON_JOB" /etc/crontab; then
+        echo "$CRON_JOB" >> /etc/crontab
+        log_info "定时任务已添加。"
+    fi
+}
+
+show_status() {
+    echo -e "${GREEN}[信息]${NC} 正在查看 fail2ban 状态..."
+    fail2ban-client status
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
+}
+
+show_ssh_status() {
+    echo -e "${GREEN}[信息]${NC} 正在查看 SSH 状态..."
+    fail2ban-client status sshd
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
+}
+
+show_config() {
+    echo -e "${GREEN}[信息]${NC} 正在查看 fail2ban 配置..."
+    cat /etc/fail2ban/jail.local
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
+}
+
+show_logs() {
+    echo -e "${GREEN}[信息]${NC} 正在查看 fail2ban 日志..."
+    tail -f /var/log/fail2ban.log
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
+}
+
+ban_ip() {
+    read -p "请输入要封禁的 IP 地址（输入 0 返回菜单）: " ip
+    if [[ "$ip" == "0" ]]; then
+        return
+    fi
+    if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        fail2ban-client set sshd banip "$ip"
+        echo -e "${GREEN}[信息]${NC} IP 地址 $ip 已封禁。"
+    else
+        echo -e "${RED}[错误]${NC} 输入的 IP 地址无效。"
+    fi
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
+}
+
+unban_ip() {
+    read -p "请输入要解封的 IP 地址（输入 0 返回菜单）: " ip
+    if [[ "$ip" == "0" ]]; then
+        return
+    fi
+    if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        fail2ban-client set sshd unbanip "$ip"
+        echo -e "${GREEN}[信息]${NC} IP 地址 $ip 已解封。"
+    else
+        echo -e "${RED}[错误]${NC} 输入的 IP 地址无效。"
+    fi
+    echo -e "${YELLOW}按任意键返回菜单...${NC}"
+    read -r -s -n 1  # 等待用户按任意键
+    clear  # 返回菜单时清屏
+}
+
+uninstall_fail2ban() {
+    read -p "确定要卸载 fail2ban 吗？(y/n): " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        log_info "取消卸载。"
+        return
+    fi
+
+    log_info "正在卸载 fail2ban..."
+    apt purge -y fail2ban
+
+    # 删除配置文件
+    if [[ -d /etc/fail2ban ]]; then
+        log_info "正在删除 fail2ban 配置文件..."
+        rm -rf /etc/fail2ban
+    fi
+
+    # 删除日志文件
+    if [[ -f /var/log/fail2ban.log ]]; then
+        log_info "正在删除 fail2ban 日志文件..."
+        rm -f /var/log/fail2ban.log
+    fi
+
+    # 删除定时任务
+    if grep -q "fail2ban" /etc/crontab; then
+        log_info "正在删除 fail2ban 定时任务..."
+        sed -i '/fail2ban/d' /etc/crontab
+    fi
+
+    log_info "fail2ban 已完全卸载。"
+}
+
+interactive_menu() {
     while true; do
-        show_header
-        check_dmr
-        echo ""
-        echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
-        echo -e "${CYAN}1. 启动/停止DMR服务${NC}"
-        echo -e "${CYAN}2. 查看实时日志${NC}"
-        echo -e "${CYAN}3. 更新哔哩哔哩Cookies${NC}"
-        echo -e "${CYAN}4. biliup快速上传${NC}"
-        echo -e "${CYAN}5. biliup视频追加上传${NC}"
-        echo -e "${CYAN}6. 一键删除直播回放文件夹${NC}"
-        echo -e "${CYAN}0. 退出程序${NC}"
-        echo ""
-        
-        read -p "请输入选项（0-6）：" choice
-        case $choice in
+        echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+        echo -e "${BLUE}║          ${BOLD}fail2ban 安装与管理脚本${NC}       ║${NC}"
+        echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
+        echo -e "${CYAN}════════════════════════════════════════════${NC}"
+        echo -e "${GREEN}1. 安装 fail2ban${NC}    - 安装并配置 fail2ban"
+        echo -e "${GREEN}2. 查看状态${NC}       - 查看 fail2ban 的运行状态"
+        echo -e "${GREEN}3. 查看 SSH 状态${NC}  - 查看 SSH 服务的封禁情况"
+        echo -e "${GREEN}4. 查看配置${NC}       - 查看 fail2ban 的配置文件"
+        echo -e "${GREEN}5. 查看日志${NC}       - 实时查看 fail2ban 日志"
+        echo -e "${YELLOW}6. 封禁 IP${NC}        - 手动封禁指定 IP 地址"
+        echo -e "${YELLOW}7. 解封 IP${NC}        - 手动解封指定 IP 地址"
+        echo -e "${RED}8. 卸载 fail2ban${NC}  - 卸载 fail2ban 服务"
+        echo -e "${CYAN}════════════════════════════════════════════${NC}"
+        echo -e "${PURPLE}0. 退出脚本${NC}"
+        echo -e "${CYAN}════════════════════════════════════════════${NC}"
+        read -p "请输入选项编号 (0-8): " choice
+        case "$choice" in
             1)
-                show_header
-                if check_dmr; then
-                    read -p "DMR正在运行，是否要停止？(y/n) " confirm
-                    if [[ $confirm =~ ^[Yy]$ ]]; then
-                        stop_dmr
-                    else
-                        echo -e "${YELLOW}取消停止操作${NC}"
-                    fi
-                else
-                    echo -e "${BLUE}正在尝试启动DMR...${NC}"
-                    start_dmr
-                fi
+                log_info "开始安装 fail2ban..."
+                check_root
+                check_system
+                install_fail2ban
+                configure_fail2ban
+                start_service
+                setup_cron_job
+                log_info "fail2ban 安装完成！"
+                echo -e "${YELLOW}按任意键返回菜单...${NC}"
+                read -r -s -n 1  # 等待用户按任意键
+                clear  # 返回菜单时清屏
                 ;;
-
-            2)
-                show_header
-                view_log
-                ;;
-
-            3)
-                show_header
-                update_cookies
-                ;;
-
-            4)
-                show_header
-                biliup_upload
-                ;;
-
-            5)
-                show_header
-                biliup_append
-                ;;
-
-            6)
-                show_header
-                delete_recordings
-                ;;
-
-            0)
-                exit 0
-                ;;
-
+            2) show_status ;;
+            3) show_ssh_status ;;
+            4) show_config ;;
+            5) show_logs ;;
+            6) ban_ip ;;
+            7) unban_ip ;;
+            8) uninstall_fail2ban ;;
+            0) exit 0 ;;
             *)
-                echo -e "${RED}无效选项，请重新输入！${NC}"
-                sleep 1
-                continue
+                echo -e "${RED}错误：无效的选项，请重新输入。${NC}"
+                echo -e "${YELLOW}按任意键继续...${NC}"
+                read -r -s -n 1  # 等待用户按任意键
+                clear  # 返回菜单时清屏
                 ;;
         esac
-
-        # 统一提示按任意键返回菜单
-        read -n 1 -s -r -p "按任意键返回菜单..."
     done
 }
 
-# 启动主程序
-main_menu
+main() {
+    interactive_menu
+}
+
+main
