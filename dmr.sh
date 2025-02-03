@@ -54,6 +54,19 @@ install_dmr() {
         return 1
     fi
 
+    # 确保git已经安装
+    echo -e "${BLUE}检查/安装 git...${NC}"
+    if ! command -v git &> /dev/null; then
+        if ! sudo apt update; then
+            echo -e "${RED}更新软件包列表失败！${NC}"
+            return 1
+        fi
+        if ! sudo apt install -y git; then
+            echo -e "${RED}安装 git 失败！${NC}"
+            return 1
+        fi
+    fi
+
     echo -e "${BLUE}正在从 GitHub 拉取 DanmakuRender V5...${NC}"
     if ! git clone -b "$GIT_BRANCH" "$GIT_REPO" "$DMR_DIR"; then
         echo -e "${RED}拉取 DanmakuRender V5 失败，请检查网络或仓库地址。${NC}"
@@ -114,6 +127,12 @@ install_fonts() {
     echo -e "${BLUE}正在更新软件包列表...${NC}"
     if ! sudo apt update; then
         echo -e "${RED}更新软件包列表失败！${NC}"
+        return 1
+    fi
+
+    echo -e "${BLUE}确保 fontconfig 已经安装...${NC}"
+    if ! sudo apt install -y fontconfig; then
+        echo -e "${RED}安装 fontconfig 失败！${NC}"
         return 1
     fi
 
@@ -391,4 +410,3 @@ main_menu() {
 
 # 启动主程序
 main_menu
-```​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
