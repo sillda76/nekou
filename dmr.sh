@@ -5,11 +5,10 @@ DMR_DIR="/opt/DanmakuRender-5"
 DMR_CMD="python3 main.py"
 LOG_FILE="nohup.out"
 COOKIES_TOOL_DIR="tools"
-COOKIES_TOOL_CMD="./biliup login"
-BILIUP_CMD="./biliup upload"
-BILIUP_APPEND_CMD="./biliup append"
+BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
 GIT_REPO="https://github.com/sillda76/DanmakuRender.git"
 GIT_BRANCH="v5"
+BILIUP_REPO="https://api.github.com/repos/biliup/biliup-rs/releases/latest"
 
 # 颜色配置
 RED='\033[0;31m'
@@ -50,363 +49,207 @@ check_dmr() {
 # 安装DanmakuRender V5
 install_dmr() {
     if [ -d "$DMR_DIR" ]; then
-        echo -e "${YELLOW}DanmakuRender-5 已存在于 $DMR_DIR，请先卸载后再安装。${NC}"
-        return 1
+        echo -e "${YELLOW}DanmakuRender-5 已存在于 $DMR_DIR${NC}"
+        read -p "是否重新安装？（将覆盖现有安装）(y/n): " reinstall
+        if [[ ! "$reinstall" =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}已取消安装${NC}"
+            return 0
+        else
+            echo -e "${BLUE}开始重新安装 DanmakuRender V5...${NC}"
+            rm -rf "$DMR_DIR"
+        fi
     fi
 
-    # 确保git已经安装
-    echo -e "${BLUE}检查/安装 git...${NC}"
+    # 安装git
     if ! command -v git &> /dev/null; then
-        if ! sudo apt update; then
-            echo -e "${RED}更新软件包列表失败！${NC}"
+        echo -e "${BLUE}正在安装git...${NC}"
+        sudo apt update && sudo apt install -y git || {
+            echo -e "${RED}git安装失败！${NC}"
             return 1
-        fi
-        if ! sudo apt install -y git; then
-            echo -e "${RED}安装 git 失败！${NC}"
-            return 1
-        fi
+        }
     fi
 
-    echo -e "${BLUE}正在从 GitHub 拉取 DanmakuRender V5...${NC}"
-    if ! git clone -b "$GIT_BRANCH" "$GIT_REPO" "$DMR_DIR"; then
-        echo -e "${RED}拉取 DanmakuRender V5 失败，请检查网络或仓库地址。${NC}"
+    # 克隆仓库
+    echo -e "${BLUE}正在克隆仓库...${NC}"
+    git clone -b "$GIT_BRANCH" "$GIT_REPO" "$DMR_DIR" || {
+        echo -e "${RED}仓库克隆失败！${NC}"
+        return 1
+    }
+
+    # 安装python环境
+    echo -e "${BLUE}正在设置Python环境...${NC}"
+    sudo apt install -y python3-venv && \
+    cd "$DMR_DIR" && \
+    python3 -m venv venv && \
+    source venv/bin/activate && \
+    pip install -r requirements.txt || {
+        echo -e "${RED}Python环境设置失败！${NC}"
+        return 1
+    }
+
+    # 安装biliup
+    echo -e "${BLUE}正在部署biliup...${NC}"
+    mkdir -p "$BILIUP_DIR" && cd "$BILIUP_DIR" || return 1
+    
+    local latest_tag=$(curl -sL $BILIUP_REPO | grep -oP '"tag_name": "\K[^"]+')
+    [ -z "$latest_tag" ] && {
+        echo -e "${RED}获取biliup版本失败！${NC}"
+        return 1
+    }
+
+    local download_url="https://github.com/biliup/biliup-rs/releases/download/${latest_tag}/biliup-rs-${latest_tag}-x86_64-linux.tar.gz"
+    if curl -LO "$download_url" && tar -zxvf *.tar.gz && rm -f *.tar.gz; then
+        chmod +x biliup
+        echo -e "${GREEN}biliup部署成功！${NC}"
+    else
+        echo -e "${RED}biliup部署失败！${NC}"
         return 1
     fi
 
-    echo -e "${BLUE}正在安装 python3-venv 并创建虚拟环境...${NC}"
-    if ! sudo apt update; then
-        echo -e "${RED}更新软件包列表失败！${NC}"
-        return 1
-    fi
-    if ! sudo apt install -y python3-venv; then
-        echo -e "${RED}安装 python3-venv 失败！${NC}"
-        return 1
-    fi
+    echo -e "${GREEN}DanmakuRender V5 安装完成！${NC}"
+}
 
-    if ! cd "$DMR_DIR"; then
-        echo -e "${RED}无法进入 DMR 目录：$DMR_DIR${NC}"
-        return 1
+# 更新DanmakuRender V5
+update_dmr() {
+    echo -e "${BLUE}正在更新 DanmakuRender V5...${NC}"
+    if pgrep -f "$DMR_CMD" >/dev/null; then
+        echo -e "${YELLOW}正在停止运行中的DMR...${NC}"
+        pkill -f "$DMR_CMD"
     fi
-
-    if ! python3 -m venv venv; then
-        echo -e "${RED}虚拟环境创建失败！${NC}"
-        return 1
-    fi
-
-    echo -e "${BLUE}正在激活虚拟环境和安装依赖...${NC}"
-    if ! source venv/bin/activate; then
-        echo -e "${RED}虚拟环境激活失败！${NC}"
-        return 1
-    fi
-
-    if ! pip install -r requirements.txt; then
-        echo -e "${RED}依赖安装失败！${NC}"
-        return 1
-    fi
-
-    echo -e "${GREEN}DanmakuRender V5 安装成功！虚拟环境已创建并依赖已安装。${NC}"
+    install_dmr
 }
 
 # 卸载DanmakuRender V5
 uninstall_dmr() {
-    if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${YELLOW}DanmakuRender-5 未安装，无需卸载。${NC}"
+    [ ! -d "$DMR_DIR" ] && {
+        echo -e "${YELLOW}未找到安装目录${NC}"
         return 0
-    fi
-
-    echo -e "${BLUE}正在卸载 DanmakuRender V5...${NC}"
-    if rm -rf "$DMR_DIR"; then
-        echo -e "${GREEN}DanmakuRender V5 卸载成功！${NC}"
-    else
-        echo -e "${RED}卸载失败，请检查权限或手动删除 $DMR_DIR。${NC}"
-    fi
-}
-
-# 安装微软雅黑字体和Emoji
-install_fonts() {
-    echo -e "${BLUE}正在更新软件包列表...${NC}"
-    if ! sudo apt update; then
-        echo -e "${RED}更新软件包列表失败！${NC}"
-        return 1
-    fi
-
-    echo -e "${BLUE}确保 fontconfig 已经安装...${NC}"
-    if ! sudo apt install -y fontconfig; then
-        echo -e "${RED}安装 fontconfig 失败！${NC}"
-        return 1
-    fi
-
-    echo -e "${BLUE}正在安装 Emoji 字体...${NC}"
-    if ! sudo apt install -y fonts-symbola fonts-noto-color-emoji; then
-        echo -e "${RED}安装 Emoji 字体失败！${NC}"
-        return 1
-    fi
-
-    echo -e "${BLUE}正在从 GitHub 下载 微软雅黑 字体...${NC}"
-    if ! wget -O "微软雅黑.ttf" "https://github.com/sillda76/vps-scripts/raw/main/微软雅黑.ttf"; then
-        echo -e "${RED}下载 微软雅黑 字体失败！${NC}"
-        return 1
-    fi
-
-    echo -e "${BLUE}正在安装 微软雅黑 字体...${NC}"
-    sudo mkdir -p /usr/share/fonts/truetype/microsoft/
-    sudo mv "微软雅黑.ttf" /usr/share/fonts/truetype/microsoft/
-    sudo fc-cache -fv
-
-    echo -e "${GREEN}微软雅黑字体和Emoji安装成功！${NC}"
+    }
+    
+    rm -rf "$DMR_DIR" && \
+    echo -e "${GREEN}卸载完成！${NC}" || \
+    echo -e "${RED}卸载失败！${NC}"
 }
 
 # 启动DMR
 start_dmr() {
-    if ! cd "$DMR_DIR"; then
-        echo -e "${RED}无法进入DMR目录：$DMR_DIR${NC}"
-        return 1
-    fi
-
-    if ! source venv/bin/activate; then
-        echo -e "${RED}虚拟环境激活失败！${NC}"
-        return 1
-    fi
-
+    cd "$DMR_DIR" && source venv/bin/activate && \
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
-    local pid=$!
-    sleep 2
-
-    if ps -p $pid > /dev/null; then
-        echo -e "${GREEN}DMR启动成功 (PID: $pid)${NC}"
-    else
-        echo -e "${RED}DMR启动失败，请检查日志${NC}"
-    fi
+    echo -e "${GREEN}DMR启动成功！PID: $!${NC}"
 }
 
 # 停止DMR
 stop_dmr() {
-    pkill -f "$DMR_CMD"
-
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}DMR已成功停止${NC}"
-    else
-        echo -e "${RED}停止DMR失败，请手动检查${NC}"
-    fi
+    pkill -f "$DMR_CMD" && \
+    echo -e "${GREEN}已停止DMR${NC}" || \
+    echo -e "${RED}停止DMR失败${NC}"
 }
 
 # 查看日志
 view_log() {
-    echo -e "${CYAN}查看日志（按Ctrl+C返回菜单）...${NC}"
-    trap 'echo -e "\n${CYAN}返回菜单...${NC}"; sleep 1; return' SIGINT
     tail -f "$DMR_DIR/$LOG_FILE"
+}
+
+# 删除回放
+delete_replays() {
+    rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
+    echo -e "${GREEN}已删除所有回放文件${NC}"
 }
 
 # 更新Cookies
 update_cookies() {
-    if ! cd "$DMR_DIR/$COOKIES_TOOL_DIR"; then
-        echo -e "${RED}无法进入工具目录${NC}"
-        return 1
-    fi
-
-    if [ ! -x "${COOKIES_TOOL_CMD%% *}" ]; then
-        echo -e "${RED}找不到可执行文件${NC}"
-        return 1
-    fi
-
-    $COOKIES_TOOL_CMD || echo -e "${RED}Cookie更新失败${NC}"
+    cd "$BILIUP_DIR" && ./biliup login
 }
 
-# biliup快速上传
+# 上传视频
 biliup_upload() {
-    if ! cd "$DMR_DIR/$COOKIES_TOOL_DIR"; then
-        echo -e "${RED}无法进入工具目录${NC}"
-        return 1
-    fi
+    while true; do
+        read -p "请输入视频目录路径: " video_path
+        [ -d "$video_path" ] && break
+        echo -e "${RED}路径不存在！${NC}"
+    done
 
-    if [ ! -x "${BILIUP_CMD%% *}" ]; then
-        echo -e "${RED}找不到biliup可执行文件${NC}"
-        return 1
-    fi
-
-    read -p "请输入视频目录路径: " video_path
-    if [ ! -d "$video_path" ]; then
-        echo -e "${RED}视频目录不存在，请检查路径${NC}"
-        return 1
-    fi
-
-    read -p "请输入视频分区tid（例如：17为单机游戏）: " tid
-    if ! [[ "$tid" =~ ^[0-9]+$ ]]; then
-        echo -e "${RED}分区tid必须为数字${NC}"
-        return 1
-    fi
-
-    read -p "请输入视频标签（多个标签用逗号分隔）: " tags
-    if [ -z "$tags" ]; then
-        echo -e "${RED}标签不能为空${NC}"
-        return 1
-    fi
-
-    echo -e "${BLUE}正在上传视频...${NC}"
-    $BILIUP_CMD "$video_path" --tid "$tid" --tag "$tags"
-
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}视频上传成功${NC}"
-    else
-        echo -e "${RED}视频上传失败，请检查日志${NC}"
-    fi
+    read -p "请输入分区tid: " tid
+    read -p "请输入视频标签: " tags
+    
+    cd "$BILIUP_DIR" && \
+    ./biliup upload "$video_path" --tid "$tid" --tag "$tags"
 }
 
-# biliup视频追加上传
+# 追加上传
 biliup_append() {
-    if ! cd "$DMR_DIR/$COOKIES_TOOL_DIR"; then
-        echo -e "${RED}无法进入工具目录${NC}"
-        return 1
-    fi
-
-    if [ ! -x "${BILIUP_APPEND_CMD%% *}" ]; then
-        echo -e "${RED}找不到biliup可执行文件${NC}"
-        return 1
-    fi
-
-    read -p "请输入要追加的视频BV号: " vid
-    if [[ ! "$vid" =~ ^BV ]]; then
-        echo -e "${RED}BV号格式错误，应以BV开头${NC}"
-        return 1
-    fi
+    while true; do
+        read -p "请输入BV号: " vid
+        [[ "$vid" =~ ^BV ]] && break
+        echo -e "${RED}无效的BV号！${NC}"
+    done
 
     video_paths=()
     while true; do
-        read -p "请输入要追加的视频路径: " path
-        if [ ! -f "$path" ]; then
-            echo -e "${RED}文件不存在，请检查路径${NC}"
-            continue
-        fi
-        video_paths+=("$path")
-
-        read -p "是否还有更多视频需要追加？(y/n): " more
-        if [[ ! "$more" =~ ^[Yy]$ ]]; then
-            break
+        read -p "请输入视频路径: " path
+        if [ -f "$path" ]; then
+            video_paths+=("$path")
+            read -p "继续添加？(y/n): " choice
+            [[ "$choice" != "y" ]] && break
+        else
+            echo -e "${RED}文件不存在！${NC}"
         fi
     done
 
-    if [ ${#video_paths[@]} -eq 0 ]; then
-        echo -e "${RED}未提供任何视频路径${NC}"
-        return 1
-    fi
-
-    echo -e "${BLUE}正在追加上传视频...${NC}"
-    $BILIUP_APPEND_CMD --vid "$vid" "${video_paths[@]}"
-
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}视频追加上传成功${NC}"
-    else
-        echo -e "${RED}视频追加上传失败，请检查日志${NC}"
-    fi
+    cd "$BILIUP_DIR" && \
+    ./biliup append --vid "$vid" "${video_paths[@]}"
 }
 
-# 一键删除回放/渲染视频
-delete_replays() {
-    if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${YELLOW}DanmakuRender-5 未安装，无需删除回放视频。${NC}"
-        return 0
-    fi
-
-    echo -e "${BLUE}正在删除回放/渲染视频...${NC}"
-    replay_dir1="$DMR_DIR/直播回放"
-    replay_dir2="$DMR_DIR/直播回放（弹幕版）"
-
-    if [ -d "$replay_dir1" ]; then
-        rm -rf "$replay_dir1"
-        echo -e "${GREEN}已删除：$replay_dir1${NC}"
-    else
-        echo -e "${YELLOW}未找到：$replay_dir1${NC}"
-    fi
-
-    if [ -d "$replay_dir2" ]; then
-        rm -rf "$replay_dir2"
-        echo -e "${GREEN}已删除：$replay_dir2${NC}"
-    else
-        echo -e "${YELLOW}未找到：$replay_dir2${NC}"
-    fi
+# 安装字体
+install_fonts() {
+    sudo mkdir -p /usr/share/fonts/truetype/microsoft
+    sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/
+    sudo fc-cache -fv
+    sudo apt install -y fonts-noto-color-emoji fonts-symbola
+    echo -e "${GREEN}字体安装完成！${NC}"
 }
 
-# 主界面
+# 主菜单
 main_menu() {
     while true; do
         show_header
         check_dmr
-        echo ""
-        echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
-        echo -e "${CYAN}1. 安装 DanmakuRender V5${NC}"
-        echo -e "${CYAN}2. 启动/停止 DMR 服务${NC}"
-        echo -e "${CYAN}3. 查看实时日志${NC}"
-        echo -e "${CYAN}4. 一键删除回放/渲染视频${NC}"
-        echo -e "${CYAN}5. 更新哔哩哔哩 Cookies${NC}"
-        echo -e "${CYAN}6. biliup 快速上传${NC}"
-        echo -e "${CYAN}7. biliup 视频追加上传${NC}"
-        echo -e "${CYAN}8. 安装微软雅黑字体和Emoji${NC}"
-        echo -e "${CYAN}9. 卸载 DanmakuRender V5${NC}"
-        echo -e "${CYAN}0. 退出程序${NC}"
-        echo ""
-
-        read -p "请输入选项（0-9）：" choice
+        echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
+        echo "1. 安装 DanmakuRender V5"
+        echo "2. 启动/停止 DMR"
+        echo "3. 查看实时日志"
+        echo "4. 删除回放文件"
+        echo "5. 更新Cookies"
+        echo "6. 视频上传"
+        echo "7. 视频追加上传"
+        echo "8. 安装字体"
+        echo "9. 更新 DMR"
+        echo "10. 卸载 DMR"
+        echo "0. 退出"
+        
+        read -p "请输入选项： " choice
         case $choice in
-            1)
-                show_header
-                install_dmr
-                ;;
-            2)
-                show_header
-                if check_dmr; then
-                    read -p "DMR正在运行，是否要停止？(y/n) " confirm
-                    if [[ $confirm =~ ^[Yy]$ ]]; then
-                        stop_dmr
-                    else
-                        echo -e "${YELLOW}取消停止操作${NC}"
-                    fi
+            1) install_dmr ;;
+            2) 
+                if check_dmr; then 
+                    stop_dmr
                 else
-                    echo -e "${BLUE}正在尝试启动DMR...${NC}"
-                    start_dmr
-                fi
-                ;;
-            3)
-                show_header
-                view_log
-                ;;
-            4)
-                show_header
-                delete_replays
-                ;;
-            5)
-                show_header
-                update_cookies
-                ;;
-            6)
-                show_header
-                biliup_upload
-                ;;
-            7)
-                show_header
-                biliup_append
-                ;;
-            8)
-                show_header
-                install_fonts
-                ;;
-            9)
-                show_header
-                uninstall_dmr
-                ;;
-            0)
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}无效选项，请重新输入！${NC}"
-                sleep 1
-                continue
-                ;;
+                    start_dmr 
+                fi ;;
+            3) view_log ;;
+            4) delete_replays ;;
+            5) update_cookies ;;
+            6) biliup_upload ;;
+            7) biliup_append ;;
+            8) install_fonts ;;
+            9) update_dmr ;;
+            10) uninstall_dmr ;;
+            0) exit 0 ;;
+            *) echo -e "${RED}无效选项！${NC}" ;;
         esac
-
-        # 统一提示按任意键返回菜单
-        read -n 1 -s -r -p "按任意键返回菜单..."
+        read -n 1 -s -r -p "按任意键继续..."
     done
 }
 
-# 启动主程序
+# 启动脚本
 main_menu
