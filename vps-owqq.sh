@@ -38,7 +38,7 @@ show_menu() {
     echo -e "${LIGHT_GREEN}7. 安装1Panel${NC}"
     echo -e "${LIGHT_BLUE}8. 系统工具${NC}"
     echo -e "${LIGHT_RED}9. 虚拟环境${NC}"
-    echo -e "${MAGENTA}10. DMR${NC}"  # 新增选项
+    echo -e "${MAGENTA}10. DanmakuRender${NC}"  # 新增选项
     echo -e "${LIGHT_RED}00. 更新脚本${NC}"
     echo -e "${RED}99. 卸载脚本${NC}"
     echo -e "${MAGENTA}0. 退出脚本${NC}"
@@ -564,7 +564,7 @@ while true; do
         7) install_1panel ;;
         8) system_tools ;;
         9) virtualenv_management ;;
-        10) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/dmr.sh) ;;
+        10) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh) ;;
         00) update_script ;;
         99) uninstall_script ;;
         0) echo -e "${MAGENTA}退出脚本。${NC}"; break ;;
