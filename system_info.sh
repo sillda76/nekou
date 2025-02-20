@@ -60,10 +60,10 @@ get_public_ip() {
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
     if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
+        echo -e "${GREEN}IPv4:${NC}   $ipv4"
     fi
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
+        echo -e "${GREEN}IPv6:${NC}   $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
         echo -e "${RED}No Public IP${NC}"
@@ -208,40 +208,25 @@ get_network_traffic() {
     echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
 }
 
-echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
-echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
-echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
-echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"
+echo -e "\${ORANGE}OS:\${NC}      \${os_info:-N/A}"
+echo -e "\${ORANGE}Uptime:\${NC}  \${uptime_info:-N/A}"
+echo -e "\${ORANGE}CPU:\${NC}     \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
+echo -e "\${ORANGE}Load:\${NC}    \${load_info:-N/A}"
 
-echo -ne "\${ORANGE}Memory:\${NC}    "
+echo -ne "\${ORANGE}Memory:\${NC}  "
 progress_bar \$memory_used \$memory_total
 echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
 
 if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
     swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
-    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
+    echo -e "\${ORANGE}Swap:\${NC}    \$swap_usage"
 fi
 
-echo -ne "\${ORANGE}Disk:\${NC}      "
+echo -ne "\${ORANGE}Disk:\${NC}    "
 progress_bar \$disk_used \$disk_total
-echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
+echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")'})"
 
 get_network_traffic
-
-get_public_ip() {
-    ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
-
-    if [[ -n "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
-    fi
-    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* && "\$ipv6" != "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
-    fi
-    if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
-        echo -e "\${RED}No Public IP\${NC}"
-    fi
-}
 
 get_public_ip
 EOF
