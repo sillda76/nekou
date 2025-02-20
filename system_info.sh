@@ -60,10 +60,10 @@ get_public_ip() {
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
     if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC}   $ipv4"
+        echo -e "${GREEN}IPv4:${NC} $ipv4"
     fi
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC}   $ipv6"
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
         echo -e "${RED}No Public IP${NC}"
@@ -141,105 +141,105 @@ BLUE='\033[1;34m'
 NC='\033[0m'
 
 progress_bar() {
-    local progress=$1
-    local total=$2
+    local progress=\$1
+    local total=\$2
     local bar_width=20
-    local filled=$((progress * bar_width / total))
-    local empty=$((bar_width - filled))
+    local filled=\$((progress * bar_width / total))
+    local empty=\$((bar_width - filled))
 
     printf "["
     for ((i=0; i<filled; i++)); do
         if ((i < filled / 3)); then
-            printf "${GREEN}=${NC}"
+            printf "\${GREEN}=\${NC}"
         elif ((i < 2 * filled / 3)); then
-            printf "${YELLOW}=${NC}"
+            printf "\${YELLOW}=\${NC}"
         else
-            printf "${RED}=${NC}"
+            printf "\${RED}=\${NC}"
         fi
     done
     for ((i=0; i<empty; i++)); do
-        printf "${BLACK}=${NC}"
+        printf "\${BLACK}=\${NC}"
     done
     printf "]"
 }
 
-os_info=$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
+os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 
-uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
-uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
-uptime_hours=$(bc <<< "scale=0; ($uptime_seconds % 86400) / 3600")
-uptime_minutes=$(bc <<< "scale=0; ($uptime_seconds % 3600) / 60")
-uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minutes"
+uptime_seconds=\$(cat /proc/uptime | awk '{print \$1}')
+uptime_days=\$(bc <<< "scale=0; \$uptime_seconds / 86400")
+uptime_hours=\$(bc <<< "scale=0; (\$uptime_seconds % 86400) / 3600")
+uptime_minutes=\$(bc <<< "scale=0; (\$uptime_seconds % 3600) / 60")
+uptime_info="\${uptime_days} days, \${uptime_hours} hours, \${uptime_minutes} minutes"
 
-cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
-cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
-load_info=$(cat /proc/loadavg | awk '{print $1", "$2", "$3}')
+cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
+cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
+load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')
 
-memory_total=$(free -m 2>/dev/null | grep Mem: | awk '{print $2}')
-memory_used=$(free -m 2>/dev/null | grep Mem: | awk '{print $3}')
-swap_total=$(free -m 2>/dev/null | grep Swap: | awk '{print $2}')
-swap_used=$(free -m 2>/dev/null | grep Swap: | awk '{print $3}')
-disk_total=$(df -k / 2>/dev/null | grep / | awk '{print $2}')
-disk_used=$(df -k / 2>/dev/null | grep / | awk '{print $3}')
+memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
+memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
+swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
+swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
+disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
+disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
 get_network_traffic() {
-    local interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
-    if [[ -z "$interface" ]]; then
+    local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
+    if [[ -z "\$interface" ]]; then
         interface="eth0"
     fi
 
-    local rx_bytes=$(cat /sys/class/net/$interface/statistics/rx_bytes)
-    local tx_bytes=$(cat /sys/class/net/$interface/statistics/tx_bytes)
+    local rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
+    local tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
 
     format_bytes() {
-        local bytes=$1
+        local bytes=\$1
         if (( bytes >= 1099511627776 )); then
-            echo "$(awk "BEGIN {printf \"%.2f TB\", $bytes / 1099511627776}")"
+            echo "\$(awk "BEGIN {printf \"%.2f TB\", \$bytes / 1099511627776}")"
         elif (( bytes >= 1073741824 )); then
-            echo "$(awk "BEGIN {printf \"%.2f GB\", $bytes / 1073741824}")"
+            echo "\$(awk "BEGIN {printf \"%.2f GB\", \$bytes / 1073741824}")"
         else
-            echo "$(awk "BEGIN {printf \"%.2f MB\", $bytes / 1048576}")"
+            echo "\$(awk "BEGIN {printf \"%.2f MB\", \$bytes / 1048576}")"
         fi
     }
 
-    local rx_traffic=$(format_bytes $rx_bytes)
-    local tx_traffic=$(format_bytes $tx_bytes)
+    local rx_traffic=\$(format_bytes \$rx_bytes)
+    local tx_traffic=\$(format_bytes \$tx_bytes)
 
-    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
+    echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
 }
 
-echo -e "${ORANGE}OS:${NC}      ${os_info:-N/A}"
-echo -e "${ORANGE}Uptime:${NC}  ${uptime_info:-N/A}"
-echo -e "${ORANGE}CPU:${NC}     ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${ORANGE}Load:${NC}    ${load_info:-N/A}"
+echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
+echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
+echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
+echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"
 
-echo -ne "${ORANGE}Memory:${NC}  "
-progress_bar $memory_used $memory_total
-echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB ($(awk "BEGIN {printf \"%.0f%%\", ($memory_used/$memory_total)*100}"))"
+echo -ne "\${ORANGE}Memory:\${NC}    "
+progress_bar \$memory_used \$memory_total
+echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
 
-if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
-    swap_usage=$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", $swap_used, $swap_total, ($swap_used/$swap_total)*100}")
-    echo -e "${ORANGE}Swap:${NC}    $swap_usage"
+if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
+    swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
+    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
 fi
 
-echo -ne "${ORANGE}Disk:${NC}    "
-progress_bar $disk_used $disk_total
-echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
+echo -ne "\${ORANGE}Disk:\${NC}      "
+progress_bar \$disk_used \$disk_total
+echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
 
 get_network_traffic
 
 get_public_ip() {
-    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
-    if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
+    if [[ -n "\$ipv4" ]]; then
+        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
     fi
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
+    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* && "\$ipv6" != "\$ipv4" ]]; then
+        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
     fi
-    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e "${RED}No Public IP${NC}"
+    if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
+        echo -e "\${RED}No Public IP\${NC}"
     fi
 }
 
