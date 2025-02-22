@@ -20,14 +20,14 @@ NC='\033[0m' # 恢复默认颜色
 CURRENT_SCRIPT_PATH="$(pwd)/owqq_tools.sh"
 
 # 脚本 URL
-SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/vps-owqq.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/owqq_tools.sh"
 
 # 显示菜单
 show_menu() {
     clear
     echo -e "${PURPLE}========================================${NC}"
     echo -e "${GREEN}VPS Manager${NC}"
-    echo -e "${BLUE}https://github.com/sillda76/vps-scripts${NC}"
+    echo -e "${BLUE}https://github.com/sillda76/owqq${NC}"
     echo -e "${PURPLE}========================================${NC}"
     echo -e "${YELLOW}1. 修改SSH端口${NC}"
     echo -e "${CYAN}2. 系统更新${NC}"
