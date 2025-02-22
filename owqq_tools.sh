@@ -17,7 +17,7 @@ TEAL='\033[1;36m'
 NC='\033[0m' # 恢复默认颜色
 
 # 当前脚本路径
-CURRENT_SCRIPT_PATH="$(pwd)/vps-owqq.sh"
+CURRENT_SCRIPT_PATH="$(pwd)/owqq_tools.sh"
 
 # 脚本 URL
 SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/vps-owqq.sh"
