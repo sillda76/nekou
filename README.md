@@ -1,4 +1,4 @@
 
 ```bash
-curl -s -o vps-owqq.sh https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/vps-owqq.sh && chmod +x vps-owqq.sh && ./vps-owqq.sh
+curl -s -o owqq_tools.sh https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/owqq_tools.sh && chmod +x owqq_tools.sh && ./owqq_tools.sh
 ```
