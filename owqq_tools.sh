@@ -555,12 +555,12 @@ while true; do
     show_menu
     read -p "请输入选项数字: " choice
     case $choice in
-        1) bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/ssh_port_chg.sh) ;;
+        1) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ssh_port_chg.sh) ;;
         2) system_update ;;
         3) linux_clean ;;
-        4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/install_fail2ban.sh) ;;
-        5) bash <(curl -fsSL https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/ping-control.sh) ;;
-        6) bash <(curl -s https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/system_info.sh) ;;
+        4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/install_fail2ban.sh) ;;
+        5) bash <(curl -fsSL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ping-control.sh) ;;
+        6) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/system_info.sh) ;;
         7) install_1panel ;;
         8) system_tools ;;
         9) virtualenv_management ;;
