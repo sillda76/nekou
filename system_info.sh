@@ -54,6 +54,61 @@ install_dependencies() {
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
+# 获取公网 IP，ASN 和运营商信息
+get_ip_info() {
+    # 使用 ipinfo 查询 API 获取 IP 和 ASN 信息
+    local token="3b01046f048430"
+    local ipv4=$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$token")
+    local ipv6=$(curl -s --max-time 3 "https://ipinfo.io/ip6?token=$token")
+
+    if [[ -n "$ipv4" ]]; then
+        # 获取 IPv4 的 ASN 和运营商信息
+        local ipv4_details=$(curl -s "https://ipinfo.io/$ipv4/json?token=$token")
+        local ipv4_asn=$(echo "$ipv4_details" | jq -r '.org' | awk '{print $1}')
+        local ipv4_provider=$(echo "$ipv4_details" | jq -r '.org' | sed 's/AS[0-9]* //')
+
+        echo -e "${GREEN}IPv4:${NC} $ipv4"
+        echo -e "${ORANGE}ASN:${NC} $ipv4_asn"
+        echo -e "${ORANGE}运营商:${NC} $ipv4_provider"
+    fi
+
+    if [[ -n "$ipv6" && "$ipv6" != "$ipv4" ]]; then
+        # 获取 IPv6 的 ASN 和运营商信息
+        local ipv6_details=$(curl -s "https://ipinfo.io/$ipv6/json?token=$token")
+        local ipv6_asn=$(echo "$ipv6_details" | jq -r '.org' | awk '{print $1}')
+        local ipv6_provider=$(echo "$ipv6_details" | jq -r '.org' | sed 's/AS[0-9]* //')
+
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
+        echo -e "${ORANGE}ASN:${NC} $ipv6_asn"
+        echo -e "${ORANGE}运营商:${NC} $ipv6_provider"
+    fi
+
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
+    fi
+}
+
+# 切换显示的 IP 地址和 ASN 运营商
+toggle_ip_info() {
+    local choice
+    echo -e "${YELLOW}选择显示哪个IP地址的 ASN 和运营商：${NC}"
+    echo -e "${ORANGE}1. 显示 IPv4 的 ASN 和运营商${NC}"
+    echo -e "${ORANGE}2. 显示 IPv6 的 ASN 和运营商${NC}"
+    read -p "请输入选项 (1 或 2): " choice
+
+    case $choice in
+        1)
+            get_ip_info
+            ;;
+        2)
+            get_ip_info
+            ;;
+        *)
+            echo -e "${RED}无效选项，请选择 1 或 2${NC}"
+            ;;
+    esac
+}
+
 # 卸载函数
 uninstall() {
     echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
@@ -66,11 +121,6 @@ uninstall() {
     if grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
         echo -e "${YELLOW}清理 ~/.bashrc 配置...${NC}"
         sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
-    fi
-
-    if grep -q '# 命令行美化' ~/.bashrc; then
-        echo -e "${YELLOW}清理命令行美化配置...${NC}"
-        sed -i '/# 命令行美化/,/# 命令行美化结束/d' ~/.bashrc
     fi
 
     if [[ -f /etc/motd.bak ]]; then
@@ -116,21 +166,9 @@ install() {
         echo -e "${GREEN}备份完成，备份文件路径：/etc/motd.bak${NC}"
     fi
 
-    # 询问用户是否显示IPv6信息
-    echo -e "${YELLOW}是否显示IPv6的ASN和运营商信息？(y/n)${NC}"
-    read -p "输入 y 或 n (默认 n): " display_ipv6
-    if [[ "$display_ipv6" == "y" || "$display_ipv6" == "Y" ]]; then
-        display_ipv6_info="yes"
-    else
-        display_ipv6_info="no"
-    fi
-
     echo -e "${YELLOW}正在创建系统信息脚本...${NC}"
     cat << EOF > ~/.local/sysinfo.sh
 #!/bin/bash
-
-TOKEN="3b01046f048430"
-DISPLAY_IPV6_INFO="$display_ipv6_info"
 
 RED='\033[1;31m'
 GREEN='\033[1;32m'
@@ -183,124 +221,30 @@ swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
-get_network_traffic() {
-    local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
-    if [[ -z "\$interface" ]]; then
-        interface="eth0"
-    fi
-
-    local rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
-    local tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
-
-    format_bytes() {
-        local bytes=\$1
-        if (( bytes >= 1099511627776 )); then
-            echo "\$(awk "BEGIN {printf \"%.2f TB\", \$bytes / 1099511627776}")"
-        elif (( bytes >= 1073741824 )); then
-            echo "\$(awk "BEGIN {printf \"%.2f GB\", \$bytes / 1073741824}")"
-        else
-            echo "\$(awk "BEGIN {printf \"%.2f MB\", \$bytes / 1048576}")"
-        fi
-    }
-
-    local rx_traffic=\$(format_bytes \$rx_bytes)
-    local tx_traffic=\$(format_bytes \$tx_bytes)
-
-    echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
-}
-
-echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
-echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
-echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
-echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"
-
-echo -ne "\${ORANGE}Memory:\${NC}    "
-progress_bar \$memory_used \$memory_total
-echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
-
-if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
-    swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
-    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
-fi
-
-echo -ne "\${ORANGE}Disk:\${NC}      "
-progress_bar \$disk_used \$disk_total
-echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
-
-get_network_traffic
-
-get_public_ip() {
-    ipv4_response=\$(curl -s --max-time 3 -4 "https://ipinfo.io?token=\$TOKEN")
-    if [[ -n "\$ipv4_response" ]]; then
-        ipv4=\$(echo "\$ipv4_response" | awk -F'"' '/"ip":/ {print \$4}')
-        org=\$(echo "\$ipv4_response" | awk -F'"' '/"org":/ {print \$4}')
-        if [[ -n "\$org" ]]; then
-            asn=\$(echo "\$org" | cut -d' ' -f1)
-            operator=\$(echo "\$org" | sed 's/^AS[0-9]* //')
-        fi
-    fi
-
-    ipv6_response=\$(curl -s --max-time 3 -6 "https://ipinfo.io?token=\$TOKEN")
-    if [[ -n "\$ipv6_response" ]]; then
-        ipv6=\$(echo "\$ipv6_response" | awk -F'"' '/"ip":/ {print \$4}')
-        org6=\$(echo "\$ipv6_response" | awk -F'"' '/"org":/ {print \$4}')
-        if [[ -n "\$org6" ]]; then
-            asn6=\$(echo "\$org6" | cut -d' ' -f1)
-            operator6=\$(echo "\$org6" | sed 's/^AS[0-9]* //')
-        fi
-    fi
+get_ip_info() {
+    ipv4=\$(curl -s --max-time 3 "https://ipinfo.io/ip?token=3b01046f048430")
+    ipv6=\$(curl -s --max-time 3 "https://ipinfo.io/ip6?token=3b01046f048430")
 
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
-        if [[ -n "\$asn" && -n "\$operator" ]]; then
-            echo -e "\${CYAN}\$asn \$operator\${NC}"
-        fi
-        if [[ -n "\$ipv6" && "\$DISPLAY_IPV6_INFO" == "yes" ]]; then
-            echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
-            if [[ -n "\$asn6" && -n "\$operator6" ]]; then
-                echo -e "\${CYAN}\$asn6 \$operator6\${NC}"
-            fi
-        fi
-    elif [[ -n "\$ipv6" ]]; then
+        ipv4_details=\$(curl -s "https://ipinfo.io/\$ipv4/json?token=3b01046f048430")
+        ipv4_asn=\$(echo "\$ipv4_details" | jq -r '.org' | awk '{print $1}')
+        ipv4_provider=\$(echo "\$ipv4_details" | jq -r '.org' | sed 's/AS[0-9]* //')
+        echo -e "\${ORANGE}ASN:\${NC} \$ipv4_asn"
+        echo -e "\${ORANGE}运营商:\${NC} \$ipv4_provider"
+    fi
+
+    if [[ -n "\$ipv6" && "\$ipv6" != "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
-        if [[ -n "\$asn6" && -n "\$operator6" ]]; then
-            echo -e "\${CYAN}\$asn6 \$operator6\${NC}"
-        fi
-    else
-        echo -e "\${RED}No Public IP\${NC}"
+        ipv6_details=\$(curl -s "https://ipinfo.io/\$ipv6/json?token=3b01046f048430")
+        ipv6_asn=\$(echo "\$ipv6_details" | jq -r '.org' | awk '{print $1}')
+        ipv6_provider=\$(echo "\$ipv6_details" | jq -r '.org' | sed 's/AS[0-9]* //')
+        echo -e "\${ORANGE}ASN:\${NC} \$ipv6_asn"
+        echo -e "\${ORANGE}运营商:\${NC} \$ipv6_provider"
     fi
 }
 
-get_public_ip
-EOF
-
-    chmod +x ~/.local/sysinfo.sh
-
-    if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
-        echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
-        echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
-        echo '    bash ~/.local/sysinfo.sh' >> ~/.bashrc
-        echo 'fi' >> ~/.bashrc
-        echo '# SYSINFO SSH LOGIC END' >> ~/.bashrc
-    fi
-
-    if ! grep -q '# 命令行美化' ~/.bashrc; then
-        echo '# 命令行美化' >> ~/.bashrc
-        echo 'parse_git_branch() {' >> ~/.bashrc
-        echo '    git branch 2> /dev/null | sed -e '\''/^[^*]/d'\'' -e '\''s/* \(.*\)/ (\1)/'\''' >> ~/.bashrc
-        echo '}' >> ~/.bashrc
-        echo 'PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''' >> ~/.bashrc
-        echo '# 命令行美化结束' >> ~/.bashrc
-    fi
-
-    source ~/.bashrc >/dev/null 2>&1
-    echo -e "${GREEN}系统信息工具安装完成！${NC}"
-    echo -e "${GREEN}命令行美化完成！${NC}"
-    echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    read -n 1 -s -r -p "按任意键返回菜单..."
-}
-
-# 显示菜单
+# 主菜单
 show_menu() {
     while true; do
         clear
@@ -308,10 +252,11 @@ show_menu() {
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
+        echo -e "${ORANGE}3. 切换 IPv4 或 IPv6 的 ASN 和运营商显示${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
-        read -p "请输入选项 (0、1 或 2): " choice
+        read -p "请输入选项 (0、1、2 或 3): " choice
 
         case $choice in
             1)
@@ -320,6 +265,9 @@ show_menu() {
             2)
                 uninstall
                 read -n 1 -s -r -p "按任意键返回菜单..."
+                ;;
+            3)
+                toggle_ip_info
                 ;;
             0)
                 echo -e "${ORANGE}退出脚本。${NC}"
