@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 颜色变量
+# 定义颜色变量，用于美化输出
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -8,9 +8,9 @@ CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
-NC='\033[0m'
+NC='\033[0m'  # 重置颜色
 
-# 检查是否已安装
+# 检查脚本是否已安装
 check_installed() {
     if [[ -f ~/.local/sysinfo.sh ]] && grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
         echo -e "${GREEN}已安装${NC}"
@@ -21,31 +21,31 @@ check_installed() {
     fi
 }
 
-# 进度条函数
+# 进度条函数，用于显示内存、磁盘等使用情况
 progress_bar() {
-    local progress=$1
-    local total=$2
-    local bar_width=20
+    local progress=$1  # 当前使用量
+    local total=$2     # 总量
+    local bar_width=20 # 进度条宽度
     local filled=$((progress * bar_width / total))
     local empty=$((bar_width - filled))
 
     printf "["
     for ((i=0; i<filled; i++)); do
         if ((i < filled / 3)); then
-            printf "${GREEN}=${NC}"
+            printf "${GREEN}=${NC}"  # 前1/3绿色
         elif ((i < 2 * filled / 3)); then
-            printf "${YELLOW}=${NC}"
+            printf "${YELLOW}=${NC}" # 中1/3黄色
         else
-            printf "${RED}=${NC}"
+            printf "${RED}=${NC}"    # 后1/3红色
         fi
     done
     for ((i=0; i<empty; i++)); do
-        printf "${BLACK}=${NC}"
+        printf "${BLACK}=${NC}"      # 未使用部分黑色
     done
     printf "]"
 }
 
-# 安装依赖工具
+# 安装依赖工具（如 bc、net-tools、curl）
 install_dependencies() {
     if ! command -v bc &> /dev/null; then
         echo -e "${YELLOW}未找到 bc 工具，正在安装...${NC}"
@@ -54,34 +54,38 @@ install_dependencies() {
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
-# 获取公网 IP 和 ASN 信息
+# 获取公网 IP、ASN 和运营商信息
 get_public_ip() {
-    local type=$1
-    local token="3b01046f048430"
+    local type=$1  # 指定获取 IPv4 或 IPv6
+    local token="3b01046f048430"  # ipinfo.io 的 API token
     local ipinfo_url="https://ipinfo.io/json?token=$token"
-    local ip_data=$(curl -s --max-time 3 "$ipinfo_url")
+    local ip_data=$(curl -s --max-time 3 "$ipinfo_url")  # 使用 curl 获取 JSON 数据，超时3秒
 
     if [[ -n "$ip_data" ]]; then
+        # 提取 IPv4 地址
         local ipv4=$(echo "$ip_data" | grep -oP '(?<="ip": ")[^"]*' | grep -v ':')
+        # 提取 ASN（自治系统编号）
         local asn=$(echo "$ip_data" | grep -oP '(?<="org": ")[^"]*' | cut -d' ' -f1)
+        # 提取运营商名称
         local org=$(echo "$ip_data" | grep -oP '(?<="org": ")[^"]*' | cut -d' ' -f2-)
 
         if [[ "$type" == "ipv4" && -n "$ipv4" ]]; then
-            echo -e "${GREEN}IPv4:${NC} $ipv4"
-            echo -e "${CYAN}$asn $org${NC}"
+            echo -e "${GREEN}IPv4:${NC} $ipv4"        # 显示公网 IPv4 地址
+            echo -e "${CYAN}$asn $org${NC}"          # 显示 ASN 和运营商
         elif [[ "$type" == "ipv6" ]]; then
+            # 提取 IPv6 地址（若有）
             local ipv6=$(echo "$ip_data" | grep -oP '(?<="ip": ")[^"]*' | grep ':')
             if [[ -n "$ipv6" ]]; then
-                echo -e "${GREEN}IPv6:${NC} $ipv6"
-                echo -e "${CYAN}$asn $org${NC}"
+                echo -e "${GREEN}IPv6:${NC} $ipv6"   # 显示公网 IPv6 地址
+                echo -e "${CYAN}$asn $org${NC}"      # 显示 ASN 和运营商
             fi
         fi
     else
-        echo -e "${RED}No Public IP${NC}"
+        echo -e "${RED}No Public IP${NC}"  # 无法获取公网 IP 时显示
     fi
 }
 
-# 卸载函数
+# 卸载函数，清理脚本及相关配置
 uninstall() {
     echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
 
@@ -108,15 +112,10 @@ uninstall() {
         sudo truncate -s 0 /etc/motd
     fi
 
-    if [[ -f ~/.local/sysinfo_backup.tar.gz ]]; then
-        echo -e "${YELLOW}删除临时备份文件...${NC}"
-        rm -f ~/.local/sysinfo_backup.tar.gz
-    fi
-
     echo -e "${GREEN}系统信息工具已卸载！${NC}"
 }
 
-# 安装函数
+# 安装函数，部署脚本及配置
 install() {
     if check_installed; then
         echo -e "${YELLOW}系统信息工具已安装，是否继续安装？${NC}"
@@ -147,6 +146,7 @@ install() {
     cat << EOF > ~/.local/sysinfo.sh
 #!/bin/bash
 
+# 定义颜色变量，用于美化输出
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -156,6 +156,7 @@ ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
+# 进度条函数，显示内存、磁盘等使用进度
 progress_bar() {
     local progress=\$1
     local total=\$2
@@ -179,18 +180,22 @@ progress_bar() {
     printf "]"
 }
 
+# 获取操作系统信息
 os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 
+# 获取系统运行时间
 uptime_seconds=\$(cat /proc/uptime | awk '{print \$1}')
 uptime_days=\$(bc <<< "scale=0; \$uptime_seconds / 86400")
 uptime_hours=\$(bc <<< "scale=0; (\$uptime_seconds % 86400) / 3600")
 uptime_minutes=\$(bc <<< "scale=0; (\$uptime_seconds % 3600) / 60")
 uptime_info="\${uptime_days} days, \${uptime_hours} hours, \${uptime_minutes} minutes"
 
+# 获取 CPU 信息
 cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
 load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')
 
+# 获取内存和磁盘使用情况
 memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
 memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
 swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
@@ -198,15 +203,17 @@ swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
 disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
 disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
 
+# 获取网络流量信息
 get_network_traffic() {
     local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
     if [[ -z "\$interface" ]]; then
-        interface="eth0"
+        interface="eth0"  # 默认网卡
     fi
 
     local rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
     local tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
 
+    # 格式化字节数为 MB、GB 或 TB
     format_bytes() {
         local bytes=\$1
         if (( bytes >= 1099511627776 )); then
@@ -224,6 +231,34 @@ get_network_traffic() {
     echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
 }
 
+# 获取公网 IP、ASN 和运营商信息
+get_public_ip() {
+    local type=\$1
+    local token="3b01046f048430"
+    local ipinfo_url="https://ipinfo.io/json?token=\$token"
+    local ip_data=\$(curl -s --max-time 3 "\$ipinfo_url")
+
+    if [[ -n "\$ip_data" ]]; then
+        local ipv4=\$(echo "\$ip_data" | grep -oP '(?<="ip": ")[^"]*' | grep -v ':')
+        local asn=\$(echo "\$ip_data" | grep -oP '(?<="org": ")[^"]*' | cut -d' ' -f1)
+        local org=\$(echo "\$ip_data" | grep -oP '(?<="org": ")[^"]*' | cut -d' ' -f2-)
+
+        if [[ "\$type" == "ipv4" && -n "\$ipv4" ]]; then
+            echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
+            echo -e "\${CYAN}\$asn \$org\${NC}"
+        elif [[ "\$type" == "ipv6" ]]; then
+            local ipv6=\$(echo "\$ip_data" | grep -oP '(?<="ip": ")[^"]*' | grep ':')
+            if [[ -n "\$ipv6" ]]; then
+                echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
+                echo -e "\${CYAN}\$asn \$org\${NC}"
+            fi
+        fi
+    else
+        echo -e "\${RED}No Public IP\${NC}"
+    fi
+}
+
+# 显示系统信息
 echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
 echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
 echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
@@ -244,7 +279,8 @@ echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}
 
 get_network_traffic
 
-# Placeholder for get_public_ip call
+# 显示公网 IPv4 信息，包括 ASN 和运营商
+get_public_ip "ipv4"
 EOF
 
     chmod +x ~/.local/sysinfo.sh
@@ -266,31 +302,6 @@ EOF
         echo '# 命令行美化结束' >> ~/.bashrc
     fi
 
-    echo -e "${YELLOW}安装完成！请选择显示的 ASN 和运营商信息：${NC}"
-    echo -e "${ORANGE}1. 显示 IPv4 ASN 和运营商${NC}"
-    echo -e "${ORANGE}2. 显示 IPv6 ASN 和运营商${NC}"
-    echo -e "${ORANGE}0. 取消安装${NC}"
-    read -p "请输入选项 (0、1 或 2): " choice
-
-    case $choice in
-        1)
-            echo 'get_public_ip "ipv4"' >> ~/.local/sysinfo.sh
-            ;;
-        2)
-            echo 'get_public_ip "ipv6"' >> ~/.local/sysinfo.sh
-            ;;
-        0)
-            echo -e "${YELLOW}正在取消安装...${NC}"
-            uninstall
-            return
-            ;;
-        *)
-            echo -e "${RED}错误：无效选项，取消安装。${NC}"
-            uninstall
-            return
-            ;;
-    esac
-
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${GREEN}命令行美化完成！${NC}"
@@ -298,7 +309,7 @@ EOF
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
-# 显示菜单
+# 显示交互菜单
 show_menu() {
     while true; do
         clear
@@ -331,5 +342,5 @@ show_menu() {
     done
 }
 
-# 主逻辑
+# 启动脚本
 show_menu
