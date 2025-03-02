@@ -50,23 +50,18 @@ install_dependencies() {
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
-# （备用）外部 IP 获取函数，非系统信息脚本使用
 get_public_ip() {
-    local ip_info=$(curl -4 -s --max-time 3 "https://ipinfo.io/json?token=3b01046f048430")
-    local ip_version="IPv4"
-    if [[ -z "$ip_info" ]]; then
-         ip_info=$(curl -6 -s --max-time 3 "https://ipinfo.io/json?token=3b01046f048430")
-         ip_version="IPv6"
+    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+
+    if [[ -n "$ipv4" ]]; then
+        echo -e "${GREEN}IPv4:${NC} $ipv4"
     fi
-    local ip=$(echo "$ip_info" | grep '"ip":' | sed 's/.*"ip": *"\([^"]*\)".*/\1/')
-    local org=$(echo "$ip_info" | grep '"org":' | sed 's/.*"org": *"\([^"]*\)".*/\1/')
-    if [[ -n "$ip" ]]; then
-         echo -e "${GREEN}${ip_version}:${NC} $ip"
-         if [[ $SHOW_ASN -eq 1 && -n "$org" ]]; then
-              echo -e "${GREEN}ASN/ISP:${NC} $org"
-         fi
-    else
-         echo -e "${RED}No Public IP${NC}"
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
+    fi
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
     fi
 }
 
@@ -88,11 +83,6 @@ uninstall() {
         sed -i '/# CUSTOM PROMPT START/,/# CUSTOM PROMPT END/d' ~/.bashrc
     fi
 
-    if [[ -f ~/.local/sysinfo_config ]]; then
-        echo -e "${YELLOW}删除 ASN 配置文件...${NC}"
-        rm -f ~/.local/sysinfo_config
-    fi
-
     if [[ -f /etc/motd.bak ]]; then
         echo -e "${YELLOW}还原 /etc/motd 文件...${NC}"
         sudo mv /etc/motd.bak /etc/motd
@@ -107,26 +97,6 @@ uninstall() {
     fi
 
     echo -e "${GREEN}系统信息工具已卸载！${NC}"
-}
-
-toggle_asn() {
-    local config_file=~/.local/sysinfo_config
-    if [[ -f $config_file ]]; then
-        source $config_file
-    else
-        SHOW_ASN=1
-    fi
-
-    if [[ $SHOW_ASN -eq 1 ]]; then
-         new_value=0
-         message="ASN 显示已关闭"
-    else
-         new_value=1
-         message="ASN 显示已开启"
-    fi
-    echo "SHOW_ASN=$new_value" > $config_file
-    echo -e "${YELLOW}${message}${NC}"
-    read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 install() {
@@ -167,13 +137,6 @@ BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
-
-# 加载 ASN 显示配置，默认开启
-if [[ -f ~/.local/sysinfo_config ]]; then
-    source ~/.local/sysinfo_config
-else
-    SHOW_ASN=1
-fi
 
 progress_bar() {
     local progress=$1
@@ -263,21 +226,17 @@ echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
 get_network_traffic
 
 get_public_ip() {
-    local ip_info=$(curl -4 -s --max-time 3 "https://ipinfo.io/json?token=3b01046f048430")
-    local ip_version="IPv4"
-    if [[ -z "$ip_info" ]]; then
-         ip_info=$(curl -6 -s --max-time 3 "https://ipinfo.io/json?token=3b01046f048430")
-         ip_version="IPv6"
+    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+
+    if [[ -n "$ipv4" ]]; then
+        echo -e "${GREEN}IPv4:${NC} $ipv4"
     fi
-    local ip=$(echo "$ip_info" | grep '"ip":' | sed 's/.*"ip": *"\([^"]*\)".*/\1/')
-    local org=$(echo "$ip_info" | grep '"org":' | sed 's/.*"org": *"\([^"]*\)".*/\1/')
-    if [[ -n "$ip" ]]; then
-         echo -e "${GREEN}${ip_version}:${NC} $ip"
-         if [[ $SHOW_ASN -eq 1 && -n "$org" ]]; then
-              echo -e "${GREEN}ASN/ISP:${NC} $org"
-         fi
-    else
-         echo -e "${RED}No Public IP${NC}"
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
+    fi
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
     fi
 }
 
@@ -308,7 +267,6 @@ EOF
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    echo -e "${YELLOW}提示：可通过主菜单选项3切换ASN显示状态${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
@@ -319,11 +277,10 @@ show_menu() {
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换ASN显示${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
-        read -p "请输入选项 (0、1、2 或 3): " choice
+        read -p "请输入选项 (0、1 或 2): " choice
 
         case $choice in
             1)
@@ -332,9 +289,6 @@ show_menu() {
             2)
                 uninstall
                 read -n 1 -s -r -p "按任意键返回菜单..."
-                ;;
-            3)
-                toggle_asn
                 ;;
             0)
                 echo -e "${ORANGE}退出脚本。${NC}"
