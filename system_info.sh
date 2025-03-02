@@ -230,10 +230,14 @@ echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)
 echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"
 
 echo -ne "\${ORANGE}Memory:\${NC}    "
-progress_bar \$memory_used \$memory_total
-echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
+if [[ \$memory_total -gt 0 ]]; then
+    progress_bar \$memory_used \$memory_total
+    echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
+else
+    echo "N/A"
+fi
 
-if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
+if [[ -n "\$swap_total" && \$swap_total -gt 0 ]]; then
     swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
     echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
 fi
@@ -285,7 +289,7 @@ EOF
         echo 'parse_git_branch() {' >> ~/.bashrc
         echo '    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'' >> ~/.bashrc
         echo '}' >> ~/.bashrc
-        echo 'PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''' >> ~/.bashrc
+        echo 'PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''' >> ~/.bashrc
     fi
 
     source ~/.bashrc >/dev/null 2>&1
