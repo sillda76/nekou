@@ -8,7 +8,6 @@ CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
-LIGHT_GREEN='\033[1;92m'
 NC='\033[0m'
 
 # 检查是否已安装
@@ -52,7 +51,7 @@ install_dependencies() {
         echo -e "${YELLOW}未找到 bc 工具，正在安装...${NC}"
         sudo apt install bc -y || { echo -e "${RED}安装 bc 失败！${NC}"; exit 1; }
     fi
-    sudo apt install net-tools curl jq -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
+    sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
 # 获取公网 IP 和 ASN 信息
@@ -62,21 +61,18 @@ get_public_ip() {
 
     if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
-        get_asn_info "$ipv4"
+        asn_info=$(curl -s --max-time 3 "https://ipinfo.io/$ipv4/org")
+        if [[ -n "$asn_info" ]]; then
+            echo -e "${CYAN}$asn_info${NC}"
+        fi
     elif [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
         echo -e "${GREEN}IPv6:${NC} $ipv6"
-        get_asn_info "$ipv6"
+        asn_info=$(curl -s --max-time 3 "https://ipinfo.io/$ipv6/org")
+        if [[ -n "$asn_info" ]]; then
+            echo -e "${CYAN}$asn_info${NC}"
+        fi
     else
         echo -e "${RED}No Public IP${NC}"
-    fi
-}
-
-# 获取 ASN 和运营商信息
-get_asn_info() {
-    local ip=$1
-    local asn_info=$(curl -s --max-time 3 "https://ipinfo.io/$ip/json" | jq -r '.org // empty')
-    if [[ -n "$asn_info" ]]; then
-        echo -e "${LIGHT_GREEN}$asn_info${NC}"
     fi
 }
 
@@ -95,8 +91,8 @@ uninstall() {
     fi
 
     if grep -q '# 命令行美化' ~/.bashrc; then
-        echo -e "${YELLOW}清理 ~/.bashrc 中的命令行美化配置...${NC}"
-        sed -i '/# 命令行美化/,/PS1=/d' ~/.bashrc
+        echo -e "${YELLOW}清理命令行美化配置...${NC}"
+        sed -i '/# 命令行美化/,/# 命令行美化结束/d' ~/.bashrc
     fi
 
     if [[ -f /etc/motd.bak ]]; then
@@ -153,7 +149,6 @@ CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
-LIGHT_GREEN='\033[1;92m'
 NC='\033[0m'
 
 progress_bar() {
@@ -230,14 +225,10 @@ echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)
 echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"
 
 echo -ne "\${ORANGE}Memory:\${NC}    "
-if [[ \$memory_total -gt 0 ]]; then
-    progress_bar \$memory_used \$memory_total
-    echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
-else
-    echo "N/A"
-fi
+progress_bar \$memory_used \$memory_total
+echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
 
-if [[ -n "\$swap_total" && \$swap_total -gt 0 ]]; then
+if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
     swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
     echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
 fi
@@ -254,20 +245,18 @@ get_public_ip() {
 
     if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
-        get_asn_info "\$ipv4"
+        asn_info=\$(curl -s --max-time 3 "https://ipinfo.io/\$ipv4/org")
+        if [[ -n "\$asn_info" ]]; then
+            echo -e "\${CYAN}\$asn_info\${NC}"
+        fi
     elif [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* && "\$ipv6" != "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
-        get_asn_info "\$ipv6"
+        asn_info=\$(curl -s --max-time 3 "https://ipinfo.io/\$ipv6/org")
+        if [[ -n "\$asn_info" ]]; then
+            echo -e "\${CYAN}\$asn_info\${NC}"
+        fi
     else
         echo -e "\${RED}No Public IP\${NC}"
-    fi
-}
-
-get_asn_info() {
-    local ip=\$1
-    local asn_info=\$(curl -s --max-time 3 "https://ipinfo.io/\$ip/json" | jq -r '.org // empty')
-    if [[ -n "\$asn_info" ]]; then
-        echo -e "\${LIGHT_GREEN}\$asn_info\${NC}"
     fi
 }
 
@@ -287,15 +276,16 @@ EOF
     if ! grep -q '# 命令行美化' ~/.bashrc; then
         echo '# 命令行美化' >> ~/.bashrc
         echo 'parse_git_branch() {' >> ~/.bashrc
-        echo '    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'' >> ~/.bashrc
+        echo '    git branch 2> /dev/null | sed -e '\''/^[^*]/d'\'' -e '\''s/* \(.*\)/ (\1)/'\''' >> ~/.bashrc
         echo '}' >> ~/.bashrc
-        echo 'PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''' >> ~/.bashrc
+        echo 'PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''' >> ~/.bashrc
+        echo '# 命令行美化结束' >> ~/.bashrc
     fi
 
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
+    echo -e "${GREEN}命令行美化完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    echo -e "${GREEN}命令行美化配置已添加！${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
