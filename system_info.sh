@@ -10,8 +10,8 @@ ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
-# IPinfo Token
-IPINFO_TOKEN="3b01046f048430"
+# Token for ipinfo.io
+TOKEN="3b01046f048430"
 
 # 检查是否已安装
 check_installed() {
@@ -57,35 +57,34 @@ install_dependencies() {
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
-# 获取公网 IP 和 ASN 信息
+# 获取公网 IP、ASN 和 ISP 信息
 get_public_ip() {
-    ipv4=$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$IPINFO_TOKEN")
-    ipv6=$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$IPINFO_TOKEN" -6)
+    # 使用 ipinfo.io 获取 IPv4 和 IPv6
+    ipv4=$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$TOKEN")
+    ipv6=$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$TOKEN" -6)
 
-    if [[ -n "$ipv4" && -n "$ipv6" ]]; then
+    if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
-    elif [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
-    elif [[ -n "$ipv6" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
-    else
-        echo -e "${RED}No Public IP${NC}"
-    fi
-}
-
-# 获取 ASN 和运营商信息
-get_asn_info() {
-    local ip=$1
-    if [[ -n "$ip" ]]; then
-        asn_info=$(curl -s --max-time 3 "https://ipinfo.io/$ip/org?token=$IPINFO_TOKEN")
-        if [[ -n "$asn_info" ]]; then
-            echo -e "${CYAN}$asn_info${NC}"
-        else
-            echo -e "${RED}无法获取 ASN 信息${NC}"
+        ipv4_info=$(curl -s --max-time 3 "https://ipinfo.io/$ipv4?token=$TOKEN")
+        asn=$(echo "$ipv4_info" | grep -oP '"asn": "\K[^"]+')
+        isp=$(echo "$ipv4_info" | grep -oP '"org": "\K[^"]+')
+        if [[ -n "$asn" && -n "$isp" ]]; then
+            echo -e "${CYAN}ASN: $asn, ISP: $isp${NC}"
         fi
-    else
-        echo -e "${RED}IP 地址无效${NC}"
+    fi
+
+    if [[ -n "$ipv6" && "$ipv6" != "$ipv4" ]]; then
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
+        ipv6_info=$(curl -s --max-time 3 "https://ipinfo.io/$ipv6?token=$TOKEN")
+        asn=$(echo "$ipv6_info" | grep -oP '"asn": "\K[^"]+')
+        isp=$(echo "$ipv6_info" | grep -oP '"org": "\K[^"]+')
+        if [[ -n "$asn" && -n "$isp" ]]; then
+            echo -e "${CYAN}ASN: $asn, ISP: $isp${NC}"
+        fi
+    fi
+
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
     fi
 }
 
@@ -163,6 +162,8 @@ BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
+
+TOKEN="$TOKEN"
 
 progress_bar() {
     local progress=\$1
@@ -252,47 +253,37 @@ echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}
 
 get_network_traffic
 
+# 获取公网 IP、ASN 和 ISP 信息，使用 ipinfo.io
 get_public_ip() {
-    ipv4=\$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$IPINFO_TOKEN")
-    ipv6=\$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$IPINFO_TOKEN" -6)
+    ipv4=\$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$TOKEN")
+    ipv6=\$(curl -s --max-time 3 "https://ipinfo.io/ip?token=$TOKEN" -6)
 
-    if [[ -n "\$ipv4" && -n "\$ipv6" ]]; then
+    if [[ -n "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
+        ipv4_info=\$(curl -s --max-time 3 "https://ipinfo.io/\$ipv4?token=$TOKEN")
+        asn=\$(echo "\$ipv4_info" | grep -oP '"asn": "\K[^"]+')
+        isp=\$(echo "\$ipv4_info" | grep -oP '"org": "\K[^"]+')
+        if [[ -n "\$asn" && -n "\$isp" ]]; then
+            echo -e "\${CYAN}ASN: \$asn, ISP: \$isp${NC}"
+        fi
+    fi
+
+    if [[ -n "\$ipv6" && "\$ipv6" != "\$ipv4" ]]; then
         echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
-    elif [[ -n "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
-    elif [[ -n "\$ipv6" ]]; then
-        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
-    else
+        ipv6_info=\$(curl -s --max-time 3 "https://ipinfo.io/\$ipv6?token=$TOKEN")
+        asn=\$(echo "\$ipv6_info" | grep -oP '"asn": "\K[^"]+')
+        isp=\$(echo "\$ipv6_info" | grep -oP '"org": "\K[^"]+')
+        if [[ -n "\$asn" && -n "\$isp" ]]; then
+            echo -e "\${CYAN}ASN: \$asn, ISP: \$isp${NC}"
+        fi
+    fi
+
+    if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
         echo -e "\${RED}No Public IP\${NC}"
     fi
 }
 
 get_public_ip
-
-# 选择显示 IPv4 还是 IPv6 的 ASN 和运营商信息
-echo -e "\n${ORANGE}请选择显示 ASN 和运营商信息：${NC}"
-echo -e "${ORANGE}1. 显示 IPv4 的 ASN 和运营商${NC}"
-echo -e "${ORANGE}2. 显示 IPv6 的 ASN 和运营商${NC}"
-echo -e "${ORANGE}0. 取消安装${NC}"
-read -p "请输入选项 (0、1 或 2): " choice
-
-case \$choice in
-    1)
-        get_asn_info "\$ipv4"
-        ;;
-    2)
-        get_asn_info "\$ipv6"
-        ;;
-    0)
-        echo -e "${YELLOW}取消安装，回退所有已安装的内容...${NC}"
-        uninstall
-        exit 0
-        ;;
-    *)
-        echo -e "${RED}错误：无效选项，跳过 ASN 和运营商信息显示。${NC}"
-        ;;
-esac
 EOF
 
     chmod +x ~/.local/sysinfo.sh
@@ -318,6 +309,34 @@ EOF
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${GREEN}命令行美化完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
+
+    # 在安装完成后询问用户选择显示 IPv4 或 IPv6 的 ASN 和运营商
+    echo -e "${ORANGE}请选择显示的ASN和运营商信息：${NC}"
+    echo -e "${ORANGE}1. 显示IPv4 ASN和运营商${NC}"
+    echo -e "${ORANGE}2. 显示IPv6 ASN和运营商${NC}"
+    echo -e "${ORANGE}0. 取消安装${NC}"
+    read -p "请输入选项 (0、1 或 2): " asn_choice
+
+    case $asn_choice in
+        1)
+            echo "已选择显示IPv4 ASN和运营商"
+            # 当前逻辑已默认显示所有可用信息，可根据需要调整为仅显示 IPv4
+            ;;
+        2)
+            echo "已选择显示IPv6 ASN和运营商"
+            # 当前逻辑已默认显示所有可用信息，可根据需要调整为仅显示 IPv6
+            ;;
+        0)
+            echo -e "${YELLOW}取消安装，正在回退...${NC}"
+            uninstall
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            return
+            ;;
+        *)
+            echo -e "${RED}错误：无效选项，默认显示所有可用信息。${NC}"
+            ;;
+    esac
+
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
