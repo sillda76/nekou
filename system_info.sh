@@ -10,9 +10,7 @@ ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
-# -------------------------------
-# 检查是否已安装系统信息工具
-# -------------------------------
+# 检查是否已安装
 check_installed() {
     if [[ -f ~/.local/sysinfo.sh ]] && grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
         echo -e "${GREEN}已安装${NC}"
@@ -23,9 +21,7 @@ check_installed() {
     fi
 }
 
-# -------------------------------
-# 进度条函数（用于内存和磁盘使用情况显示）
-# -------------------------------
+# 进度条函数
 progress_bar() {
     local progress=$1
     local total=$2
@@ -49,38 +45,20 @@ progress_bar() {
     printf "]"
 }
 
-# -------------------------------
-# 安装依赖工具（bc、net-tools、curl）
-# -------------------------------
+# 安装依赖工具
 install_dependencies() {
     if ! command -v bc &> /dev/null; then
         echo -e "${YELLOW}未找到 bc 工具，正在安装...${NC}"
         sudo apt install bc -y || { echo -e "${RED}安装 bc 失败！${NC}"; exit 1; }
     fi
+    if ! command -v jq &> /dev/null; then
+        echo -e "${YELLOW}未找到 jq 工具，正在安装...${NC}"
+        sudo apt install jq -y || { echo -e "${RED}安装 jq 失败！${NC}"; exit 1; }
+    fi
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
-# -------------------------------
-# 获取公网 IP（旧方法保留，仅供参考）
-# -------------------------------
-get_public_ip() {
-    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
-
-    if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
-    fi
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
-    fi
-    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e "${RED}No Public IP${NC}"
-    fi
-}
-
-# -------------------------------
-# 卸载函数，删除系统信息脚本以及 ~/.bashrc 中添加的内容
-# -------------------------------
+# 卸载函数
 uninstall() {
     echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
 
@@ -94,10 +72,10 @@ uninstall() {
         sed -i '/# SYSINFO SSH LOGIC START/,/# SYSINFO SSH LOGIC END/d' ~/.bashrc
     fi
 
-    # 清除 Git 分支解析与 PS1 定制部分
-    if grep -q '# GIT BRANCH AND PS1 CUSTOMIZATION START' ~/.bashrc; then
-        echo -e "${YELLOW}清理 ~/.bashrc 的 Git PS1 定制内容...${NC}"
-        sed -i '/# GIT BRANCH AND PS1 CUSTOMIZATION START/,/# GIT BRANCH AND PS1 CUSTOMIZATION END/d' ~/.bashrc
+    # 清理 PS1 配置
+    if grep -q '# CUSTOM PS1 CONFIG START' ~/.bashrc; then
+        echo -e "${YELLOW}清理 PS1 配置...${NC}"
+        sed -i '/# CUSTOM PS1 CONFIG START/,/# CUSTOM PS1 CONFIG END/d' ~/.bashrc
     fi
 
     if [[ -f /etc/motd.bak ]]; then
@@ -116,29 +94,23 @@ uninstall() {
     echo -e "${GREEN}系统信息工具已卸载！${NC}"
 }
 
-# -------------------------------
-# 切换 IPv4/IPv6 的 ASN 运营商显示模式（修改配置文件 ~/.local/ipinfo_mode）
-# -------------------------------
-toggle_ipinfo_mode() {
-    config_file=~/.local/ipinfo_mode
-    if [[ -f "$config_file" ]]; then
-        mode=$(cat "$config_file")
-        if [[ "$mode" == "ipv4" ]]; then
-            echo "ipv6" > "$config_file"
-            echo -e "${GREEN}已切换为 IPv6 的 ASN 运营商显示${NC}"
-        else
-            echo "ipv4" > "$config_file"
-            echo -e "${GREEN}已切换为 IPv4 的 ASN 运营商显示${NC}"
-        fi
+# 切换ASN显示模式
+toggle_asn_display() {
+    config_file=~/.sysinfo_config
+    current_mode=$(grep "ASN_DISPLAY_MODE" $config_file 2>/dev/null | cut -d'=' -f2)
+    
+    if [[ "$current_mode" == "ipv6" ]]; then
+        new_mode="ipv4"
     else
-        echo "ipv4" > "$config_file"
-        echo -e "${GREEN}默认设置为 IPv4 的 ASN 运营商显示${NC}"
+        new_mode="ipv6"
     fi
+    
+    echo "ASN_DISPLAY_MODE=$new_mode" > $config_file
+    echo -e "${GREEN}已切换显示 ${YELLOW}${new_mode^^}${GREEN} 的ASN和运营商信息${NC}"
+    read -n 1 -s -r -p "按任意键继续..."
 }
 
-# -------------------------------
-# 安装函数（安装系统信息工具、备份 /etc/motd、写入 ~/.local/sysinfo.sh 以及修改 ~/.bashrc）
-# -------------------------------
+# 安装函数
 install() {
     if check_installed; then
         echo -e "${YELLOW}系统信息工具已安装，是否继续安装？${NC}"
@@ -169,7 +141,6 @@ install() {
     cat << 'EOF' > ~/.local/sysinfo.sh
 #!/bin/bash
 
-# 颜色变量
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -179,9 +150,21 @@ ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
-# -------------------------------
-# 进度条函数（显示内存和磁盘使用情况）
-# -------------------------------
+# 获取ASN信息函数
+get_asn_info() {
+    local ip=$1
+    local token="3b01046f048430"
+    local result=$(curl -s --max-time 3 "https://ipinfo.io/$ip?token=$token")
+    
+    if [[ -n "$result" ]]; then
+        local asn=$(echo "$result" | jq -r '.asn' | sed 's/AS//g')
+        local org=$(echo "$result" | jq -r '.org' | cut -d'-' -f2- | xargs)
+        echo -e "${YELLOW}ASN:${NC}  $asn  ${YELLOW}运营商:${NC} $org"
+    else
+        echo -e "${RED}未能获取ASN信息${NC}"
+    fi
+}
+
 progress_bar() {
     local progress=$1
     local total=$2
@@ -205,48 +188,25 @@ progress_bar() {
     printf "]"
 }
 
-# -------------------------------
-# 获取操作系统信息
-# -------------------------------
-os_info=$(grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | sed 's/PRETTY_NAME=//;s/"//g')
+os_info=$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 
-# -------------------------------
-# 获取系统运行时间
-# -------------------------------
-uptime_seconds=$(awk '{print $1}' /proc/uptime)
+uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
 uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
 uptime_hours=$(bc <<< "scale=0; ($uptime_seconds % 86400) / 3600")
 uptime_minutes=$(bc <<< "scale=0; ($uptime_seconds % 3600) / 60")
 uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minutes"
 
-# -------------------------------
-# 获取 CPU 信息
-# -------------------------------
-cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//;s/CPU @.*//;s/^ *//;s/ *$//')
+cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
-load_info=$(awk '{print $1", "$2", "$3}' /proc/loadavg)
+load_info=$(cat /proc/loadavg | awk '{print $1", "$2", "$3}')
 
-# -------------------------------
-# 获取内存信息
-# -------------------------------
-memory_total=$(free -m 2>/dev/null | awk '/Mem:/{print $2}')
-memory_used=$(free -m 2>/dev/null | awk '/Mem:/{print $3}')
+memory_total=$(free -m 2>/dev/null | grep Mem: | awk '{print $2}')
+memory_used=$(free -m 2>/dev/null | grep Mem: | awk '{print $3}')
+swap_total=$(free -m 2>/dev/null | grep Swap: | awk '{print $2}')
+swap_used=$(free -m 2>/dev/null | grep Swap: | awk '{print $3}')
+disk_total=$(df -k / 2>/dev/null | grep / | awk '{print $2}')
+disk_used=$(df -k / 2>/dev/null | grep / | awk '{print $3}')
 
-# -------------------------------
-# 获取 Swap 信息
-# -------------------------------
-swap_total=$(free -m 2>/dev/null | awk '/Swap:/{print $2}')
-swap_used=$(free -m 2>/dev/null | awk '/Swap:/{print $3}')
-
-# -------------------------------
-# 获取磁盘信息
-# -------------------------------
-disk_total=$(df -k / 2>/dev/null | awk 'NR==2 {print $2}')
-disk_used=$(df -k / 2>/dev/null | awk 'NR==2 {print $3}')
-
-# -------------------------------
-# 获取网络流量（默认网络接口）
-# -------------------------------
 get_network_traffic() {
     local interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
     if [[ -z "$interface" ]]; then
@@ -259,11 +219,11 @@ get_network_traffic() {
     format_bytes() {
         local bytes=$1
         if (( bytes >= 1099511627776 )); then
-            awk "BEGIN {printf \"%.2f TB\", bytes/1099511627776}"
+            echo "$(awk "BEGIN {printf \"%.2f TB\", $bytes / 1099511627776}")"
         elif (( bytes >= 1073741824 )); then
-            awk "BEGIN {printf \"%.2f GB\", bytes/1073741824}"
+            echo "$(awk "BEGIN {printf \"%.2f GB\", $bytes / 1073741824}")"
         else
-            awk "BEGIN {printf \"%.2f MB\", bytes/1048576}"
+            echo "$(awk "BEGIN {printf \"%.2f MB\", $bytes / 1048576}")"
         fi
     }
 
@@ -273,43 +233,7 @@ get_network_traffic() {
     echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
 }
 
-# -------------------------------
-# 获取并显示 IP 与 ASN/运营商信息（使用 ipinfo.io 查询）
-# -------------------------------
-get_ipinfo() {
-    config_file="$HOME/.local/ipinfo_mode"
-    mode="ipv4"
-    if [[ -f "$config_file" ]]; then
-        mode=$(cat "$config_file")
-    else
-        echo "ipv4" > "$config_file"
-    fi
-
-    if [[ "$mode" == "ipv4" ]]; then
-        data=$(curl -s -4 "https://ipinfo.io/json?token=3b01046f048430")
-    else
-        data=$(curl -s -6 "https://ipinfo.io/json?token=3b01046f048430")
-    fi
-
-    ip=$(echo "$data" | grep -oP '"ip":\s*"\K[^"]+')
-    org=$(echo "$data" | grep -oP '"org":\s*"\K[^"]+')
-    asn=$(echo "$org" | awk '{print $1}')
-    isp=$(echo "$org" | cut -d' ' -f2-)
-
-    if [[ "$mode" == "ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ip"
-    else
-        echo -e "${GREEN}IPv6:${NC} $ip"
-    fi
-
-    if [[ -n "$asn" && -n "$isp" ]]; then
-        echo -e "${GREEN}$asn${NC} ${YELLOW}$isp${NC}"
-    fi
-}
-
-# -------------------------------
-# 显示系统所有信息
-# -------------------------------
+# 主显示逻辑
 echo -e "${ORANGE}OS:${NC}        ${os_info:-N/A}"
 echo -e "${ORANGE}Uptime:${NC}    ${uptime_info:-N/A}"
 echo -e "${ORANGE}CPU:${NC}       ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
@@ -317,28 +241,57 @@ echo -e "${ORANGE}Load:${NC}      ${load_info:-N/A}"
 
 echo -ne "${ORANGE}Memory:${NC}    "
 progress_bar $memory_used $memory_total
-echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB ($(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}") )"
+echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB ($(awk "BEGIN {printf \"%.0f%%\", ($memory_used/$memory_total)*100}"))"
 
 if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
-    swap_usage=$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
+    swap_usage=$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", $swap_used, $swap_total, ($swap_used/$swap_total)*100}")
     echo -e "${ORANGE}Swap:${NC}      $swap_usage"
 fi
 
 echo -ne "${ORANGE}Disk:${NC}      "
 progress_bar $disk_used $disk_total
-echo " $(df -h / 2>/dev/null | awk 'NR==2 {print \$3 " / " \$2 " (" \$5 ")"}')"
+echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
 
 get_network_traffic
 
-# 最后获取并显示 IP 与 ASN/运营商信息
-get_ipinfo
+# 获取公网IP和ASN信息
+config_file=~/.sysinfo_config
+asn_display_mode=$(grep "ASN_DISPLAY_MODE" $config_file 2>/dev/null | cut -d'=' -f2 || echo "ipv4")
+
+get_public_ip() {
+    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+
+    # 显示逻辑
+    if [[ "$asn_display_mode" == "ipv4" ]]; then
+        if [[ -n "$ipv4" ]]; then
+            echo -e "${GREEN}IPv4:${NC} $ipv4"
+            get_asn_info "$ipv4"
+        fi
+        if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+            echo -e "${GREEN}IPv6:${NC} $ipv6"
+        fi
+    else
+        if [[ -n "$ipv4" ]]; then
+            echo -e "${GREEN}IPv4:${NC} $ipv4"
+        fi
+        if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+            echo -e "${GREEN}IPv6:${NC} $ipv6"
+            get_asn_info "$ipv6"
+        fi
+    fi
+
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
+    fi
+}
+
+get_public_ip
 EOF
 
     chmod +x ~/.local/sysinfo.sh
 
-    # -------------------------------
-    # 在 ~/.bashrc 添加 SSH 登录时执行系统信息脚本
-    # -------------------------------
+    # 添加SSH登录触发逻辑
     if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
         echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
         echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
@@ -347,27 +300,29 @@ EOF
         echo '# SYSINFO SSH LOGIC END' >> ~/.bashrc
     fi
 
-    # -------------------------------
-    # 在 ~/.bashrc 末尾添加 Git 分支解析及 PS1 定制（仅添加一次）
-    # -------------------------------
-    if ! grep -q 'parse_git_branch()' ~/.bashrc; then
-        echo '# GIT BRANCH AND PS1 CUSTOMIZATION START' >> ~/.bashrc
-        echo 'parse_git_branch() {' >> ~/.bashrc
-        echo '    git branch 2> /dev/null | sed -e "/^[^*]/d" -e "s/* \(.*\)/ (\1)/"' >> ~/.bashrc
-        echo '}' >> ~/.bashrc
-        echo "" >> ~/.bashrc
-        echo "PS1='\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]\$(parse_git_branch)\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'" >> ~/.bashrc
-        echo '# GIT BRANCH AND PS1 CUSTOMIZATION END' >> ~/.bashrc
+    # 添加PS1配置
+    if ! grep -q '# CUSTOM PS1 CONFIG START' ~/.bashrc; then
+        cat << 'EOF' >> ~/.bashrc
+# CUSTOM PS1 CONFIG START
+parse_git_branch() {
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* $.*$/ (\1)/'
+}
+
+PS1='$$\033[01;38;5;117m$$\u$$\033[01;33m$$@$$\033[01;33m$$\h$$\033[00m$$:$$\033[01;35m$$\w$$\033[01;35m$$$(parse_git_branch)$$\033[00m$$ $$\033[01;36m$$[\D{%H:%M:%S}]$$\033[00m$$\n$$\033[01;37m$$\$ $$\033[00m$$'
+# CUSTOM PS1 CONFIG END
+EOF
     fi
 
+    # 创建配置文件
+    echo "ASN_DISPLAY_MODE=ipv4" > ~/.sysinfo_config
+
+    source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
-    echo -e "${YELLOW}默认显示 IPv4 的 ASN 运营商信息，可通过脚本切换显示。${NC}"
+    echo -e "${YELLOW}默认显示IPv4的ASN和运营商信息，可通过菜单切换${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
-# -------------------------------
-# 显示菜单，提供 安装、卸载、切换 IPv4/IPv6 ASN 信息显示模式、退出 等选项
-# -------------------------------
+# 显示菜单
 show_menu() {
     while true; do
         clear
@@ -375,11 +330,11 @@ show_menu() {
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换 IPv4/IPv6 的 ASN 运营商显示${NC}"
+        echo -e "${ORANGE}3. 切换ASN显示模式${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
-        read -p "请输入选项 (0、1、2 或 3): " choice
+        read -p "请输入选项 (0-3): " choice
 
         case $choice in
             1)
@@ -390,8 +345,7 @@ show_menu() {
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             3)
-                toggle_ipinfo_mode
-                read -n 1 -s -r -p "按任意键返回菜单..."
+                toggle_asn_display
                 ;;
             0)
                 echo -e "${ORANGE}退出脚本。${NC}"
