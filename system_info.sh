@@ -219,27 +219,32 @@ echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
 
 get_network_traffic
 
-get_public_ip() {
-    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
-    # 显示存在的IP地址
+get_public_ip() {
+    # 统一使用ipinfo.io获取IP
+    ipv4=$(curl -s --max-time 3 -H "Authorization: Bearer 3b01046f048430" https://ipinfo.io/ip || curl -s --max-time 3 ifconfig.me)
+    ipv6=$(curl -s --max-time 3 -H "Authorization: Bearer 3b01046f048430" https://ipinfo.io/ip?type=6 || curl -s --max-time 3 ifconfig.co)
+
+    # 显示IP信息
     if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
+        # 获取IPv4的ASN信息
+        asn_info=$(curl -s --max-time 3 -H "Authorization: Bearer 3b01046f048430" "https://ipinfo.io/$ipv4/org")
+        [[ -n "$asn_info" ]] && echo -e "${CYAN}ASN:${NC} $asn_info"
     fi
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+    
+    if [[ -n "$ipv6" && "$ipv6" != "$ipv4" ]]; then
         echo -e "${GREEN}IPv6:${NC} $ipv6"
+        # 获取IPv6的ASN信息
+        asn_info_v6=$(curl -s --max-time 3 -H "Authorization: Bearer 3b01046f048430" "https://ipinfo.io/$ipv6/org")
+        [[ -n "$asn_info_v6" ]] && echo -e "${CYAN}ASN:${NC} $asn_info_v6"
     fi
+
+    # 处理无公网IP的情况
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
         echo -e "${RED}No Public IP${NC}"
     fi
-
-    # 动态ASN查询部分
-    %ASN_CODE%
 }
-
-get_public_ip
-EOF
 
     # 询问ASN显示选项
     while true; do
