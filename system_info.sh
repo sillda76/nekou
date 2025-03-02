@@ -10,12 +10,6 @@ ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
-# IPinfo API Token
-IPINFO_TOKEN="3b01046f048430"
-
-# 默认显示 IPv4 的 ASN 和运营商
-DEFAULT_IP_VERSION="ipv4"
-
 # 检查是否已安装
 check_installed() {
     if [[ -f ~/.local/sysinfo.sh ]] && grep -q '# SYSINFO SSH LOGIC START' ~/.bashrc; then
@@ -57,41 +51,24 @@ install_dependencies() {
         echo -e "${YELLOW}未找到 bc 工具，正在安装...${NC}"
         sudo apt install bc -y || { echo -e "${RED}安装 bc 失败！${NC}"; exit 1; }
     fi
-    sudo apt install net-tools curl jq -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
+    sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
-# 获取 IP 和 ASN 信息
-get_ip_info() {
-    local ip_version=$1
-    local ip_address
-
-    if [[ "$ip_version" == "ipv4" ]]; then
-        ip_address=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    elif [[ "$ip_version" == "ipv6" ]]; then
-        ip_address=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+# 切换ASN显示模式
+toggle_asn_display() {
+    asn_config_file="$HOME/.local/sysinfo_asn.conf"
+    if [[ -f "$asn_config_file" ]]; then
+        current_asn_display=$(cat "$asn_config_file")
+    else
+        current_asn_display="ipv4"
     fi
 
-    if [[ -n "$ip_address" ]]; then
-        local ip_info=$(curl -s --max-time 3 "https://ipinfo.io/$ip_address?token=$IPINFO_TOKEN")
-        local asn=$(echo "$ip_info" | jq -r '.org' | awk '{print $1}')
-        local isp=$(echo "$ip_info" | jq -r '.org' | awk '{for(i=2;i<=NF;i++) printf $i" "}' | sed 's/ $//')
-
-        echo -e "${GREEN}$ip_version:${NC} $ip_address"
-        echo -e "${BLUE}ASN:${NC} $asn"
-        echo -e "${BLUE}运营商:${NC} $isp"
+    if [[ "$current_asn_display" == "ipv4" ]]; then
+        echo "ipv6" > "$asn_config_file"
+        echo -e "${GREEN}已切换为显示IPv6的ASN和运营商信息。${NC}"
     else
-        echo -e "${RED}未获取到 $ip_version 地址${NC}"
-    fi
-}
-
-# 切换 IPv4/IPv6 的 ASN 和运营商显示
-switch_asn_display() {
-    if [[ "$DEFAULT_IP_VERSION" == "ipv4" ]]; then
-        DEFAULT_IP_VERSION="ipv6"
-        echo -e "${GREEN}已切换到显示 IPv6 的 ASN 和运营商${NC}"
-    else
-        DEFAULT_IP_VERSION="ipv4"
-        echo -e "${GREEN}已切换到显示 IPv4 的 ASN 和运营商${NC}"
+        echo "ipv4" > "$asn_config_file"
+        echo -e "${GREEN}已切换为显示IPv4的ASN和运营商信息。${NC}"
     fi
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
@@ -154,7 +131,7 @@ install() {
     fi
 
     echo -e "${YELLOW}正在创建系统信息脚本...${NC}"
-    cat << EOF > ~/.local/sysinfo.sh
+    cat << 'EOF' > ~/.local/sysinfo.sh
 #!/bin/bash
 
 RED='\033[1;31m'
@@ -166,132 +143,150 @@ ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
-# IPinfo API Token
-IPINFO_TOKEN="3b01046f048430"
+# 读取ASN显示配置
+asn_config_file="$HOME/.local/sysinfo_asn.conf"
+if [[ -f "$asn_config_file" ]]; then
+    current_asn_display=$(cat "$asn_config_file")
+else
+    current_asn_display="ipv4"
+fi
 
-# 默认显示 IPv4 的 ASN 和运营商
-DEFAULT_IP_VERSION="ipv4"
-
-# 获取 IP 和 ASN 信息
-get_ip_info() {
-    local ip_version=\$1
-    local ip_address
-
-    if [[ "\$ip_version" == "ipv4" ]]; then
-        ip_address=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    elif [[ "\$ip_version" == "ipv6" ]]; then
-        ip_address=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
-    fi
-
-    if [[ -n "\$ip_address" ]]; then
-        local ip_info=\$(curl -s --max-time 3 "https://ipinfo.io/\$ip_address?token=\$IPINFO_TOKEN")
-        local asn=\$(echo "\$ip_info" | jq -r '.org' | awk '{print \$1}')
-        local isp=\$(echo "\$ip_info" | jq -r '.org' | awk '{for(i=2;i<=NF;i++) printf \$i" "}' | sed 's/ \$//')
-
-        echo -e "\${GREEN}\$ip_version:\${NC} \$ip_address"
-        echo -e "\${BLUE}ASN:\${NC} \$asn"
-        echo -e "\${BLUE}运营商:\${NC} \$isp"
-    else
-        echo -e "\${RED}未获取到 \$ip_version 地址\${NC}"
+# 获取ASN信息函数
+get_asn_info() {
+    local ip=$1
+    if [[ -z "$ip" ]]; then return; fi
+    local response=$(curl -s --max-time 3 "https://ipinfo.io/$ip?token=3b01046f048430")
+    local org=$(echo "$response" | grep '"org":' | cut -d '"' -f 4)
+    if [[ -n "$org" ]]; then
+        echo "$org" | sed 's/AS\([0-9]\+\)/\1/'  # 提取纯ASN和运营商名称
     fi
 }
 
-# 显示 IP 和 ASN 信息
-if [[ -n "\$SSH_CONNECTION" ]]; then
-    get_ip_info "\$DEFAULT_IP_VERSION"
-fi
-
-# 其余系统信息显示逻辑
 progress_bar() {
-    local progress=\$1
-    local total=\$2
+    local progress=$1
+    local total=$2
     local bar_width=20
-    local filled=\$((progress * bar_width / total))
-    local empty=\$((bar_width - filled))
+    local filled=$((progress * bar_width / total))
+    local empty=$((bar_width - filled))
 
     printf "["
     for ((i=0; i<filled; i++)); do
         if ((i < filled / 3)); then
-            printf "\${GREEN}=\${NC}"
+            printf "${GREEN}=${NC}"
         elif ((i < 2 * filled / 3)); then
-            printf "\${YELLOW}=\${NC}"
+            printf "${YELLOW}=${NC}"
         else
-            printf "\${RED}=\${NC}"
+            printf "${RED}=${NC}"
         fi
     done
     for ((i=0; i<empty; i++)); do
-        printf "\${BLACK}=\${NC}"
+        printf "${BLACK}=${NC}"
     done
     printf "]"
 }
 
-os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
+os_info=$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 
-uptime_seconds=\$(cat /proc/uptime | awk '{print \$1}')
-uptime_days=\$(bc <<< "scale=0; \$uptime_seconds / 86400")
-uptime_hours=\$(bc <<< "scale=0; (\$uptime_seconds % 86400) / 3600")
-uptime_minutes=\$(bc <<< "scale=0; (\$uptime_seconds % 3600) / 60")
-uptime_info="\${uptime_days} days, \${uptime_hours} hours, \${uptime_minutes} minutes"
+uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
+uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
+uptime_hours=$(bc <<< "scale=0; ($uptime_seconds % 86400) / 3600")
+uptime_minutes=$(bc <<< "scale=0; ($uptime_seconds % 3600) / 60")
+uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minutes"
 
-cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
-cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
-load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')
+cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
+cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
+load_info=$(cat /proc/loadavg | awk '{print $1", "$2", "$3}')
 
-memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
-memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
-swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
-swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
-disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
-disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
+memory_total=$(free -m 2>/dev/null | grep Mem: | awk '{print $2}')
+memory_used=$(free -m 2>/dev/null | grep Mem: | awk '{print $3}')
+swap_total=$(free -m 2>/dev/null | grep Swap: | awk '{print $2}')
+swap_used=$(free -m 2>/dev/null | grep Swap: | awk '{print $3}')
+disk_total=$(df -k / 2>/dev/null | grep / | awk '{print $2}')
+disk_used=$(df -k / 2>/dev/null | grep / | awk '{print $3}')
 
 get_network_traffic() {
-    local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
-    if [[ -z "\$interface" ]]; then
+    local interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
+    if [[ -z "$interface" ]]; then
         interface="eth0"
     fi
 
-    local rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
-    local tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
+    local rx_bytes=$(cat /sys/class/net/$interface/statistics/rx_bytes)
+    local tx_bytes=$(cat /sys/class/net/$interface/statistics/tx_bytes)
 
     format_bytes() {
-        local bytes=\$1
+        local bytes=$1
         if (( bytes >= 1099511627776 )); then
-            echo "\$(awk "BEGIN {printf \"%.2f TB\", \$bytes / 1099511627776}")"
+            echo "$(awk "BEGIN {printf \"%.2f TB\", $bytes / 1099511627776}")"
         elif (( bytes >= 1073741824 )); then
-            echo "\$(awk "BEGIN {printf \"%.2f GB\", \$bytes / 1073741824}")"
+            echo "$(awk "BEGIN {printf \"%.2f GB\", $bytes / 1073741824}")"
         else
-            echo "\$(awk "BEGIN {printf \"%.2f MB\", \$bytes / 1048576}")"
+            echo "$(awk "BEGIN {printf \"%.2f MB\", $bytes / 1048576}")"
         fi
     }
 
-    local rx_traffic=\$(format_bytes \$rx_bytes)
-    local tx_traffic=\$(format_bytes \$tx_bytes)
+    local rx_traffic=$(format_bytes $rx_bytes)
+    local tx_traffic=$(format_bytes $tx_bytes)
 
-    echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
+    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
 }
 
-echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
-echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
-echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
-echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"
+echo -e "${ORANGE}OS:${NC}        ${os_info:-N/A}"
+echo -e "${ORANGE}Uptime:${NC}    ${uptime_info:-N/A}"
+echo -e "${ORANGE}CPU:${NC}       ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${ORANGE}Load:${NC}      ${load_info:-N/A}"
 
-echo -ne "\${ORANGE}Memory:\${NC}    "
-progress_bar \$memory_used \$memory_total
-echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
+echo -ne "${ORANGE}Memory:${NC}    "
+progress_bar $memory_used $memory_total
+echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB ($(awk "BEGIN {printf \"%.0f%%\", ($memory_used/$memory_total)*100}"))"
 
-if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
-    swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
-    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
+if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
+    swap_usage=$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", $swap_used, $swap_total, ($swap_used/$swap_total)*100}")
+    echo -e "${ORANGE}Swap:${NC}      $swap_usage"
 fi
 
-echo -ne "\${ORANGE}Disk:\${NC}      "
-progress_bar \$disk_used \$disk_total
-echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
+echo -ne "${ORANGE}Disk:${NC}      "
+progress_bar $disk_used $disk_total
+echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
 
 get_network_traffic
+
+get_public_ip() {
+    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+
+    # 显示IP和ASN信息
+    if [[ -n "$ipv4" ]]; then
+        echo -e "${GREEN}IPv4:${NC} $ipv4"
+        if [[ "$current_asn_display" == "ipv4" ]]; then
+            asn_info=$(get_asn_info "$ipv4")
+            if [[ -n "$asn_info" ]]; then
+                echo -e "${BLUE}ASN:${NC} $asn_info"
+            fi
+        fi
+    fi
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
+        if [[ "$current_asn_display" == "ipv6" ]]; then
+            asn_info=$(get_asn_info "$ipv6")
+            if [[ -n "$asn_info" ]]; then
+                echo -e "${BLUE}ASN:${NC} $asn_info"
+            fi
+        fi
+    fi
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
+    fi
+}
+
+get_public_ip
 EOF
 
     chmod +x ~/.local/sysinfo.sh
+
+    # 创建默认ASN配置文件
+    if [[ ! -f ~/.local/sysinfo_asn.conf ]]; then
+        echo "ipv4" > ~/.local/sysinfo_asn.conf
+    fi
 
     if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
         echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
@@ -302,9 +297,9 @@ EOF
     fi
 
     source ~/.bashrc >/dev/null 2>&1
-    echo -e "${GREEN}系统信息工具安装完成！${NC}"
-    echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    echo -e "${YELLOW}默认显示 IPv4 的 ASN 和运营商，可通过脚本切换显示。${NC}"
+    echo -e "${GREEN}系统信息工具安装完成！"
+    echo -e "${YELLOW}当前默认显示IPv4的ASN和运营商信息"
+    echo -e "可通过主菜单选项3切换显示模式${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
@@ -316,11 +311,11 @@ show_menu() {
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换 IPv4/IPv6 的 ASN 和运营商显示${NC}"
+        echo -e "${ORANGE}3. 切换ASN显示模式${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
-        read -p "请输入选项 (0、1、2 或 3): " choice
+        read -p "请输入选项 (0-3): " choice
 
         case $choice in
             1)
@@ -331,7 +326,7 @@ show_menu() {
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             3)
-                switch_asn_display
+                toggle_asn_display
                 ;;
             0)
                 echo -e "${ORANGE}退出脚本。${NC}"
