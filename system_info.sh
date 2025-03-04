@@ -344,7 +344,7 @@ show_menu() {
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换 ASN 显示模式 (当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}3. 切换 ASN 显示模式 ${YELLOW}${BOLD}(当前: ${display_asn_mode})${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
