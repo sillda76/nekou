@@ -8,6 +8,7 @@ CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
+LIGHTGREEN='\033[1;92m'  # 浅绿色
 NC='\033[0m'
 
 # 检查是否已安装
@@ -26,8 +27,14 @@ progress_bar() {
     local progress=$1
     local total=$2
     local bar_width=20
-    local filled=$((progress * bar_width / total))
-    local empty=$((bar_width - filled))
+    local filled=0
+    local empty=0
+
+    # 避免 total=0 的情况
+    if [[ $total -gt 0 ]]; then
+        filled=$((progress * bar_width / total))
+        empty=$((bar_width - filled))
+    fi
 
     printf "["
     for ((i=0; i<filled; i++)); do
@@ -138,6 +145,7 @@ CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
+LIGHTGREEN='\033[1;92m'
 NC='\033[0m'
 
 # 从配置中读取 ASN 显示模式（默认使用 ipv4）
@@ -150,8 +158,13 @@ progress_bar() {
     local progress=$1
     local total=$2
     local bar_width=20
-    local filled=$((progress * bar_width / total))
-    local empty=$((bar_width - filled))
+    local filled=0
+    local empty=0
+
+    if [[ $total -gt 0 ]]; then
+        filled=$((progress * bar_width / total))
+        empty=$((bar_width - filled))
+    fi
 
     printf "["
     for ((i=0; i<filled; i++)); do
@@ -194,17 +207,19 @@ get_network_traffic() {
         interface="eth0"
     fi
 
-    local rx_bytes=$(cat /sys/class/net/$interface/statistics/rx_bytes)
-    local tx_bytes=$(cat /sys/class/net/$interface/statistics/tx_bytes)
+    local rx_bytes=$(cat /sys/class/net/$interface/statistics/rx_bytes 2>/dev/null)
+    local tx_bytes=$(cat /sys/class/net/$interface/statistics/tx_bytes 2>/dev/null)
+    [[ -z "$rx_bytes" ]] && rx_bytes=0
+    [[ -z "$tx_bytes" ]] && tx_bytes=0
 
     format_bytes() {
         local bytes=$1
         if (( bytes >= 1099511627776 )); then
-            echo "$(awk "BEGIN {printf \"%.2f TB\", bytes / 1099511627776}")"
+            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f TB", b / 1099511627776}')"
         elif (( bytes >= 1073741824 )); then
-            echo "$(awk "BEGIN {printf \"%.2f GB\", bytes / 1073741824}")"
+            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f GB", b / 1073741824}')"
         else
-            echo "$(awk "BEGIN {printf \"%.2f MB\", bytes / 1048576}")"
+            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f MB", b / 1048576}')"
         fi
     }
 
@@ -219,15 +234,26 @@ echo -e "${ORANGE}Uptime:${NC}    ${uptime_info:-N/A}"
 echo -e "${ORANGE}CPU:${NC}       ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
 echo -e "${ORANGE}Load:${NC}      ${load_info:-N/A}"
 
+# Memory 显示
 echo -ne "${ORANGE}Memory:${NC}    "
 progress_bar $memory_used $memory_total
-echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB ($(awk "BEGIN {printf \"%.0f%%\", (memory_used/memory_total)*100}") )"
+# 避免 total=0 或空值时出现 -nan%
+mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
+    if (total>0) printf "%.0f%%", (used/total)*100;
+    else printf "N/A";
+}')
+echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB (${mem_percent})"
 
+# Swap 显示
 if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
-    swap_usage=$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", swap_used, swap_total, (swap_used/swap_total)*100}")
+    swap_usage=$(awk -v used="$swap_used" -v total="$swap_total" 'BEGIN {
+        if (total>0) printf "%.0fMB / %.0fMB (%.0f%%)", used, total, (used/total)*100;
+        else printf "0MB / 0MB (0%%)";
+    }')
     echo -e "${ORANGE}Swap:${NC}      $swap_usage"
 fi
 
+# Disk 显示
 echo -ne "${ORANGE}Disk:${NC}      "
 progress_bar $disk_used $disk_total
 echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
@@ -249,6 +275,7 @@ get_public_ip() {
     fi
 
     # 根据配置决定 ASN 查询使用的 IP
+    local asn_ip=""
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
         if [[ "$ASN_MODE" == "ipv6" ]]; then
             asn_ip="$ipv6"
@@ -264,15 +291,16 @@ get_public_ip() {
 get_asn_info() {
     local ip=$1
     if [[ -z "$ip" ]]; then
-        echo -e "${RED}ASN: No IP available${NC}"
+        echo -e "${RED}No IP available for ASN${NC}"
         return
     fi
     local response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
     local org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
     if [[ -n "$org" ]]; then
-         echo -e "${GREEN}ASN:${NC} ${org}"
+        # 直接输出 ASN + 运营商，使用浅绿色
+        echo -e "${LIGHTGREEN}${org}${NC}"
     else
-         echo -e "${RED}ASN: Not found${NC}"
+        echo -e "${RED}ASN Not found${NC}"
     fi
 }
 
@@ -281,6 +309,7 @@ EOF
 
     chmod +x ~/.local/sysinfo.sh
 
+    # 将脚本自动执行逻辑写入 ~/.bashrc
     if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
         echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
         echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
@@ -304,11 +333,18 @@ show_menu() {
         if [[ -z "$current_asn_mode" ]]; then
             current_asn_mode="ipv4"
         fi
+        # 根据当前模式设置显示文字
+        if [[ "$current_asn_mode" == "ipv4" ]]; then
+            display_asn_mode="IPv4"
+        else
+            display_asn_mode="IPv6"
+        fi
+
         echo -e "${ORANGE}=========================${NC}"
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换 ASN 显示模式 (当前: ${current_asn_mode})${NC}"
+        echo -e "${ORANGE}3. 切换 ASN 显示模式 (当前: ${display_asn_mode})${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
@@ -323,13 +359,16 @@ show_menu() {
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             3)
+                # 切换 ASN 模式
                 if [[ "$current_asn_mode" == "ipv4" ]]; then
                     new_mode="ipv6"
+                    new_display_mode="IPv6"
                 else
                     new_mode="ipv4"
+                    new_display_mode="IPv4"
                 fi
                 echo "$new_mode" > ~/.local/sysinfo_asn_mode
-                echo -e "${YELLOW}ASN 显示模式已切换为 ${new_mode}${NC}"
+                echo -e "${YELLOW}ASN 显示模式已切换为 ${new_display_mode}${NC}"
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             0)
