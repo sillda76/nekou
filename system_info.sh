@@ -54,7 +54,7 @@ install_dependencies() {
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
-# 获取公网 IP
+# 获取公网 IP（仅用于安装前检测，不含 ASN 信息）
 get_public_ip() {
     ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
@@ -128,7 +128,7 @@ install() {
     fi
 
     echo -e "${YELLOW}正在创建系统信息脚本...${NC}"
-    cat << EOF > ~/.local/sysinfo.sh
+    cat << 'EOF' > ~/.local/sysinfo.sh
 #!/bin/bash
 
 RED='\033[1;31m'
@@ -140,106 +140,139 @@ ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
+# 从配置中读取 ASN 显示模式（默认使用 ipv4）
+ASN_MODE=$(cat ~/.local/sysinfo_asn_mode 2>/dev/null)
+if [[ -z "$ASN_MODE" ]]; then
+    ASN_MODE="ipv4"
+fi
+
 progress_bar() {
-    local progress=\$1
-    local total=\$2
+    local progress=$1
+    local total=$2
     local bar_width=20
-    local filled=\$((progress * bar_width / total))
-    local empty=\$((bar_width - filled))
+    local filled=$((progress * bar_width / total))
+    local empty=$((bar_width - filled))
 
     printf "["
     for ((i=0; i<filled; i++)); do
         if ((i < filled / 3)); then
-            printf "\${GREEN}=\${NC}"
+            printf "${GREEN}=${NC}"
         elif ((i < 2 * filled / 3)); then
-            printf "\${YELLOW}=\${NC}"
+            printf "${YELLOW}=${NC}"
         else
-            printf "\${RED}=\${NC}"
+            printf "${RED}=${NC}"
         fi
     done
     for ((i=0; i<empty; i++)); do
-        printf "\${BLACK}=\${NC}"
+        printf "${BLACK}=${NC}"
     done
     printf "]"
 }
 
-os_info=\$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
+os_info=$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
 
-uptime_seconds=\$(cat /proc/uptime | awk '{print \$1}')
-uptime_days=\$(bc <<< "scale=0; \$uptime_seconds / 86400")
-uptime_hours=\$(bc <<< "scale=0; (\$uptime_seconds % 86400) / 3600")
-uptime_minutes=\$(bc <<< "scale=0; (\$uptime_seconds % 3600) / 60")
-uptime_info="\${uptime_days} days, \${uptime_hours} hours, \${uptime_minutes} minutes"
+uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
+uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
+uptime_hours=$(bc <<< "scale=0; ($uptime_seconds % 86400) / 3600")
+uptime_minutes=$(bc <<< "scale=0; ($uptime_seconds % 3600) / 60")
+uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minutes"
 
-cpu_info=\$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
-cpu_cores=\$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print \$2}')
-load_info=\$(cat /proc/loadavg | awk '{print \$1", "\$2", "\$3}')
+cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
+cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
+load_info=$(cat /proc/loadavg | awk '{print $1", "$2", "$3}')
 
-memory_total=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$2}')
-memory_used=\$(free -m 2>/dev/null | grep Mem: | awk '{print \$3}')
-swap_total=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$2}')
-swap_used=\$(free -m 2>/dev/null | grep Swap: | awk '{print \$3}')
-disk_total=\$(df -k / 2>/dev/null | grep / | awk '{print \$2}')
-disk_used=\$(df -k / 2>/dev/null | grep / | awk '{print \$3}')
+memory_total=$(free -m 2>/dev/null | grep Mem: | awk '{print $2}')
+memory_used=$(free -m 2>/dev/null | grep Mem: | awk '{print $3}')
+swap_total=$(free -m 2>/dev/null | grep Swap: | awk '{print $2}')
+swap_used=$(free -m 2>/dev/null | grep Swap: | awk '{print $3}')
+disk_total=$(df -k / 2>/dev/null | grep / | awk '{print $2}')
+disk_used=$(df -k / 2>/dev/null | grep / | awk '{print $3}')
 
 get_network_traffic() {
-    local interface=\$(ip route | grep default | awk '{print \$5}' | head -n 1)
-    if [[ -z "\$interface" ]]; then
+    local interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
+    if [[ -z "$interface" ]]; then
         interface="eth0"
     fi
 
-    local rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
-    local tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
+    local rx_bytes=$(cat /sys/class/net/$interface/statistics/rx_bytes)
+    local tx_bytes=$(cat /sys/class/net/$interface/statistics/tx_bytes)
 
     format_bytes() {
-        local bytes=\$1
+        local bytes=$1
         if (( bytes >= 1099511627776 )); then
-            echo "\$(awk "BEGIN {printf \"%.2f TB\", \$bytes / 1099511627776}")"
+            echo "$(awk "BEGIN {printf \"%.2f TB\", bytes / 1099511627776}")"
         elif (( bytes >= 1073741824 )); then
-            echo "\$(awk "BEGIN {printf \"%.2f GB\", \$bytes / 1073741824}")"
+            echo "$(awk "BEGIN {printf \"%.2f GB\", bytes / 1073741824}")"
         else
-            echo "\$(awk "BEGIN {printf \"%.2f MB\", \$bytes / 1048576}")"
+            echo "$(awk "BEGIN {printf \"%.2f MB\", bytes / 1048576}")"
         fi
     }
 
-    local rx_traffic=\$(format_bytes \$rx_bytes)
-    local tx_traffic=\$(format_bytes \$tx_bytes)
+    local rx_traffic=$(format_bytes $rx_bytes)
+    local tx_traffic=$(format_bytes $tx_bytes)
 
-    echo -e "\${ORANGE}Traffic:\${NC} \${BLUE}TX:\${NC} \${YELLOW}\$tx_traffic\${NC}, \${BLUE}RX:\${NC} \${GREEN}\$rx_traffic\${NC}"
+    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
 }
 
-echo -e "\${ORANGE}OS:\${NC}        \${os_info:-N/A}"
-echo -e "\${ORANGE}Uptime:\${NC}    \${uptime_info:-N/A}"
-echo -e "\${ORANGE}CPU:\${NC}       \${cpu_info:-N/A} (\${cpu_cores:-N/A} cores)"
-echo -e "\${ORANGE}Load:\${NC}      \${load_info:-N/A}"
+echo -e "${ORANGE}OS:${NC}        ${os_info:-N/A}"
+echo -e "${ORANGE}Uptime:${NC}    ${uptime_info:-N/A}"
+echo -e "${ORANGE}CPU:${NC}       ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${ORANGE}Load:${NC}      ${load_info:-N/A}"
 
-echo -ne "\${ORANGE}Memory:\${NC}    "
-progress_bar \$memory_used \$memory_total
-echo " \${memory_used:-N/A}MB / \${memory_total:-N/A}MB (\$(awk "BEGIN {printf \"%.0f%%\", (\$memory_used/\$memory_total)*100}"))"
+echo -ne "${ORANGE}Memory:${NC}    "
+progress_bar $memory_used $memory_total
+echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB ($(awk "BEGIN {printf \"%.0f%%\", (memory_used/memory_total)*100}") )"
 
-if [[ -n "\$swap_total" && \$swap_total -ne 0 ]]; then
-    swap_usage=\$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", \$swap_used, \$swap_total, (\$swap_used/\$swap_total)*100}")
-    echo -e "\${ORANGE}Swap:\${NC}      \$swap_usage"
+if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
+    swap_usage=$(awk "BEGIN {printf \"%.0fMB / %.0fMB (%.0f%%)\", swap_used, swap_total, (swap_used/swap_total)*100}")
+    echo -e "${ORANGE}Swap:${NC}      $swap_usage"
 fi
 
-echo -ne "\${ORANGE}Disk:\${NC}      "
-progress_bar \$disk_used \$disk_total
-echo " \$(df -h / 2>/dev/null | grep / | awk '{print \$3 " / " \$2 " (" \$5 ")"}')"
+echo -ne "${ORANGE}Disk:${NC}      "
+progress_bar $disk_used $disk_total
+echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
 
 get_network_traffic
 
 get_public_ip() {
-    ipv4=\$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=\$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
-    if [[ -n "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv4:\${NC} \$ipv4"
+    if [[ -n "$ipv4" ]]; then
+        echo -e "${GREEN}IPv4:${NC} $ipv4"
     fi
-    if [[ -n "\$ipv6" && "\$ipv6" != *"DOCTYPE"* && "\$ipv6" != "\$ipv4" ]]; then
-        echo -e "\${GREEN}IPv6:\${NC} \$ipv6"
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
     fi
-    if [[ -z "\$ipv4" && -z "\$ipv6" ]]; then
-        echo -e "\${RED}No Public IP\${NC}"
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
+    fi
+
+    # 根据配置决定 ASN 查询使用的 IP
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+        if [[ "$ASN_MODE" == "ipv6" ]]; then
+            asn_ip="$ipv6"
+        else
+            asn_ip="$ipv4"
+        fi
+    else
+        asn_ip="$ipv4"
+    fi
+    get_asn_info "$asn_ip"
+}
+
+get_asn_info() {
+    local ip=$1
+    if [[ -z "$ip" ]]; then
+        echo -e "${RED}ASN: No IP available${NC}"
+        return
+    fi
+    local response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
+    local org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
+    if [[ -n "$org" ]]; then
+         echo -e "${GREEN}ASN:${NC} ${org}"
+    else
+         echo -e "${RED}ASN: Not found${NC}"
     fi
 }
 
@@ -259,6 +292,7 @@ EOF
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
+    echo -e "${YELLOW}提示：可通过交互菜单中的选项 3 切换 ASN 显示模式（IPv4/IPv6）。${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
@@ -266,14 +300,19 @@ EOF
 show_menu() {
     while true; do
         clear
+        current_asn_mode=$(cat ~/.local/sysinfo_asn_mode 2>/dev/null)
+        if [[ -z "$current_asn_mode" ]]; then
+            current_asn_mode="ipv4"
+        fi
         echo -e "${ORANGE}=========================${NC}"
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
+        echo -e "${ORANGE}3. 切换 ASN 显示模式 (当前: ${current_asn_mode})${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
-        read -p "请输入选项 (0、1 或 2): " choice
+        read -p "请输入选项 (0、1、2 或 3): " choice
 
         case $choice in
             1)
@@ -281,6 +320,16 @@ show_menu() {
                 ;;
             2)
                 uninstall
+                read -n 1 -s -r -p "按任意键返回菜单..."
+                ;;
+            3)
+                if [[ "$current_asn_mode" == "ipv4" ]]; then
+                    new_mode="ipv6"
+                else
+                    new_mode="ipv4"
+                fi
+                echo "$new_mode" > ~/.local/sysinfo_asn_mode
+                echo -e "${YELLOW}ASN 显示模式已切换为 ${new_mode}${NC}"
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             0)
