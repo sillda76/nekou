@@ -62,7 +62,8 @@ install_dependencies() {
 }
 
 # 获取公网 IP（仅用于安装前检测，不含 ASN 信息）
-get_public_ip() {
+get_public_ip_precheck() {
+    local ipv4 ipv6
     ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
@@ -73,7 +74,7 @@ get_public_ip() {
         echo -e "${GREEN}IPv6:${NC} $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e "${RED}No Public IP${NC}"
+        echo -e "${RED}未检测到公网 IP${NC}"
     fi
 }
 
@@ -138,6 +139,7 @@ install() {
     cat << 'EOF' > ~/.local/sysinfo.sh
 #!/bin/bash
 
+# 颜色变量
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -148,7 +150,7 @@ BLUE='\033[1;34m'
 LIGHTGREEN='\033[1;92m'
 NC='\033[0m'
 
-# 从配置中读取 ASN 显示模式（默认使用 ipv4）
+# 读取 ASN 显示模式配置，默认双栈环境下使用 IPv4
 ASN_MODE=$(cat ~/.local/sysinfo_asn_mode 2>/dev/null)
 if [[ -z "$ASN_MODE" ]]; then
     ASN_MODE="ipv4"
@@ -182,49 +184,52 @@ progress_bar() {
     printf "]"
 }
 
-os_info=$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
+os_info=$(grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | sed 's/PRETTY_NAME=//;s/"//g')
 
-uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
+uptime_seconds=$(awk '{print $1}' /proc/uptime)
 uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
 uptime_hours=$(bc <<< "scale=0; ($uptime_seconds % 86400) / 3600")
 uptime_minutes=$(bc <<< "scale=0; ($uptime_seconds % 3600) / 60")
 uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minutes"
 
-cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
+cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//;s/CPU @.*//g' | xargs)
 cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
-load_info=$(cat /proc/loadavg | awk '{print $1", "$2", "$3}')
+load_info=$(awk '{print $1", "$2", "$3}' /proc/loadavg)
 
-memory_total=$(free -m 2>/dev/null | grep Mem: | awk '{print $2}')
-memory_used=$(free -m 2>/dev/null | grep Mem: | awk '{print $3}')
-swap_total=$(free -m 2>/dev/null | grep Swap: | awk '{print $2}')
-swap_used=$(free -m 2>/dev/null | grep Swap: | awk '{print $3}')
-disk_total=$(df -k / 2>/dev/null | grep / | awk '{print $2}')
-disk_used=$(df -k / 2>/dev/null | grep / | awk '{print $3}')
+memory_total=$(free -m 2>/dev/null | awk '/Mem:/{print $2}')
+memory_used=$(free -m 2>/dev/null | awk '/Mem:/{print $3}')
+swap_total=$(free -m 2>/dev/null | awk '/Swap:/{print $2}')
+swap_used=$(free -m 2>/dev/null | awk '/Swap:/{print $3}')
+disk_total=$(df -k / 2>/dev/null | awk 'NR==2 {print $2}')
+disk_used=$(df -k / 2>/dev/null | awk 'NR==2 {print $3}')
 
 get_network_traffic() {
-    local interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
+    local interface
+    interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
     if [[ -z "$interface" ]]; then
         interface="eth0"
     fi
 
-    local rx_bytes=$(cat /sys/class/net/$interface/statistics/rx_bytes 2>/dev/null)
-    local tx_bytes=$(cat /sys/class/net/$interface/statistics/tx_bytes 2>/dev/null)
+    local rx_bytes tx_bytes
+    rx_bytes=$(cat /sys/class/net/"$interface"/statistics/rx_bytes 2>/dev/null)
+    tx_bytes=$(cat /sys/class/net/"$interface"/statistics/tx_bytes 2>/dev/null)
     [[ -z "$rx_bytes" ]] && rx_bytes=0
     [[ -z "$tx_bytes" ]] && tx_bytes=0
 
     format_bytes() {
         local bytes=$1
         if (( bytes >= 1099511627776 )); then
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f TB", b / 1099511627776}')"
+            awk -v b="$bytes" 'BEGIN {printf "%.2f TB", b / 1099511627776}'
         elif (( bytes >= 1073741824 )); then
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f GB", b / 1073741824}')"
+            awk -v b="$bytes" 'BEGIN {printf "%.2f GB", b / 1073741824}'
         else
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f MB", b / 1048576}')"
+            awk -v b="$bytes" 'BEGIN {printf "%.2f MB", b / 1048576}'
         fi
     }
 
-    local rx_traffic=$(format_bytes $rx_bytes)
-    local tx_traffic=$(format_bytes $tx_bytes)
+    local rx_traffic tx_traffic
+    rx_traffic=$(format_bytes "$rx_bytes")
+    tx_traffic=$(format_bytes "$tx_bytes")
 
     echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
 }
@@ -236,8 +241,7 @@ echo -e "${ORANGE}Load:${NC}      ${load_info:-N/A}"
 
 # Memory 显示
 echo -ne "${ORANGE}Memory:${NC}    "
-progress_bar $memory_used $memory_total
-# 避免 total=0 或空值时出现 -nan%
+progress_bar "$memory_used" "$memory_total"
 mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
     if (total>0) printf "%.0f%%", (used/total)*100;
     else printf "N/A";
@@ -255,12 +259,15 @@ fi
 
 # Disk 显示
 echo -ne "${ORANGE}Disk:${NC}      "
-progress_bar $disk_used $disk_total
-echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
+progress_bar "$disk_used" "$disk_total"
+disk_info=$(df -h / 2>/dev/null | awk 'NR==2 {print $3 " / " $2 " (" $5 ")"}')
+echo " ${disk_info}"
 
 get_network_traffic
 
+# 公网 IP 与 ASN 获取函数（根据 ASN_MODE 决定使用 IPv4 或 IPv6，并自动回退）
 get_public_ip() {
+    local ipv4 ipv6
     ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
@@ -271,43 +278,85 @@ get_public_ip() {
         echo -e "${GREEN}IPv6:${NC} $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e "${RED}No Public IP${NC}"
+        echo -e "${RED}未检测到公网 IP${NC}"
     fi
 
-    # 根据配置决定 ASN 查询使用的 IP
     local asn_ip=""
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        if [[ "$ASN_MODE" == "ipv6" ]]; then
+    if [[ "$ASN_MODE" == "ipv4" ]]; then
+        if [[ -n "$ipv4" ]]; then
+            asn_ip="$ipv4"
+        elif [[ -n "$ipv6" ]]; then
             asn_ip="$ipv6"
-        else
+        fi
+    elif [[ "$ASN_MODE" == "ipv6" ]]; then
+        if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* ]]; then
+            asn_ip="$ipv6"
+        elif [[ -n "$ipv4" ]]; then
             asn_ip="$ipv4"
         fi
     else
-        asn_ip="$ipv4"
+        if [[ -n "$ipv4" ]]; then
+            asn_ip="$ipv4"
+        elif [[ -n "$ipv6" ]]; then
+            asn_ip="$ipv6"
+        fi
     fi
-    get_asn_info "$asn_ip"
+
+    if [[ -n "$asn_ip" ]]; then
+         get_asn_info "$asn_ip"
+    else
+         echo -e "${RED}未找到可用于 ASN 查询的有效 IP${NC}"
+    fi
 }
 
 get_asn_info() {
     local ip=$1
     if [[ -z "$ip" ]]; then
-        echo -e "${RED}No IP available for ASN${NC}"
-        return
+         echo -e "${RED}未提供用于 ASN 查询的 IP${NC}"
+         return
     fi
-    local response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
-    local org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
+    local response
+    response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
+    if [[ -z "$response" ]]; then
+         echo -e "${RED}查询 IP: $ip 的 ASN 信息失败${NC}"
+         return
+    fi
+    local org
+    org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
     if [[ -n "$org" ]]; then
-        # 直接输出 ASN + 运营商，使用浅绿色
-        echo -e "${LIGHTGREEN}${org}${NC}"
+         echo -e "${LIGHTGREEN}ASN: ${org}${NC}"
     else
-        echo -e "${RED}ASN Not found${NC}"
+         echo -e "${RED}IP: $ip 的 ASN 信息不可用${NC}"
     fi
 }
 
 get_public_ip
+
 EOF
 
     chmod +x ~/.local/sysinfo.sh
+
+    # 将默认 ASN 模式写入配置文件（若不存在则默认写入 ipv4）
+    if [[ ! -f ~/.local/sysinfo_asn_mode ]]; then
+        echo "ipv4" > ~/.local/sysinfo_asn_mode
+    fi
+
+    # 安装完成后，检测公网 IP 并提示 ASN 默认显示信息
+    echo -e "\n${YELLOW}【ASN 系统检测提示】${NC}"
+    local ipv4_detect ipv6_detect
+    ipv4_detect=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+    ipv6_detect=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    if [[ -n "$ipv4_detect" && -n "$ipv6_detect" ]]; then
+        echo -e "${YELLOW}检测到双栈网络，默认 ASN 显示为 IPv4。${NC}"
+    elif [[ -n "$ipv4_detect" ]]; then
+        echo -e "${YELLOW}检测到单栈 IPv4 网络，ASN 显示为 IPv4。${NC}"
+    elif [[ -n "$ipv6_detect" ]]; then
+        echo -e "${YELLOW}检测到单栈 IPv6 网络，ASN 显示为 IPv6。${NC}"
+    else
+        echo -e "${RED}未检测到有效公网 IP，ASN 查询可能不可用。${NC}"
+    fi
+    echo -e "${YELLOW}安装完成后，如需切换 ASN 显示模式，请使用主菜单选项 3 进行切换。${NC}"
+    read -n 1 -s -r -p "按任意键返回菜单..."
 
     # 将脚本自动执行逻辑写入 ~/.bashrc
     if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
@@ -319,10 +368,8 @@ EOF
     fi
 
     source ~/.bashrc >/dev/null 2>&1
-    echo -e "${GREEN}系统信息工具安装完成！${NC}"
+    echo -e "\n${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    echo -e "${YELLOW}提示：可通过交互菜单中的选项 3 切换 ASN 显示模式（IPv4/IPv6）。${NC}"
-    read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
 # 显示菜单
@@ -333,7 +380,6 @@ show_menu() {
         if [[ -z "$current_asn_mode" ]]; then
             current_asn_mode="ipv4"
         fi
-        # 根据当前模式设置显示文字
         if [[ "$current_asn_mode" == "ipv4" ]]; then
             display_asn_mode="IPv4"
         else
@@ -344,7 +390,7 @@ show_menu() {
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换 ASN 显示模式 ${YELLOW}${BOLD}(当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}3. 切换 ASN 显示模式 (当前: ${display_asn_mode})${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
