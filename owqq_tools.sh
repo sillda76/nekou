@@ -33,12 +33,12 @@ show_menu() {
     echo -e "${CYAN}2. 系统更新${NC}"
     echo -e "${ORANGE}3. 系统清理${NC}"
     echo -e "${PINK}4. Fail2ban配置${NC}"
-    echo -e "${LIGHT_BLUE}5. 禁Pin设置${NC}"
+    echo -e "${LIGHT_BLUE}5. 禁用Ping响应${NC}"  # 修改标题
     echo -e "${TEAL}6. 添加系统信息${NC}"
     echo -e "${LIGHT_GREEN}7. 安装1Panel${NC}"
     echo -e "${LIGHT_BLUE}8. 系统工具${NC}"
     echo -e "${LIGHT_RED}9. 虚拟环境${NC}"
-    echo -e "${MAGENTA}10. DanmakuRender${NC}"  # 新增选项
+    echo -e "${MAGENTA}10. DanmakuRender${NC}"
     echo -e "${LIGHT_RED}00. 更新脚本${NC}"
     echo -e "${RED}99. 卸载脚本${NC}"
     echo -e "${MAGENTA}0. 退出脚本${NC}"
@@ -76,7 +76,7 @@ show_system_tools_menu() {
     echo -e "${LIGHT_RED}9. 安装 tar (归档工具)${NC}"
     echo -e "${MAGENTA}10. 安装 nano (文本编辑器)${NC}"
     echo -e "${LIGHT_GREEN}11. 一键安装全部系统基础工具${NC}"
-    echo -e "${YELLOW}12. 安装 ffmpeg (多媒体处理工具)${NC}"  # 新增选项
+    echo -e "${YELLOW}12. 安装 ffmpeg (多媒体处理工具)${NC}"
     echo -e "${MAGENTA}0. 返回主菜单${NC}"
     echo -e "${PURPLE}========================================${NC}"
 }
@@ -227,7 +227,7 @@ system_tools() {
             11)
                 install_all_system_tools
                 ;;
-            12)  # 新增的 ffmpeg 选项
+            12)
                 install_system_tool "ffmpeg" "install_package ffmpeg"
                 ;;
             0)
@@ -306,8 +306,6 @@ system_update() {
 # 系统清理函数
 linux_clean() {
     echo -e "${YELLOW}正在系统清理...${NC}"
-
-    # 清理步骤
     steps=(
         "清理包管理器缓存..."
         "删除系统日志..."
@@ -319,22 +317,14 @@ linux_clean() {
         "清理 Zypper 缓存..."
         "清理 Opkg 缓存..."
     )
-
-    # 总步骤数
     total_steps=${#steps[@]}
-
-    # 显示清理内容
     echo -e "${YELLOW}本次清理将执行以下操作：${NC}"
     for step in "${steps[@]}"; do
         echo -e "  - ${step}"
     done
     echo -e "${YELLOW}开始清理...${NC}"
-
     for ((i = 0; i < total_steps; i++)); do
-        # 显示当前清理步骤
         echo -e "${YELLOW}${steps[$i]}${NC}"
-
-        # 执行清理操作
         case ${steps[$i]} in
             "清理包管理器缓存...")
                 if command -v dnf &>/dev/null; then
@@ -398,7 +388,6 @@ linux_clean() {
                 ;;
         esac
     done
-
     echo -e "\n${GREEN}系统清理完成！${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
@@ -523,7 +512,7 @@ activate_virtualenv() {
         source venv/bin/activate
         echo -e "${GREEN}虚拟环境已激活。${NC}"
         echo -e "${CYAN}退出脚本并进入虚拟环境。${NC}"
-        exit 0  # 退出脚本
+        exit 0
     else
         echo -e "${RED}当前目录下无虚拟环境，请先创建虚拟环境。${NC}"
         read -n 1 -s -r -p "按任意键返回菜单..."
@@ -559,7 +548,7 @@ while true; do
         2) system_update ;;
         3) linux_clean ;;
         4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/install_fail2ban.sh) ;;
-        5) bash <(curl -fsSL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ping-control.sh) ;;
+        5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ping-control.sh) ;;  # 修改调用为 curl -sL
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/system_info.sh) ;;
         7) install_1panel ;;
         8) system_tools ;;
