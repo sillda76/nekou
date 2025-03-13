@@ -11,6 +11,7 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m' # 青色
 PURPLE='\033[0;35m' # 紫色
+ORANGE='\033[0;33m' # 定义橙色，与黄色相同
 NC='\033[0m' # 恢复默认颜色
 
 # 检查是否以 root 用户运行
@@ -53,7 +54,8 @@ get_ipv4_ping_status() {
 
 # 获取 IPv6 Ping 状态
 get_ipv6_ping_status() {
-  if ip6tables -L INPUT -v -n | grep -q "icmpv6.*echo-request.*DROP"; then
+  # 使用扩展正则表达式匹配 DROP、icmpv6 以及 echo-request 或 128
+  if ip6tables -L INPUT -v -n | grep -q -E "DROP.*icmpv6.*(echo-request|128)"; then
     echo -e "${RED}已启用${NC}"
   else
     echo -e "${LIGHT_GREEN}未启用${NC}"
@@ -81,7 +83,8 @@ toggle_ipv4_ping() {
 
 # 设置/恢复 IPv6 Ping
 toggle_ipv6_ping() {
-  if ip6tables -L INPUT -v -n | grep -q "icmpv6.*echo-request.*DROP"; then
+  # 同样使用扩展正则表达式检测规则
+  if ip6tables -L INPUT -v -n | grep -q -E "DROP.*icmpv6.*(echo-request|128)"; then
     echo -e "${GREEN}正在恢复 IPv6 Ping...${NC}"
     ip6tables -D INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
   else
@@ -103,7 +106,7 @@ view_ipv4_ping_config() {
 # 查看 IPv6 禁 Ping 配置
 view_ipv6_ping_config() {
   echo -e "${BLUE}当前的 IPv6 禁 Ping 配置如下：${NC}"
-  ip6tables -L INPUT -v -n | grep "icmpv6.*echo-request.*DROP" || echo -e "${YELLOW}未找到相关配置。${NC}"
+  ip6tables -L INPUT -v -n | grep -E "DROP.*icmpv6.*(echo-request|128)" || echo -e "${YELLOW}未找到相关配置。${NC}"
 }
 
 # 显示菜单
