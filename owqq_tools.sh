@@ -29,18 +29,17 @@ show_menu() {
     echo -e "${GREEN}VPS Manager${NC}"
     echo -e "${BLUE}https://github.com/sillda76/owqq${NC}"
     echo -e "${PURPLE}========================================${NC}"
-    echo -e "${YELLOW}1. 修改SSH端口${NC}"
+    echo -e "${YELLOW}1. 系统首次安装完成调优${NC}"
     echo -e "${CYAN}2. 系统更新${NC}"
     echo -e "${ORANGE}3. 系统清理${NC}"
     echo -e "${PINK}4. Fail2ban配置${NC}"
-    echo -e "${LIGHT_BLUE}5. 禁用Ping响应${NC}"  # 修改标题
+    echo -e "${LIGHT_BLUE}5. 禁用Ping响应${NC}"
     echo -e "${TEAL}6. 添加系统信息${NC}"
     echo -e "${LIGHT_GREEN}7. 安装1Panel${NC}"
     echo -e "${LIGHT_BLUE}8. 系统工具${NC}"
-    echo -e "${LIGHT_RED}9. 虚拟环境${NC}"
-    echo -e "${MAGENTA}10. DanmakuRender${NC}"
-    echo -e "${LIGHT_RED}00. 更新脚本${NC}"
-    echo -e "${RED}99. 卸载脚本${NC}"
+    echo -e "${MAGENTA}9. DanmakuRender${NC}"
+    echo -e "${LIGHT_RED}10. 更新脚本${NC}"
+    echo -e "${RED}11. 卸载脚本${NC}"
     echo -e "${MAGENTA}0. 退出脚本${NC}"
     echo -e "${PURPLE}========================================${NC}"
 }
@@ -77,21 +76,6 @@ show_system_tools_menu() {
     echo -e "${MAGENTA}10. 安装 nano (文本编辑器)${NC}"
     echo -e "${LIGHT_GREEN}11. 一键安装全部系统基础工具${NC}"
     echo -e "${YELLOW}12. 安装 ffmpeg (多媒体处理工具)${NC}"
-    echo -e "${MAGENTA}0. 返回主菜单${NC}"
-    echo -e "${PURPLE}========================================${NC}"
-}
-
-# 显示虚拟环境子菜单
-show_virtualenv_menu() {
-    clear
-    echo -e "${PURPLE}========================================${NC}"
-    echo -e "${GREEN}虚拟环境管理${NC}"
-    echo -e "${PURPLE}========================================${NC}"
-    echo -e "${YELLOW}1. 安装虚拟环境${NC}"
-    echo -e "${CYAN}2. 在当前目录创建虚拟环境${NC}"
-    echo -e "${ORANGE}3. 进入当前目录的虚拟环境${NC}"
-    echo -e "${PINK}4. 卸载当前目录下的虚拟环境${NC}"
-    echo -e "${LIGHT_BLUE}5. 卸载虚拟环境${NC}"
     echo -e "${MAGENTA}0. 返回主菜单${NC}"
     echo -e "${PURPLE}========================================${NC}"
 }
@@ -457,105 +441,22 @@ uninstall_script() {
     exit 0
 }
 
-# 虚拟环境管理函数
-virtualenv_management() {
-    while true; do
-        show_virtualenv_menu
-        read -p "请输入选项数字: " sub_choice
-        case $sub_choice in
-            1) install_virtualenv ;;
-            2) create_virtualenv ;;
-            3) activate_virtualenv ;;
-            4) remove_current_virtualenv ;;
-            5) uninstall_virtualenv ;;
-            0) echo -e "${MAGENTA}返回主菜单。${NC}"; break ;;
-            "") echo -e "${RED}错误：未输入选项，请按任意键返回菜单。${NC}"; read -n 1 -s -r -p "" ;;
-            *) echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"; read -n 1 -s -r -p "" ;;
-        esac
-    done
-}
-
-# 安装虚拟环境
-install_virtualenv() {
-    echo -e "${YELLOW}正在安装虚拟环境...${NC}"
-    apt update
-    apt install -y python3-venv
-    if command -v python3 &>/dev/null; then
-        echo -e "${GREEN}虚拟环境安装成功！${NC}"
-    else
-        echo -e "${RED}虚拟环境安装失败，请检查网络连接或包管理器。${NC}"
-    fi
-    read -n 1 -s -r -p "按任意键返回菜单..."
-}
-
-# 创建虚拟环境
-create_virtualenv() {
-    echo -e "${YELLOW}正在创建虚拟环境...${NC}"
-    if command -v python3 &>/dev/null; then
-        python3 -m venv venv
-        if [[ -d "venv" ]]; then
-            echo -e "${GREEN}虚拟环境创建成功！${NC}"
-            echo -e "${CYAN}激活虚拟环境的命令是：source venv/bin/activate${NC}"
-        else
-            echo -e "${RED}虚拟环境创建失败，请检查当前目录权限或 Python 环境。${NC}"
-        fi
-    else
-        echo -e "${RED}Python3 未安装，请先安装 Python3。${NC}"
-    fi
-    read -n 1 -s -r -p "按任意键返回菜单..."
-}
-
-# 进入虚拟环境
-activate_virtualenv() {
-    if [[ -d "venv" ]]; then
-        echo -e "${YELLOW}正在激活虚拟环境...${NC}"
-        source venv/bin/activate
-        echo -e "${GREEN}虚拟环境已激活。${NC}"
-        echo -e "${CYAN}退出脚本并进入虚拟环境。${NC}"
-        exit 0
-    else
-        echo -e "${RED}当前目录下无虚拟环境，请先创建虚拟环境。${NC}"
-        read -n 1 -s -r -p "按任意键返回菜单..."
-    fi
-}
-
-# 卸载当前目录下的虚拟环境
-remove_current_virtualenv() {
-    if [[ -d "venv" ]]; then
-        echo -e "${YELLOW}正在卸载当前目录下的虚拟环境...${NC}"
-        rm -rf venv
-        echo -e "${GREEN}虚拟环境已卸载。${NC}"
-    else
-        echo -e "${RED}当前目录下无虚拟环境。${NC}"
-    fi
-    read -n 1 -s -r -p "按任意键返回菜单..."
-}
-
-# 卸载虚拟环境
-uninstall_virtualenv() {
-    echo -e "${YELLOW}正在卸载虚拟环境...${NC}"
-    apt remove -y python3-venv
-    echo -e "${GREEN}虚拟环境已卸载。${NC}"
-    read -n 1 -s -r -p "按任意键返回菜单..."
-}
-
 # 主循环
 while true; do
     show_menu
     read -p "请输入选项数字: " choice
     case $choice in
-        1) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ssh_port_chg.sh) ;;
+        1) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/dd-vps.sh) ;;
         2) system_update ;;
         3) linux_clean ;;
         4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/install_fail2ban.sh) ;;
-        5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ping-control.sh) ;;  # 修改调用为 curl -sL
+        5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ping-control.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/system_info.sh) ;;
         7) install_1panel ;;
         8) system_tools ;;
-        9) virtualenv_management ;;
-        10) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh) ;;
-        00) update_script ;;
-        99) uninstall_script ;;
+        9) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh) ;;
+        10) update_script ;;
+        11) uninstall_script ;;
         0) echo -e "${MAGENTA}退出脚本。${NC}"; break ;;
         "") echo -e "${RED}错误：未输入选项，请按任意键返回菜单。${NC}"; read -n 1 -s -r -p "" ;;
         *) echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"; read -n 1 -s -r -p "" ;;
