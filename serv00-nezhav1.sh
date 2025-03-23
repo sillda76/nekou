@@ -51,7 +51,7 @@ else
     echo "client_secret: $client_secret
 debug: false
 disable_auto_update: false
-disable_command_execute: false
+disable_command_execute: true
 disable_force_update: false
 disable_nat: false
 disable_send_query: false
