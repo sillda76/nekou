@@ -227,6 +227,7 @@ get_network_traffic() {
     local tx_traffic=$(format_bytes $tx_bytes)
 
     echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
+    echo -e "${ORANGE}========================${NC}"
 }
 
 echo -e "${ORANGE}OS:${NC}        ${os_info:-N/A}"
@@ -237,7 +238,6 @@ echo -e "${ORANGE}Load:${NC}      ${load_info:-N/A}"
 # Memory 显示
 echo -ne "${ORANGE}Memory:${NC}    "
 progress_bar $memory_used $memory_total
-# 避免 total=0 或空值时出现 -nan%
 mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
     if (total>0) printf "%.0f%%", (used/total)*100;
     else printf "N/A";
@@ -297,7 +297,6 @@ get_asn_info() {
     local response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
     local org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
     if [[ -n "$org" ]]; then
-        # 直接输出 ASN + 运营商，使用浅绿色
         echo -e "${LIGHTGREEN}${org}${NC}"
     else
         echo -e "${RED}ASN Not found${NC}"
@@ -333,7 +332,6 @@ show_menu() {
         if [[ -z "$current_asn_mode" ]]; then
             current_asn_mode="ipv4"
         fi
-        # 根据当前模式设置显示文字
         if [[ "$current_asn_mode" == "ipv4" ]]; then
             display_asn_mode="IPv4"
         else
@@ -344,7 +342,7 @@ show_menu() {
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换 ASN 显示模式 ${YELLOW}${BOLD}(当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}3. 切换 ASN 显示模式 ${YELLOW}(当前: ${display_asn_mode})${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
@@ -359,7 +357,6 @@ show_menu() {
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             3)
-                # 切换 ASN 模式
                 if [[ "$current_asn_mode" == "ipv4" ]]; then
                     new_mode="ipv6"
                     new_display_mode="IPv6"
