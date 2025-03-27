@@ -8,7 +8,7 @@ CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
-LIGHTGREEN='\033[1;92m'  # 浅绿色
+LIGHTGREEN='\033[1;92m'
 NC='\033[0m'
 
 # 检查是否已安装
@@ -32,21 +32,21 @@ progress_bar() {
 
     # 避免 total=0 的情况
     if [[ $total -gt 0 ]]; then
-        filled=$((progress * bar_width / total))
-        empty=$((bar_width - filled))
+        filled=$(( progress * bar_width / total ))
+        empty=$(( bar_width - filled ))
     fi
 
     printf "["
-    for ((i=0; i<filled; i++)); do
-        if ((i < filled / 3)); then
+    for (( i=0; i<filled; i++ )); do
+        if (( i < filled / 3 )); then
             printf "${GREEN}=${NC}"
-        elif ((i < 2 * filled / 3)); then
+        elif (( i < 2 * filled / 3 )); then
             printf "${YELLOW}=${NC}"
         else
             printf "${RED}=${NC}"
         fi
     done
-    for ((i=0; i<empty; i++)); do
+    for (( i=0; i<empty; i++ )); do
         printf "${BLACK}=${NC}"
     done
     printf "]"
@@ -63,6 +63,8 @@ install_dependencies() {
 
 # 获取公网 IP（仅用于安装前检测，不含 ASN 信息）
 get_public_ip() {
+    local ipv4
+    local ipv6
     ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
@@ -80,7 +82,6 @@ get_public_ip() {
 # 卸载函数
 uninstall() {
     echo -e "${YELLOW}正在卸载系统信息工具...${NC}"
-
     if [[ -f ~/.local/sysinfo.sh ]]; then
         echo -e "${YELLOW}删除系统信息脚本...${NC}"
         rm -f ~/.local/sysinfo.sh
@@ -138,6 +139,7 @@ install() {
     cat << 'EOF' > ~/.local/sysinfo.sh
 #!/bin/bash
 
+# 颜色变量
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -160,110 +162,104 @@ progress_bar() {
     local bar_width=20
     local filled=0
     local empty=0
-
     if [[ $total -gt 0 ]]; then
-        filled=$((progress * bar_width / total))
-        empty=$((bar_width - filled))
+        filled=$(( progress * bar_width / total ))
+        empty=$(( bar_width - filled ))
     fi
-
     printf "["
-    for ((i=0; i<filled; i++)); do
-        if ((i < filled / 3)); then
+    for (( i=0; i<filled; i++ )); do
+        if (( i < filled / 3 )); then
             printf "${GREEN}=${NC}"
-        elif ((i < 2 * filled / 3)); then
+        elif (( i < 2 * filled / 3 )); then
             printf "${YELLOW}=${NC}"
         else
             printf "${RED}=${NC}"
         fi
     done
-    for ((i=0; i<empty; i++)); do
+    for (( i=0; i<empty; i++ )); do
         printf "${BLACK}=${NC}"
     done
     printf "]"
 }
 
-os_info=$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
+# 获取系统信息
+os_info=$(grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"')
 
-uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
-uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
-uptime_hours=$(bc <<< "scale=0; ($uptime_seconds % 86400) / 3600")
-uptime_minutes=$(bc <<< "scale=0; ($uptime_seconds % 3600) / 60")
+# 计算 uptime（取整，提高性能）
+uptime_seconds=$(awk '{print int($1)}' /proc/uptime)
+uptime_days=$(( uptime_seconds / 86400 ))
+uptime_hours=$(( (uptime_seconds % 86400) / 3600 ))
+uptime_minutes=$(( (uptime_seconds % 3600) / 60 ))
 uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minutes"
 
-cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
-cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
-load_info=$(cat /proc/loadavg | awk '{print $1", "$2", "$3}')
+# CPU 信息
+cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | awk -F: '{print $2}' | xargs | sed 's/CPU @.*//')
+cpu_cores=$(lscpu 2>/dev/null | awk '/^CPU\(s\):/ {print $2}')
+load_info=$(awk '{print $1", "$2", "$3}' /proc/loadavg)
 
-memory_total=$(free -m 2>/dev/null | grep Mem: | awk '{print $2}')
-memory_used=$(free -m 2>/dev/null | grep Mem: | awk '{print $3}')
-swap_total=$(free -m 2>/dev/null | grep Swap: | awk '{print $2}')
-swap_used=$(free -m 2>/dev/null | grep Swap: | awk '{print $3}')
-disk_total=$(df -k / 2>/dev/null | grep / | awk '{print $2}')
-disk_used=$(df -k / 2>/dev/null | grep / | awk '{print $3}')
+# 内存、Swap 与磁盘信息
+read memory_total memory_used < <(free -m 2>/dev/null | awk '/^Mem:/{print $2" "$3}')
+read swap_total swap_used < <(free -m 2>/dev/null | awk '/^Swap:/{print $2" "$3}')
+read disk_total disk_used <<< $(df -k / 2>/dev/null | awk 'NR==2 {print $2" "$3}')
 
+# 检测所有非 loopback 网卡流量
 get_network_traffic() {
-    local interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
-    if [[ -z "$interface" ]]; then
-        interface="eth0"
-    fi
-
-    local rx_bytes=$(cat /sys/class/net/$interface/statistics/rx_bytes 2>/dev/null)
-    local tx_bytes=$(cat /sys/class/net/$interface/statistics/tx_bytes 2>/dev/null)
-    [[ -z "$rx_bytes" ]] && rx_bytes=0
-    [[ -z "$tx_bytes" ]] && tx_bytes=0
+    local total_rx=0
+    local total_tx=0
+    for iface in /sys/class/net/*; do
+        iface=$(basename "$iface")
+        if [[ "$iface" == "lo" ]]; then
+            continue
+        fi
+        rx=$(cat /sys/class/net/"$iface"/statistics/rx_bytes 2>/dev/null || echo 0)
+        tx=$(cat /sys/class/net/"$iface"/statistics/tx_bytes 2>/dev/null || echo 0)
+        total_rx=$(( total_rx + rx ))
+        total_tx=$(( total_tx + tx ))
+    done
 
     format_bytes() {
         local bytes=$1
         if (( bytes >= 1099511627776 )); then
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f TB", b / 1099511627776}')"
+            awk -v b=$bytes 'BEGIN {printf "%.2f TB", b / 1099511627776}'
         elif (( bytes >= 1073741824 )); then
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f GB", b / 1073741824}')"
+            awk -v b=$bytes 'BEGIN {printf "%.2f GB", b / 1073741824}'
         else
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f MB", b / 1048576}')"
+            awk -v b=$bytes 'BEGIN {printf "%.2f MB", b / 1048576}'
         fi
     }
 
-    local rx_traffic=$(format_bytes $rx_bytes)
-    local tx_traffic=$(format_bytes $tx_bytes)
+    local rx_traffic=$(format_bytes "$total_rx")
+    local tx_traffic=$(format_bytes "$total_tx")
 
     echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
-    echo -e "${ORANGE}========================${NC}"
+    echo "======================"
 }
 
-echo -e "${ORANGE}OS:${NC}        ${os_info:-N/A}"
-echo -e "${ORANGE}Uptime:${NC}    ${uptime_info:-N/A}"
-echo -e "${ORANGE}CPU:${NC}       ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${ORANGE}Load:${NC}      ${load_info:-N/A}"
-
-# Memory 显示
-echo -ne "${ORANGE}Memory:${NC}    "
-progress_bar $memory_used $memory_total
-mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
-    if (total>0) printf "%.0f%%", (used/total)*100;
-    else printf "N/A";
-}')
+# 输出系统信息（标题整体向左移动 4 格）
+echo -e "${ORANGE}OS:${NC}    ${os_info:-N/A}"
+echo -e "${ORANGE}Uptime:${NC} ${uptime_info:-N/A}"
+echo -e "${ORANGE}CPU:${NC}    ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${ORANGE}Load:${NC}   ${load_info:-N/A}"
+echo -ne "${ORANGE}Memory:${NC} "
+progress_bar "$memory_used" "$memory_total"
+mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN { if (total>0) printf "%.0f%%", (used/total)*100; else printf "N/A"}')
 echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB (${mem_percent})"
-
-# Swap 显示
 if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
-    swap_usage=$(awk -v used="$swap_used" -v total="$swap_total" 'BEGIN {
-        if (total>0) printf "%.0fMB / %.0fMB (%.0f%%)", used, total, (used/total)*100;
-        else printf "0MB / 0MB (0%%)";
-    }')
-    echo -e "${ORANGE}Swap:${NC}      $swap_usage"
+    swap_usage=$(awk -v used="$swap_used" -v total="$swap_total" 'BEGIN { if (total>0) printf "%.0fMB / %.0fMB (%.0f%%)", used, total, (used/total)*100; else printf "0MB / 0MB (0%%)"}')
+    echo -e "${ORANGE}Swap:${NC}   $swap_usage"
 fi
-
-# Disk 显示
-echo -ne "${ORANGE}Disk:${NC}      "
-progress_bar $disk_used $disk_total
-echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
-
+echo -ne "${ORANGE}Disk:${NC}   "
+progress_bar "$disk_used" "$disk_total"
+disk_usage_info=$(df -h / 2>/dev/null | awk 'NR==2 {print $3 " / " $2 " (" $5 ")"}')
+echo " ${disk_usage_info}"
 get_network_traffic
 
+# 获取公网 IP 与 ASN 信息
 get_public_ip() {
+    local ipv4
+    local ipv6
     ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
-
     if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
     fi
@@ -274,7 +270,6 @@ get_public_ip() {
         echo -e "${RED}No Public IP${NC}"
     fi
 
-    # 根据配置决定 ASN 查询使用的 IP
     local asn_ip=""
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
         if [[ "$ASN_MODE" == "ipv6" ]]; then
@@ -294,8 +289,10 @@ get_asn_info() {
         echo -e "${RED}No IP available for ASN${NC}"
         return
     fi
-    local response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
-    local org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
+    local response
+    response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
+    local org
+    org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
     if [[ -n "$org" ]]; then
         echo -e "${LIGHTGREEN}${org}${NC}"
     else
@@ -308,19 +305,21 @@ EOF
 
     chmod +x ~/.local/sysinfo.sh
 
-    # 将脚本自动执行逻辑写入 ~/.bashrc
+    # 将脚本自动执行逻辑写入 ~/.bashrc（仅针对交互式 SSH 会话）
     if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
-        echo '# SYSINFO SSH LOGIC START' >> ~/.bashrc
-        echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' >> ~/.bashrc
-        echo '    bash ~/.local/sysinfo.sh' >> ~/.bashrc
-        echo 'fi' >> ~/.bashrc
-        echo '# SYSINFO SSH LOGIC END' >> ~/.bashrc
+        {
+            echo '# SYSINFO SSH LOGIC START'
+            echo 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then'
+            echo '    bash ~/.local/sysinfo.sh'
+            echo 'fi'
+            echo '# SYSINFO SSH LOGIC END'
+        } >> ~/.bashrc
     fi
 
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    echo -e "${YELLOW}提示：可通过交互菜单中的选项 3 切换 ASN 显示模式（IPv4/IPv6）。${NC}"
+    echo -e "${YELLOW}提示：可通过交互菜单中的选项 2 切换 ASN 显示模式（IPv4/IPv6）。${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
@@ -341,8 +340,8 @@ show_menu() {
         echo -e "${ORANGE}=========================${NC}"
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
-        echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换 ASN 显示模式 ${YELLOW}(当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}2. 切换 ASN 显示模式 ${YELLOW}(当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}3. 卸载脚本及系统信息${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
@@ -353,10 +352,6 @@ show_menu() {
                 install
                 ;;
             2)
-                uninstall
-                read -n 1 -s -r -p "按任意键返回菜单..."
-                ;;
-            3)
                 if [[ "$current_asn_mode" == "ipv4" ]]; then
                     new_mode="ipv6"
                     new_display_mode="IPv6"
@@ -366,6 +361,10 @@ show_menu() {
                 fi
                 echo "$new_mode" > ~/.local/sysinfo_asn_mode
                 echo -e "${YELLOW}ASN 显示模式已切换为 ${new_display_mode}${NC}"
+                read -n 1 -s -r -p "按任意键返回菜单..."
+                ;;
+            3)
+                uninstall
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             0)
