@@ -240,11 +240,7 @@ get_ip_and_asn() {
     fi
 
     if [[ -n "$org" ]]; then
-        if [[ "$ASN_MODE" == "ipv6" && -n "$ipv6" ]]; then
-            echo -e "${LIGHTGREEN}${org} (IPv6)${NC}"
-        else
-            echo -e "${LIGHTGREEN}${org} (IPv4)${NC}"
-        fi
+        echo -e "${LIGHTGREEN}${org}${NC}"
     else
         echo -e "${RED}ASN Not found${NC}"
     fi
