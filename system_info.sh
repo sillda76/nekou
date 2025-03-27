@@ -40,7 +40,7 @@ progress_bar() {
     for (( i=0; i<filled; i++ )); do
         if (( i < filled / 3 )); then
             printf "${GREEN}=${NC}"
-        elif (( i < 2 * filled / 3 )); then
+        elif (( i < 2 * filled / 3 )); do
             printf "${YELLOW}=${NC}"
         else
             printf "${RED}=${NC}"
@@ -231,24 +231,24 @@ get_network_traffic() {
     local rx_traffic=$(format_bytes "$total_rx")
     local tx_traffic=$(format_bytes "$total_tx")
 
-    echo -e " ${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
+    echo -e "${ORANGE}Traffic:${NC}  ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
     echo " ======================"
 }
 
-# 输出系统信息（向右移动一格，增加缩进）
-echo -e " ${ORANGE}OS:${NC}     ${os_info:-N/A}"
-echo -e " ${ORANGE}Uptime:${NC} ${uptime_info:-N/A}"
-echo -e " ${ORANGE}CPU:${NC}    ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e " ${ORANGE}Load:${NC}   ${load_info:-N/A}"
-echo -ne " ${ORANGE}Memory:${NC} "
+# 输出系统信息（调整对齐方式）
+echo -e "${ORANGE}OS:${NC}      ${os_info:-N/A}"
+echo -e "${ORANGE}Uptime:${NC}  ${uptime_info:-N/A}"
+echo -e "${ORANGE}CPU:${NC}     ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${ORANGE}Load:${NC}    ${load_info:-N/A}"
+echo -ne "${ORANGE}Memory:${NC} "
 progress_bar "$memory_used" "$memory_total"
 mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN { if (total>0) printf "%.0f%%", (used/total)*100; else printf "N/A"}')
 echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB (${mem_percent})"
 if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
     swap_usage=$(awk -v used="$swap_used" -v total="$swap_total" 'BEGIN { if (total>0) printf "%.0fMB / %.0fMB (%.0f%%)", used, total, (used/total)*100; else printf "0MB / 0MB (0%%)"}')
-    echo -e " ${ORANGE}Swap:${NC}   $swap_usage"
+    echo -e "${ORANGE}Swap:${NC}    $swap_usage"
 fi
-echo -ne " ${ORANGE}Disk:${NC}   "
+echo -ne "${ORANGE}Disk:${NC}   "
 progress_bar "$disk_used" "$disk_total"
 disk_usage_info=$(df -h / 2>/dev/null | awk 'NR==2 {print $3 " / " $2 " (" $5 ")"}')
 echo " ${disk_usage_info}"
@@ -256,47 +256,30 @@ get_network_traffic
 
 # 获取公网 IP 与 ASN 信息
 get_public_ip() {
-    local ipv4
-    local ipv6
-    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    local response
+    response=$(curl -s --max-time 3 "https://ipinfo.io/json?token=3b01046f048430")
+    
+    # 获取IPv4和IPv6地址
+    local ipv4=$(echo "$response" | grep -oP '"ip":\s*"\K[^"]+' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || echo "")
+    local ipv6=$(echo "$response" | grep -oP '"ip":\s*"\K[^"]+' | grep -E '^[0-9a-fA-F:]+$' || echo "")
+    
+    # 显示IP信息
     if [[ -n "$ipv4" ]]; then
-        echo -e " ${GREEN}IPv4:${NC} $ipv4"
+        echo -e "${GREEN}IPv4:${NC}  $ipv4"
     fi
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e " ${GREEN}IPv6:${NC} $ipv6"
+    if [[ -n "$ipv6" && "$ipv6" != "$ipv4" ]]; then
+        echo -e "${GREEN}IPv6:${NC}  $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e " ${RED}No Public IP${NC}"
+        echo -e "${RED}No Public IP${NC}"
     fi
 
-    local asn_ip=""
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        if [[ "$ASN_MODE" == "ipv6" ]]; then
-            asn_ip="$ipv6"
-        else
-            asn_ip="$ipv4"
-        fi
+    # 获取ASN信息
+    local asn_info=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+' || echo "")
+    if [[ -n "$asn_info" ]]; then
+        echo -e "${LIGHTGREEN}${asn_info}${NC}"
     else
-        asn_ip="$ipv4"
-    fi
-    get_asn_info "$asn_ip"
-}
-
-get_asn_info() {
-    local ip=$1
-    if [[ -z "$ip" ]]; then
-        echo -e " ${RED}No IP available for ASN${NC}"
-        return
-    fi
-    local response
-    response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
-    local org
-    org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
-    if [[ -n "$org" ]]; then
-        echo -e " ${LIGHTGREEN}${org}${NC}"
-    else
-        echo -e " ${RED}ASN Not found${NC}"
+        echo -e "${RED}ASN Not found${NC}"
     fi
 }
 
