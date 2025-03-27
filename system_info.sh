@@ -226,16 +226,17 @@ get_network_traffic() {
     local rx_traffic=$(format_bytes $rx_bytes)
     local tx_traffic=$(format_bytes $tx_bytes)
 
-    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
+    echo -e "${ORANGE}Traffic:${NC}     ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
+    echo "======================"
 }
 
-echo -e "${ORANGE}OS:${NC}        ${os_info:-N/A}"
-echo -e "${ORANGE}Uptime:${NC}    ${uptime_info:-N/A}"
-echo -e "${ORANGE}CPU:${NC}       ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${ORANGE}Load:${NC}      ${load_info:-N/A}"
+echo -e "${ORANGE}OS:${NC}         ${os_info:-N/A}"
+echo -e "${ORANGE}Uptime:${NC}     ${uptime_info:-N/A}"
+echo -e "${ORANGE}CPU:${NC}        ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${ORANGE}Load:${NC}       ${load_info:-N/A}"
 
 # Memory 显示
-echo -ne "${ORANGE}Memory:${NC}    "
+echo -ne "${ORANGE}Memory:${NC}     "
 progress_bar $memory_used $memory_total
 # 避免 total=0 或空值时出现 -nan%
 mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
@@ -250,11 +251,11 @@ if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
         if (total>0) printf "%.0fMB / %.0fMB (%.0f%%)", used, total, (used/total)*100;
         else printf "0MB / 0MB (0%%)";
     }')
-    echo -e "${ORANGE}Swap:${NC}      $swap_usage"
+    echo -e "${ORANGE}Swap:${NC}       $swap_usage"
 fi
 
 # Disk 显示
-echo -ne "${ORANGE}Disk:${NC}      "
+echo -ne "${ORANGE}Disk:${NC}       "
 progress_bar $disk_used $disk_total
 echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
 
