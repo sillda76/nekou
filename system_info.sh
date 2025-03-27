@@ -30,7 +30,6 @@ progress_bar() {
     local filled=0
     local empty=0
 
-    # 避免 total=0 的情况
     if [[ $total -gt 0 ]]; then
         filled=$(( progress * bar_width / total ))
         empty=$(( bar_width - filled ))
@@ -40,7 +39,7 @@ progress_bar() {
     for (( i=0; i<filled; i++ )); do
         if (( i < filled / 3 )); then
             printf "${GREEN}=${NC}"
-        elif (( i < 2 * filled / 3 )); do
+        elif (( i < 2 * filled / 3 )); then
             printf "${YELLOW}=${NC}"
         else
             printf "${RED}=${NC}"
@@ -59,24 +58,6 @@ install_dependencies() {
         sudo apt install bc -y || { echo -e "${RED}安装 bc 失败！${NC}"; exit 1; }
     fi
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
-}
-
-# 获取公网 IP（仅用于安装前检测，不含 ASN 信息）
-get_public_ip() {
-    local ipv4
-    local ipv6
-    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
-
-    if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
-    fi
-    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
-    fi
-    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e "${RED}No Public IP${NC}"
-    fi
 }
 
 # 卸载函数
@@ -231,64 +212,67 @@ get_network_traffic() {
     local rx_traffic=$(format_bytes "$total_rx")
     local tx_traffic=$(format_bytes "$total_tx")
 
-    echo -e "${ORANGE}Traffic:${NC}  ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
-    echo " ======================"
+    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
+    echo -e "${ORANGE} ======================${NC}"
 }
 
-# 输出系统信息（调整对齐方式）
-echo -e "${ORANGE}OS:${NC}      ${os_info:-N/A}"
-echo -e "${ORANGE}Uptime:${NC}  ${uptime_info:-N/A}"
-echo -e "${ORANGE}CPU:${NC}     ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${ORANGE}Load:${NC}    ${load_info:-N/A}"
+# 获取公网 IP 和 ASN 信息（使用 IPinfo）
+get_ip_and_asn() {
+    local response
+    response=$(curl -s --max-time 3 "https://ipinfo.io/json?token=3b01046f048430")
+    if [[ -z "$response" || "$response" == *"error"* ]]; then
+        echo -e "${RED}Failed to fetch IP/ASN data${NC}"
+        return
+    fi
+
+    local ipv4=$(echo "$response" | grep -oP '"ip":\s*"\K[^"]+' | head -1)
+    local ipv6=$(echo "$response" | grep -oP '"ip6":\s*"\K[^"]+' || echo "")
+    local org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
+
+    if [[ -n "$ipv4" ]]; then
+        echo -e "${GREEN}IPv4:${NC} $ipv4"
+    fi
+    if [[ -n "$ipv6" && "$ipv6" != "$ipv4" ]]; then
+        echo -e "${GREEN}IPv6:${NC} $ipv6"
+    fi
+    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
+        echo -e "${RED}No Public IP${NC}"
+    fi
+
+    if [[ -n "$org" ]]; then
+        if [[ "$ASN_MODE" == "ipv6" && -n "$ipv6" ]]; then
+            echo -e "${LIGHTGREEN}${org} (IPv6)${NC}"
+        else
+            echo -e "${LIGHTGREEN}${org} (IPv4)${NC}"
+        fi
+    else
+        echo -e "${RED}ASN Not found${NC}"
+    fi
+}
+
+# 输出系统信息
+echo -e "${ORANGE}OS:${NC}     ${os_info:-N/A}"
+echo -e "${ORANGE}Uptime:${NC} ${uptime_info:-N/A}"
+echo -e "${ORANGE}CPU:${NC}    ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${ORANGE}Load:${NC}   ${load_info:-N/A}"
 echo -ne "${ORANGE}Memory:${NC} "
 progress_bar "$memory_used" "$memory_total"
 mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN { if (total>0) printf "%.0f%%", (used/total)*100; else printf "N/A"}')
 echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB (${mem_percent})"
 if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
     swap_usage=$(awk -v used="$swap_used" -v total="$swap_total" 'BEGIN { if (total>0) printf "%.0fMB / %.0fMB (%.0f%%)", used, total, (used/total)*100; else printf "0MB / 0MB (0%%)"}')
-    echo -e "${ORANGE}Swap:${NC}    $swap_usage"
+    echo -e "${ORANGE}Swap:${NC}   $swap_usage"
 fi
 echo -ne "${ORANGE}Disk:${NC}   "
 progress_bar "$disk_used" "$disk_total"
 disk_usage_info=$(df -h / 2>/dev/null | awk 'NR==2 {print $3 " / " $2 " (" $5 ")"}')
 echo " ${disk_usage_info}"
 get_network_traffic
-
-# 获取公网 IP 与 ASN 信息
-get_public_ip() {
-    local response
-    response=$(curl -s --max-time 3 "https://ipinfo.io/json?token=3b01046f048430")
-    
-    # 获取IPv4和IPv6地址
-    local ipv4=$(echo "$response" | grep -oP '"ip":\s*"\K[^"]+' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || echo "")
-    local ipv6=$(echo "$response" | grep -oP '"ip":\s*"\K[^"]+' | grep -E '^[0-9a-fA-F:]+$' || echo "")
-    
-    # 显示IP信息
-    if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC}  $ipv4"
-    fi
-    if [[ -n "$ipv6" && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC}  $ipv6"
-    fi
-    if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e "${RED}No Public IP${NC}"
-    fi
-
-    # 获取ASN信息
-    local asn_info=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+' || echo "")
-    if [[ -n "$asn_info" ]]; then
-        echo -e "${LIGHTGREEN}${asn_info}${NC}"
-    else
-        echo -e "${RED}ASN Not found${NC}"
-    fi
-}
-
-get_public_ip
+get_ip_and_asn
 EOF
 
     chmod +x ~/.local/sysinfo.sh
 
-    # 将脚本自动执行逻辑写入 ~/.bashrc（仅针对交互式 SSH 会话）
     if ! grep -q 'if [[ $- == *i* && -n "$SSH_CONNECTION" ]]; then' ~/.bashrc; then
         {
             echo '# SYSINFO SSH LOGIC START'
@@ -320,14 +304,14 @@ show_menu() {
             display_asn_mode="IPv6"
         fi
 
-        echo -e "${ORANGE}=========================${NC}"
+        echo -e "${ORANGE} ==========================${NC}"
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 切换 ASN 显示模式 ${YELLOW}(当前: ${display_asn_mode})${NC}"
         echo -e "${ORANGE}3. 卸载脚本及系统信息${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
-        echo -e "${ORANGE}=========================${NC}"
+        echo -e "${ORANGE} ==========================${NC}"
         read -p "请输入选项 (0、1、2 或 3): " choice
 
         case $choice in
