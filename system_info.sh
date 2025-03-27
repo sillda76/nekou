@@ -236,7 +236,7 @@ get_network_traffic() {
 }
 
 # 输出系统信息（标题整体向左移动 4 格）
-echo -e "${ORANGE}OS:${NC}    ${os_info:-N/A}"
+echo -e "${ORANGE}OS:${NC}     ${os_info:-N/A}"
 echo -e "${ORANGE}Uptime:${NC} ${uptime_info:-N/A}"
 echo -e "${ORANGE}CPU:${NC}    ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
 echo -e "${ORANGE}Load:${NC}   ${load_info:-N/A}"
