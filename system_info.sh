@@ -213,7 +213,7 @@ get_network_traffic() {
     local tx_traffic=$(format_bytes "$total_tx")
 
     echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
-    echo -e "${ORANGE} ======================${NC}"
+    echo -e "======================"
 }
 
 # 获取公网 IP 和 ASN 信息（使用 IPinfo）
