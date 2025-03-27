@@ -187,7 +187,7 @@ uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
 uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
 uptime_hours=$(bc <<< "scale=0; ($uptime_seconds % 86400) / 3600")
 uptime_minutes=$(bc <<< "scale=0; ($uptime_seconds % 3600) / 60")
-uptime_info="${uptime_days}d ${uptime_hours}h ${uptime_minutes}m"
+uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minutes"
 
 cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
@@ -225,7 +225,7 @@ get_network_traffic() {
     local rx_traffic=$(format_bytes $rx_bytes)
     local tx_traffic=$(format_bytes $tx_bytes)
 
-    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
+    echo -e "${ORANGE}Traffic:${NC}   ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
     echo "======================"
 }
 
@@ -319,7 +319,7 @@ EOF
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    echo -e "${YELLOW}提示：可通过交互菜单中的选项 3 切换 ASN 显示模式（IPv4/IPv6）。${NC}"
+    echo -e "${YELLOW}提示：可通过交互菜单中的选项 2 切换 ASN 显示模式（IPv4/IPv6）。${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
@@ -341,8 +341,8 @@ show_menu() {
         echo -e "${ORANGE}=========================${NC}"
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
-        echo -e "${ORANGE}2. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}3. 切换 ASN 显示模式 ${YELLOW}${BOLD}(当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}2. 切换 ASN 显示模式 ${YELLOW}${BOLD}(当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}3. 卸载脚本及系统信息${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}=========================${NC}"
@@ -353,10 +353,6 @@ show_menu() {
                 install
                 ;;
             2)
-                uninstall
-                read -n 1 -s -r -p "按任意键返回菜单..."
-                ;;
-            3)
                 # 切换 ASN 模式
                 if [[ "$current_asn_mode" == "ipv4" ]]; then
                     new_mode="ipv6"
@@ -367,6 +363,10 @@ show_menu() {
                 fi
                 echo "$new_mode" > ~/.local/sysinfo_asn_mode
                 echo -e "${YELLOW}ASN 显示模式已切换为 ${new_display_mode}${NC}"
+                read -n 1 -s -r -p "按任意键返回菜单..."
+                ;;
+            3)
+                uninstall
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             0)
