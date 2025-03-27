@@ -231,24 +231,24 @@ get_network_traffic() {
     local rx_traffic=$(format_bytes "$total_rx")
     local tx_traffic=$(format_bytes "$total_tx")
 
-    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
-    echo "======================"
+    echo -e " ${ORANGE}Traffic:${NC} ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
+    echo " ======================"
 }
 
-# 输出系统信息（标题整体向左移动 4 格）
-echo -e "${ORANGE}OS:${NC}     ${os_info:-N/A}"
-echo -e "${ORANGE}Uptime:${NC} ${uptime_info:-N/A}"
-echo -e "${ORANGE}CPU:${NC}    ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${ORANGE}Load:${NC}   ${load_info:-N/A}"
-echo -ne "${ORANGE}Memory:${NC} "
+# 输出系统信息（向右移动一格，增加缩进）
+echo -e " ${ORANGE}OS:${NC}     ${os_info:-N/A}"
+echo -e " ${ORANGE}Uptime:${NC} ${uptime_info:-N/A}"
+echo -e " ${ORANGE}CPU:${NC}    ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e " ${ORANGE}Load:${NC}   ${load_info:-N/A}"
+echo -ne " ${ORANGE}Memory:${NC} "
 progress_bar "$memory_used" "$memory_total"
 mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN { if (total>0) printf "%.0f%%", (used/total)*100; else printf "N/A"}')
 echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB (${mem_percent})"
 if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
     swap_usage=$(awk -v used="$swap_used" -v total="$swap_total" 'BEGIN { if (total>0) printf "%.0fMB / %.0fMB (%.0f%%)", used, total, (used/total)*100; else printf "0MB / 0MB (0%%)"}')
-    echo -e "${ORANGE}Swap:${NC}   $swap_usage"
+    echo -e " ${ORANGE}Swap:${NC}   $swap_usage"
 fi
-echo -ne "${ORANGE}Disk:${NC}   "
+echo -ne " ${ORANGE}Disk:${NC}   "
 progress_bar "$disk_used" "$disk_total"
 disk_usage_info=$(df -h / 2>/dev/null | awk 'NR==2 {print $3 " / " $2 " (" $5 ")"}')
 echo " ${disk_usage_info}"
@@ -261,13 +261,13 @@ get_public_ip() {
     ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
     if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
+        echo -e " ${GREEN}IPv4:${NC} $ipv4"
     fi
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
+        echo -e " ${GREEN}IPv6:${NC} $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
-        echo -e "${RED}No Public IP${NC}"
+        echo -e " ${RED}No Public IP${NC}"
     fi
 
     local asn_ip=""
@@ -286,7 +286,7 @@ get_public_ip() {
 get_asn_info() {
     local ip=$1
     if [[ -z "$ip" ]]; then
-        echo -e "${RED}No IP available for ASN${NC}"
+        echo -e " ${RED}No IP available for ASN${NC}"
         return
     fi
     local response
@@ -294,9 +294,9 @@ get_asn_info() {
     local org
     org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
     if [[ -n "$org" ]]; then
-        echo -e "${LIGHTGREEN}${org}${NC}"
+        echo -e " ${LIGHTGREEN}${org}${NC}"
     else
-        echo -e "${RED}ASN Not found${NC}"
+        echo -e " ${RED}ASN Not found${NC}"
     fi
 }
 
