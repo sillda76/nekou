@@ -225,7 +225,7 @@ get_network_traffic() {
     local rx_traffic=$(format_bytes $rx_bytes)
     local tx_traffic=$(format_bytes $tx_bytes)
 
-    echo -e "${ORANGE}Traffic:${NC}   ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
+    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
     echo "======================"
 }
 
