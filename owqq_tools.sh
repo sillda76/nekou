@@ -22,212 +22,120 @@ CURRENT_SCRIPT_PATH="$(pwd)/owqq_tools.sh"
 # 脚本 URL
 SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/owqq_tools.sh"
 
-# 显示菜单
+# 设置快捷启动命令（首次进入时自动设置，且不显示提示）
+setup_alias() {
+    local shell_rc
+    if [[ -f ~/.bashrc ]]; then
+        shell_rc=~/.bashrc
+    elif [[ -f ~/.zshrc ]]; then
+        shell_rc=~/.zshrc
+    elif [[ -f ~/.bash_profile ]]; then
+        shell_rc=~/.bash_profile
+    elif [[ -f ~/.profile ]]; then
+        shell_rc=~/.profile
+    else
+        touch ~/.bashrc
+        shell_rc=~/.bashrc
+    fi
+    if ! grep -q "alias q=" "$shell_rc"; then
+        echo "alias q='${CURRENT_SCRIPT_PATH}'" >> "$shell_rc"
+    fi
+    if [[ -n "$shell_rc" ]]; then
+        source "$shell_rc" >/dev/null 2>&1
+    fi
+}
+
+# 立即设置快捷命令
+setup_alias
+
+# 显示主菜单（重新排序后的选项）
 show_menu() {
     clear
     echo -e "${PURPLE}========================================${NC}"
     echo -e "${GREEN}VPS Manager${NC}"
     echo -e "${BLUE}https://github.com/sillda76/owqq${NC}"
     echo -e "${PURPLE}========================================${NC}"
-    echo -e "${YELLOW}1. 系统首次安装完成调优${NC}"
+    echo -e "${YELLOW}1. 修改DNS${NC}"
     echo -e "${CYAN}2. 系统更新${NC}"
     echo -e "${ORANGE}3. 系统清理${NC}"
     echo -e "${PINK}4. Fail2ban配置${NC}"
     echo -e "${LIGHT_BLUE}5. 禁用Ping响应${NC}"
     echo -e "${TEAL}6. 添加系统信息${NC}"
-    echo -e "${LIGHT_GREEN}7. 安装1Panel${NC}"
-    echo -e "${LIGHT_BLUE}8. 系统工具${NC}"
-    echo -e "${MAGENTA}9. DanmakuRender${NC}"
-    echo -e "${LIGHT_RED}10. 更新脚本${NC}"
-    echo -e "${RED}11. 卸载脚本${NC}"
+    echo -e "${MAGENTA}7. DanmakuRender${NC}"
+    echo -e "${LIGHT_RED}8. 更新脚本${NC}"
+    echo -e "${RED}9. 卸载脚本${NC}"
     echo -e "${MAGENTA}0. 退出脚本${NC}"
     echo -e "${PURPLE}========================================${NC}"
 }
 
-# 显示1Panel子菜单
-show_1panel_menu() {
+# 修改DNS配置函数
+modify_dns() {
     clear
-    echo -e "${PURPLE}========================================${NC}"
-    echo -e "${GREEN}1Panel 管理${NC}"
-    echo -e "${BLUE}官网: https://1panel.cn/${NC}"
-    echo -e "${PURPLE}========================================${NC}"
-    echo -e "${YELLOW}1. 查看1Panel面板信息${NC}"
-    echo -e "${CYAN}2. 修改1Panel面板密码${NC}"
-    echo -e "${ORANGE}3. 卸载1Panel面板${NC}"
-    echo -e "${MAGENTA}0. 返回主菜单${NC}"
-    echo -e "${PURPLE}========================================${NC}"
-}
-
-# 显示系统工具子菜单
-show_system_tools_menu() {
-    clear
-    echo -e "${PURPLE}========================================${NC}"
-    echo -e "${GREEN}系统工具${NC}"
-    echo -e "${PURPLE}========================================${NC}"
-    echo -e "${YELLOW}1. 安装 htop (系统监控工具)${NC}"
-    echo -e "${CYAN}2. 安装 iftop (网络流量监控工具)${NC}"
-    echo -e "${ORANGE}3. 安装 vim (文本编辑器)${NC}"
-    echo -e "${PINK}4. 安装 curl (网络工具)${NC}"
-    echo -e "${LIGHT_BLUE}5. 安装 wget (下载工具)${NC}"
-    echo -e "${TEAL}6. 安装 git (版本控制工具)${NC}"
-    echo -e "${LIGHT_GREEN}7. 安装 tmux (终端复用工具)${NC}"
-    echo -e "${LIGHT_BLUE}8. 安装 unzip (解压工具)${NC}"
-    echo -e "${LIGHT_RED}9. 安装 tar (归档工具)${NC}"
-    echo -e "${MAGENTA}10. 安装 nano (文本编辑器)${NC}"
-    echo -e "${LIGHT_GREEN}11. 一键安装全部系统基础工具${NC}"
-    echo -e "${YELLOW}12. 安装 ffmpeg (多媒体处理工具)${NC}"
-    echo -e "${MAGENTA}0. 返回主菜单${NC}"
-    echo -e "${PURPLE}========================================${NC}"
-}
-
-# 安装系统工具函数
-install_system_tool() {
-    local tool_name=$1
-    local install_command=$2
-    echo -e "${YELLOW}正在安装 ${tool_name}...${NC}"
-    if eval "$install_command"; then
-        echo -e "${GREEN}${tool_name} 安装成功！${NC}"
-    else
-        echo -e "${RED}${tool_name} 安装失败，请检查网络连接或包管理器。${NC}"
-    fi
-    read -n 1 -s -r -p "按任意键返回菜单..."
-}
-
-# 一键安装全部系统基础工具
-install_all_system_tools() {
-    tools=(
-        "htop"
-        "iftop"
-        "vim"
-        "curl"
-        "wget"
-        "git"
-        "tmux"
-        "unzip"
-        "tar"
-        "nano"
-    )
-    for tool in "${tools[@]}"; do
-        install_system_tool "$tool" "install_package $tool"
-    done
-    echo -e "${GREEN}所有系统基础工具安装完成！${NC}"
-    read -n 1 -s -r -p "按任意键返回菜单..."
-}
-
-# 安装1Panel函数
-install_1panel() {
-    if command -v 1pctl &>/dev/null; then
-        while true; do
-            show_1panel_menu
-            read -p "请输入选项数字: " sub_choice
-            case $sub_choice in
-                1)
-                    echo -e "${YELLOW}正在查看1Panel面板信息...${NC}"
-                    1pctl user-info
-                    read -n 1 -s -r -p "按任意键返回菜单..."
-                    ;;
-                2)
-                    echo -e "${YELLOW}正在修改1Panel面板密码...${NC}"
-                    1pctl update password
-                    read -n 1 -s -r -p "按任意键返回菜单..."
-                    ;;
-                3)
-                    echo -e "${YELLOW}是否确认卸载1Panel？(y/n): ${NC}"
-                    read uninstall_choice
-                    if [[ "$uninstall_choice" == "y" ]]; then
-                        echo -e "${YELLOW}正在卸载1Panel面板...${NC}"
-                        1pctl uninstall
-                        echo -e "${GREEN}1Panel 卸载完成！${NC}"
-                    else
-                        echo -e "${YELLOW}已取消卸载。${NC}"
-                    fi
-                    read -n 1 -s -r -p "按任意键返回菜单..."
-                    break
-                    ;;
-                0)
-                    echo -e "${MAGENTA}返回主菜单。${NC}"
-                    break
-                    ;;
-                "")
-                    echo -e "${RED}错误：未输入选项，请按任意键返回菜单。${NC}"
-                    read -n 1 -s -r -p ""
-                    ;;
-                *)
-                    echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
-                    read -n 1 -s -r -p ""
-                    ;;
-            esac
-        done
-    else
-        echo -e "${YELLOW}1Panel 未安装。${NC}"
-        read -p "是否安装 1Panel？(y/n): " install_choice
-        if [[ "$install_choice" == "y" ]]; then
-            echo -e "${YELLOW}正在安装 1Panel...${NC}"
-            curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh && sh quick_start.sh
-            echo -e "${GREEN}1Panel 安装成功！${NC}"
-        else
-            echo -e "${YELLOW}已取消安装。${NC}"
-        fi
-        read -n 1 -s -r -p "按任意键返回菜单..."
-    fi
-}
-
-# 系统工具函数
-system_tools() {
-    while true; do
-        show_system_tools_menu
-        read -p "请输入选项数字: " sub_choice
-        case $sub_choice in
-            1)
-                install_system_tool "htop" "install_package htop"
-                ;;
-            2)
-                install_system_tool "iftop" "install_package iftop"
-                ;;
-            3)
-                install_system_tool "vim" "install_package vim"
-                ;;
-            4)
-                install_system_tool "curl" "install_package curl"
-                ;;
-            5)
-                install_system_tool "wget" "install_package wget"
-                ;;
-            6)
-                install_system_tool "git" "install_package git"
-                ;;
-            7)
-                install_system_tool "tmux" "install_package tmux"
-                ;;
-            8)
-                install_system_tool "unzip" "install_package unzip"
-                ;;
-            9)
-                install_system_tool "tar" "install_package tar"
-                ;;
-            10)
-                install_system_tool "nano" "install_package nano"
-                ;;
-            11)
-                install_all_system_tools
-                ;;
-            12)
-                install_system_tool "ffmpeg" "install_package ffmpeg"
-                ;;
-            0)
-                echo -e "${MAGENTA}返回主菜单。${NC}"
-                break
-                ;;
-            "")
-                echo -e "${RED}错误：未输入选项，请按任意键返回菜单。${NC}"
-                read -n 1 -s -r -p ""
-                ;;
-            *)
-                echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"
-                read -n 1 -s -r -p ""
-                ;;
-        esac
-    done
+    echo -e "${CYAN}当前DNS 配置如下：${NC}"
+    cat /etc/resolv.conf
+    echo -e "${CYAN}----------------------------------------${NC}"
+    echo -e "${YELLOW}[DNS配置] 请选择 DNS 配置优化方案：${NC}"
+    echo -e "${YELLOW}1. 国外DNS优化: v4: 1.1.1.1 8.8.8.8, v6: 2606:4700:4700::1111 2001:4860:4860::8888${NC}"
+    echo -e "${YELLOW}2. 国内DNS优化: v4: 223.5.5.5 183.60.83.19, v6: 2400:3200::1 2400:da00::6666${NC}"
+    echo -e "${YELLOW}3. 手动编辑DNS配置${NC}"
+    echo -e "${YELLOW}4. 保持默认${NC}"
+    read -p "请输入选项数字: " dns_choice
+    case $dns_choice in
+        1)
+            echo -e "${YELLOW}正在解锁 /etc/resolv.conf 文件...${NC}"
+            sudo chattr -i /etc/resolv.conf
+            echo -e "${YELLOW}正在禁用 systemd-resolved...${NC}"
+            sudo systemctl disable --now systemd-resolved
+            echo -e "${YELLOW}写入国外DNS配置...${NC}"
+            sudo bash -c 'cat > /etc/resolv.conf <<EOF
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+nameserver 2606:4700:4700::1111
+nameserver 2001:4860:4860::8888
+EOF'
+            echo -e "${YELLOW}正在锁定 /etc/resolv.conf 文件...${NC}"
+            sudo chattr +i /etc/resolv.conf
+            echo -e "${GREEN}国外DNS优化已完成。${NC}"
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        2)
+            echo -e "${YELLOW}正在解锁 /etc/resolv.conf 文件...${NC}"
+            sudo chattr -i /etc/resolv.conf
+            echo -e "${YELLOW}正在禁用 systemd-resolved...${NC}"
+            sudo systemctl disable --now systemd-resolved
+            echo -e "${YELLOW}写入国内DNS配置...${NC}"
+            sudo bash -c 'cat > /etc/resolv.conf <<EOF
+nameserver 223.5.5.5
+nameserver 183.60.83.19
+nameserver 2400:3200::1
+nameserver 2400:da00::6666
+EOF'
+            echo -e "${YELLOW}正在锁定 /etc/resolv.conf 文件...${NC}"
+            sudo chattr +i /etc/resolv.conf
+            echo -e "${GREEN}国内DNS优化已完成。${NC}"
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        3)
+            echo -e "${YELLOW}正在解锁 /etc/resolv.conf 文件...${NC}"
+            sudo chattr -i /etc/resolv.conf
+            echo -e "${YELLOW}正在禁用 systemd-resolved...${NC}"
+            sudo systemctl disable --now systemd-resolved
+            echo -e "${YELLOW}请使用 nano 编辑 /etc/resolv.conf，修改DNS配置后保存退出。${NC}"
+            sudo nano /etc/resolv.conf
+            echo -e "${YELLOW}正在锁定 /etc/resolv.conf 文件...${NC}"
+            sudo chattr +i /etc/resolv.conf
+            echo -e "${GREEN}DNS配置已更新并锁定。${NC}"
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        4)
+            echo -e "${GREEN}保持默认DNS配置，未做任何修改。${NC}"
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        *)
+            echo -e "${RED}错误：无效选项。${NC}"
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+    esac
 }
 
 # 安装包管理器通用函数
@@ -248,20 +156,6 @@ install_package() {
     else
         echo -e "${RED}未知的包管理器，无法安装 ${package}。${NC}"
         return 1
-    fi
-}
-
-# 更新脚本函数
-update_script() {
-    echo -e "${YELLOW}正在更新脚本...${NC}"
-    if curl -s "$SCRIPT_URL" -o "$CURRENT_SCRIPT_PATH"; then
-        chmod +x "$CURRENT_SCRIPT_PATH"
-        echo -e "${GREEN}脚本更新成功！按任意键返回菜单。${NC}"
-        read -n 1 -s -r -p ""
-        exec "$CURRENT_SCRIPT_PATH"
-    else
-        echo -e "${RED}脚本更新失败，请检查网络连接或 URL 是否正确。${NC}"
-        read -n 1 -s -r -p "按任意键返回菜单..."
     fi
 }
 
@@ -376,32 +270,17 @@ linux_clean() {
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
-# 设置快捷启动命令
-setup_alias() {
-    local shell_rc
-    if [[ -f ~/.bashrc ]]; then
-        shell_rc=~/.bashrc
-    elif [[ -f ~/.zshrc ]]; then
-        shell_rc=~/.zshrc
-    elif [[ -f ~/.bash_profile ]]; then
-        shell_rc=~/.bash_profile
-    elif [[ -f ~/.profile ]]; then
-        shell_rc=~/.profile
+# 更新脚本函数
+update_script() {
+    echo -e "${YELLOW}正在更新脚本...${NC}"
+    if curl -s "$SCRIPT_URL" -o "$CURRENT_SCRIPT_PATH"; then
+        chmod +x "$CURRENT_SCRIPT_PATH"
+        echo -e "${GREEN}脚本更新成功！按任意键返回菜单。${NC}"
+        read -n 1 -s -r -p ""
+        exec "$CURRENT_SCRIPT_PATH"
     else
-        touch ~/.bashrc
-        shell_rc=~/.bashrc
-    fi
-    if ! grep -q "alias q=" "$shell_rc"; then
-        echo "alias q='$CURRENT_SCRIPT_PATH'" >> "$shell_rc"
-        echo -e "${GREEN}快捷命令 'q' 已添加到 $shell_rc。${NC}"
-    else
-        echo -e "${YELLOW}快捷命令 'q' 已存在。${NC}"
-    fi
-    if [[ -n "$shell_rc" ]]; then
-        source "$shell_rc"
-        echo -e "${GREEN}配置文件 $shell_rc 已重新加载。${NC}"
-    else
-        echo -e "${RED}无法重新加载配置文件。${NC}"
+        echo -e "${RED}脚本更新失败，请检查网络连接或 URL 是否正确。${NC}"
+        read -n 1 -s -r -p "按任意键返回菜单..."
     fi
 }
 
@@ -427,10 +306,6 @@ uninstall_script() {
     else
         echo -e "${YELLOW}快捷启动命令 'q' 不存在。${NC}"
     fi
-    if [[ -f ~/.vps-script-setup ]]; then
-        rm -f ~/.vps-script-setup
-        echo -e "${GREEN}标记文件 ~/.vps-script-setup 已删除。${NC}"
-    fi
     if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
         rm -f "$CURRENT_SCRIPT_PATH"
         echo -e "${GREEN}脚本文件 $CURRENT_SCRIPT_PATH 已删除。${NC}"
@@ -446,26 +321,17 @@ while true; do
     show_menu
     read -p "请输入选项数字: " choice
     case $choice in
-        1) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/dd-vps.sh) ;;
+        1) modify_dns ;;
         2) system_update ;;
         3) linux_clean ;;
         4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/install_fail2ban.sh) ;;
         5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ping-control.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/system_info.sh) ;;
-        7) install_1panel ;;
-        8) system_tools ;;
-        9) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh) ;;
-        10) update_script ;;
-        11) uninstall_script ;;
+        7) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh) ;;
+        8) update_script ;;
+        9) uninstall_script ;;
         0) echo -e "${MAGENTA}退出脚本。${NC}"; break ;;
         "") echo -e "${RED}错误：未输入选项，请按任意键返回菜单。${NC}"; read -n 1 -s -r -p "" ;;
         *) echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"; read -n 1 -s -r -p "" ;;
     esac
 done
-
-# 首次运行脚本时自动设置快捷命令
-if [[ ! -f ~/.vps-script-setup ]]; then
-    setup_alias
-    touch ~/.vps-script-setup
-    echo -e "${GREEN}首次运行完成，快捷命令已设置。${NC}"
-fi
