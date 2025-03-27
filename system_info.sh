@@ -30,7 +30,6 @@ progress_bar() {
     local filled=0
     local empty=0
 
-    # 避免 total=0 的情况
     if [[ $total -gt 0 ]]; then
         filled=$((progress * bar_width / total))
         empty=$((bar_width - filled))
@@ -188,7 +187,7 @@ uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
 uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
 uptime_hours=$(bc <<< "scale=0; ($uptime_seconds % 86400) / 3600")
 uptime_minutes=$(bc <<< "scale=0; ($uptime_seconds % 3600) / 60")
-uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minutes"
+uptime_info="${uptime_days}d ${uptime_hours}h ${uptime_minutes}m"
 
 cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
@@ -215,49 +214,48 @@ get_network_traffic() {
     format_bytes() {
         local bytes=$1
         if (( bytes >= 1099511627776 )); then
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f TB", b / 1099511627776}')"
+            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2fTB", b / 1099511627776}')"
         elif (( bytes >= 1073741824 )); then
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f GB", b / 1073741824}')"
+            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2fGB", b / 1073741824}')"
         else
-            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2f MB", b / 1048576}')"
+            echo "$(awk -v b=$bytes 'BEGIN {printf "%.2fMB", b / 1048576}')"
         fi
     }
 
     local rx_traffic=$(format_bytes $rx_bytes)
     local tx_traffic=$(format_bytes $tx_bytes)
 
-    echo -e "${ORANGE}Traffic:${NC}     ${BLUE}TX:${NC} ${YELLOW}$tx_traffic${NC}, ${BLUE}RX:${NC} ${GREEN}$rx_traffic${NC}"
+    echo -e "${ORANGE}Traffic:${NC}   ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
     echo "======================"
 }
 
-echo -e "${ORANGE}OS:${NC}         ${os_info:-N/A}"
-echo -e "${ORANGE}Uptime:${NC}     ${uptime_info:-N/A}"
-echo -e "${ORANGE}CPU:${NC}        ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${ORANGE}Load:${NC}       ${load_info:-N/A}"
+echo -e "${ORANGE}OS:${NC}       ${os_info:-N/A}"
+echo -e "${ORANGE}Uptime:${NC}   ${uptime_info:-N/A}"
+echo -e "${ORANGE}CPU:${NC}      ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${ORANGE}Load:${NC}     ${load_info:-N/A}"
 
 # Memory 显示
-echo -ne "${ORANGE}Memory:${NC}     "
+echo -ne "${ORANGE}Memory:${NC}   "
 progress_bar $memory_used $memory_total
-# 避免 total=0 或空值时出现 -nan%
 mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
     if (total>0) printf "%.0f%%", (used/total)*100;
     else printf "N/A";
 }')
-echo " ${memory_used:-N/A}MB / ${memory_total:-N/A}MB (${mem_percent})"
+echo " ${memory_used:-N/A}MB/${memory_total:-N/A}MB (${mem_percent})"
 
 # Swap 显示
 if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
     swap_usage=$(awk -v used="$swap_used" -v total="$swap_total" 'BEGIN {
-        if (total>0) printf "%.0fMB / %.0fMB (%.0f%%)", used, total, (used/total)*100;
-        else printf "0MB / 0MB (0%%)";
+        if (total>0) printf "%.0fMB/%.0fMB (%.0f%%)", used, total, (used/total)*100;
+        else printf "0MB/0MB (0%%)";
     }')
-    echo -e "${ORANGE}Swap:${NC}       $swap_usage"
+    echo -e "${ORANGE}Swap:${NC}     $swap_usage"
 fi
 
 # Disk 显示
-echo -ne "${ORANGE}Disk:${NC}       "
+echo -ne "${ORANGE}Disk:${NC}     "
 progress_bar $disk_used $disk_total
-echo " $(df -h / 2>/dev/null | grep / | awk '{print $3 " / " $2 " (" $5 ")"}')"
+echo " $(df -h / 2>/dev/null | grep / | awk '{print $3"/"$2" ("$5")"}')"
 
 get_network_traffic
 
@@ -298,7 +296,6 @@ get_asn_info() {
     local response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
     local org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
     if [[ -n "$org" ]]; then
-        # 直接输出 ASN + 运营商，使用浅绿色
         echo -e "${LIGHTGREEN}${org}${NC}"
     else
         echo -e "${RED}ASN Not found${NC}"
