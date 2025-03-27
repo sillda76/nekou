@@ -1,28 +1,18 @@
 #!/bin/bash
-
-# 定义颜色变量（加粗）
+# 定义美观显示的颜色变量
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
-PURPLE='\033[1;35m'
-CYAN='\033[1;36m'
-ORANGE='\033[1;38;5;208m'
 MAGENTA='\033[1;35m'
-LIGHT_BLUE='\033[1;94m'
-LIGHT_GREEN='\033[1;92m'
-LIGHT_RED='\033[1;91m'
-PINK='\033[1;95m'
-TEAL='\033[1;36m'
-NC='\033[0m' # 恢复默认颜色
+CYAN='\033[1;36m'
+NC='\033[0m'
 
-# 当前脚本路径
+# 当前脚本路径及远程脚本 URL（用于更新）
 CURRENT_SCRIPT_PATH="$(pwd)/owqq_tools.sh"
-
-# 脚本 URL
 SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/owqq_tools.sh"
 
-# 设置快捷启动命令（首次进入时自动设置，且不显示提示）
+# 设置快捷启动命令 alias（首次自动设置）
 setup_alias() {
     local shell_rc
     if [[ -f ~/.bashrc ]]; then
@@ -40,41 +30,38 @@ setup_alias() {
     if ! grep -q "alias q=" "$shell_rc"; then
         echo "alias q='${CURRENT_SCRIPT_PATH}'" >> "$shell_rc"
     fi
-    if [[ -n "$shell_rc" ]]; then
-        source "$shell_rc" >/dev/null 2>&1
-    fi
+    source "$shell_rc" >/dev/null 2>&1
 }
 
-# 立即设置快捷命令
 setup_alias
 
-# 显示主菜单（重新排序后的选项）
+# 显示主菜单
 show_menu() {
     clear
-    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${MAGENTA}========================================${NC}"
     echo -e "${GREEN}VPS Manager${NC}"
     echo -e "${BLUE}https://github.com/sillda76/owqq${NC}"
-    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${MAGENTA}========================================${NC}"
     echo -e "${YELLOW}1. 修改DNS${NC}"
     echo -e "${CYAN}2. 系统更新${NC}"
-    echo -e "${ORANGE}3. 系统清理${NC}"
-    echo -e "${PINK}4. Fail2ban配置${NC}"
-    echo -e "${LIGHT_BLUE}5. 禁用Ping响应${NC}"
-    echo -e "${TEAL}6. 添加系统信息${NC}"
-    echo -e "${MAGENTA}7. DanmakuRender${NC}"
-    echo -e "${LIGHT_RED}8. 更新脚本${NC}"
+    echo -e "${GREEN}3. 系统清理${NC}"
+    echo -e "${BLUE}4. Fail2ban配置${NC}"
+    echo -e "${MAGENTA}5. 禁用Ping响应${NC}"
+    echo -e "${CYAN}6. 添加系统信息${NC}"
+    echo -e "${YELLOW}7. DanmakuRender${NC}"
+    echo -e "${GREEN}8. 更新脚本${NC}"
     echo -e "${RED}9. 卸载脚本${NC}"
     echo -e "${MAGENTA}0. 退出脚本${NC}"
-    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${MAGENTA}========================================${NC}"
 }
 
-# 修改DNS配置函数
+# 修改 DNS 配置
 modify_dns() {
     clear
-    echo -e "${CYAN}当前DNS 配置如下：${NC}"
+    echo -e "${CYAN}当前DNS配置如下：${NC}"
     cat /etc/resolv.conf
     echo -e "${CYAN}----------------------------------------${NC}"
-    echo -e "${YELLOW}[DNS配置] 请选择 DNS 配置优化方案：${NC}"
+    echo -e "${YELLOW}[DNS配置] 请选择 DNS 优化方案：${NC}"
     echo -e "${YELLOW}1. 国外DNS优化: v4: 1.1.1.1 8.8.8.8, v6: 2606:4700:4700::1111 2001:4860:4860::8888${NC}"
     echo -e "${YELLOW}2. 国内DNS优化: v4: 223.5.5.5 183.60.83.19, v6: 2400:3200::1 2400:da00::6666${NC}"
     echo -e "${YELLOW}3. 手动编辑DNS配置${NC}"
@@ -93,7 +80,6 @@ nameserver 8.8.8.8
 nameserver 2606:4700:4700::1111
 nameserver 2001:4860:4860::8888
 EOF'
-            echo -e "${YELLOW}正在锁定 /etc/resolv.conf 文件...${NC}"
             sudo chattr +i /etc/resolv.conf
             echo -e "${GREEN}国外DNS优化已完成。${NC}"
             read -n 1 -s -r -p "按任意键返回菜单..."
@@ -110,7 +96,6 @@ nameserver 183.60.83.19
 nameserver 2400:3200::1
 nameserver 2400:da00::6666
 EOF'
-            echo -e "${YELLOW}正在锁定 /etc/resolv.conf 文件...${NC}"
             sudo chattr +i /etc/resolv.conf
             echo -e "${GREEN}国内DNS优化已完成。${NC}"
             read -n 1 -s -r -p "按任意键返回菜单..."
@@ -122,7 +107,6 @@ EOF'
             sudo systemctl disable --now systemd-resolved
             echo -e "${YELLOW}请使用 nano 编辑 /etc/resolv.conf，修改DNS配置后保存退出。${NC}"
             sudo nano /etc/resolv.conf
-            echo -e "${YELLOW}正在锁定 /etc/resolv.conf 文件...${NC}"
             sudo chattr +i /etc/resolv.conf
             echo -e "${GREEN}DNS配置已更新并锁定。${NC}"
             read -n 1 -s -r -p "按任意键返回菜单..."
@@ -138,7 +122,7 @@ EOF'
     esac
 }
 
-# 安装包管理器通用函数
+# 通用安装包管理器函数
 install_package() {
     local package=$1
     if command -v apt &>/dev/null; then
@@ -159,7 +143,7 @@ install_package() {
     fi
 }
 
-# 系统更新函数
+# 系统更新
 system_update() {
     echo -e "${YELLOW}正在系统更新...${NC}"
     if command -v apt &>/dev/null; then
@@ -181,7 +165,7 @@ system_update() {
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
-# 系统清理函数
+# 系统清理
 linux_clean() {
     echo -e "${YELLOW}正在系统清理...${NC}"
     steps=(
@@ -210,8 +194,7 @@ linux_clean() {
                 elif command -v yum &>/dev/null; then
                     yum clean all
                 elif command -v apt &>/dev/null; then
-                    apt clean
-                    apt autoclean
+                    apt clean && apt autoclean
                 elif command -v apk &>/dev/null; then
                     apk cache clean
                 elif command -v pacman &>/dev/null; then
@@ -232,9 +215,7 @@ linux_clean() {
                 rm -rf /var/tmp/*
                 ;;
             "清理 APK 缓存...")
-                if command -v apk &>/dev/null; then
-                    apk cache clean
-                fi
+                [ -x "$(command -v apk)" ] && apk cache clean
                 ;;
             "清理 YUM/DNF 缓存...")
                 if command -v dnf &>/dev/null; then
@@ -244,25 +225,16 @@ linux_clean() {
                 fi
                 ;;
             "清理 APT 缓存...")
-                if command -v apt &>/dev/null; then
-                    apt clean
-                    apt autoclean
-                fi
+                [ -x "$(command -v apt)" ] && { apt clean; apt autoclean; }
                 ;;
             "清理 Pacman 缓存...")
-                if command -v pacman &>/dev/null; then
-                    pacman -Scc --noconfirm
-                fi
+                [ -x "$(command -v pacman)" ] && pacman -Scc --noconfirm
                 ;;
             "清理 Zypper 缓存...")
-                if command -v zypper &>/dev/null; then
-                    zypper clean --all
-                fi
+                [ -x "$(command -v zypper)" ] && zypper clean --all
                 ;;
             "清理 Opkg 缓存...")
-                if command -v opkg &>/dev/null; then
-                    opkg clean
-                fi
+                [ -x "$(command -v opkg)" ] && opkg clean
                 ;;
         esac
     done
@@ -270,7 +242,7 @@ linux_clean() {
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
-# 更新脚本函数
+# 更新脚本
 update_script() {
     echo -e "${YELLOW}正在更新脚本...${NC}"
     if curl -s "$SCRIPT_URL" -o "$CURRENT_SCRIPT_PATH"; then
@@ -284,7 +256,7 @@ update_script() {
     fi
 }
 
-# 卸载脚本函数
+# 卸载脚本
 uninstall_script() {
     echo -e "${YELLOW}正在卸载脚本...${NC}"
     local shell_rc
@@ -308,9 +280,9 @@ uninstall_script() {
     fi
     if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
         rm -f "$CURRENT_SCRIPT_PATH"
-        echo -e "${GREEN}脚本文件 $CURRENT_SCRIPT_PATH 已删除。${NC}"
+        echo -e "${GREEN}脚本文件已删除。${NC}"
     else
-        echo -e "${YELLOW}脚本文件 $CURRENT_SCRIPT_PATH 不存在。${NC}"
+        echo -e "${YELLOW}脚本文件不存在。${NC}"
     fi
     echo -e "${GREEN}脚本卸载完成。${NC}"
     exit 0
