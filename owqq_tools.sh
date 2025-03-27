@@ -12,6 +12,16 @@ NC='\033[0m'
 CURRENT_SCRIPT_PATH="$(pwd)/owqq_tools.sh"
 SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/owqq_tools.sh"
 
+# SSH美化内容
+BEAUTIFY_CONTENT='
+# 命令行美化
+parse_git_branch() {
+    git branch 2> /dev/null | sed -e '\''/^[^*]/d'\'' -e '\''s/* \(.*\)/ (\1)/'\''
+}
+PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''
+# 命令行美化结束
+'
+
 # 设置快捷启动命令 alias（首次自动设置）
 setup_alias() {
     local shell_rc
@@ -48,9 +58,10 @@ show_menu() {
     echo -e "${BLUE}4. Fail2ban配置${NC}"
     echo -e "${MAGENTA}5. 禁用Ping响应${NC}"
     echo -e "${CYAN}6. 添加系统信息${NC}"
-    echo -e "${YELLOW}7. DanmakuRender${NC}"
-    echo -e "${GREEN}8. 更新脚本${NC}"
-    echo -e "${RED}9. 卸载脚本${NC}"
+    echo -e "${YELLOW}7. SSH命令行美化${NC}"
+    echo -e "${GREEN}8. DanmakuRender${NC}"
+    echo -e "${BLUE}9. 更新脚本${NC}"
+    echo -e "${RED}10. 卸载脚本${NC}"
     echo -e "${MAGENTA}0. 退出脚本${NC}"
     echo -e "${MAGENTA}========================================${NC}"
 }
@@ -117,6 +128,47 @@ EOF'
             ;;
         *)
             echo -e "${RED}错误：无效选项。${NC}"
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+    esac
+}
+
+# SSH命令行美化
+ssh_beautify() {
+    clear
+    echo -e "${YELLOW}SSH命令行美化选项:${NC}"
+    echo -e "1. 安装命令行美化"
+    echo -e "2. 卸载命令行美化"
+    echo -e "3. 返回主菜单"
+    read -p "请输入选项 (1/2/3): " choice
+
+    case $choice in
+        1)
+            # 检查是否已存在美化内容
+            if grep -q "# 命令行美化" ~/.bashrc; then
+                echo -e "${YELLOW}命令行美化已经安装过了。${NC}"
+            else
+                echo "$BEAUTIFY_CONTENT" >> ~/.bashrc
+                echo -e "${GREEN}命令行美化已安装，请重新打开终端或运行 'source ~/.bashrc' 查看效果。${NC}"
+            fi
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        2)
+            # 删除美化内容
+            if grep -q "# 命令行美化" ~/.bashrc; then
+                # 使用sed删除从"# 命令行美化"到"# 命令行美化结束"之间的内容
+                sed -i '/# 命令行美化/,/# 命令行美化结束/d' ~/.bashrc
+                echo -e "${GREEN}命令行美化已卸载，请重新打开终端或运行 'source ~/.bashrc' 查看效果。${NC}"
+            else
+                echo -e "${YELLOW}没有找到已安装的命令行美化内容。${NC}"
+            fi
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        3)
+            return
+            ;;
+        *)
+            echo -e "${RED}无效的选项。${NC}"
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
     esac
@@ -299,9 +351,10 @@ while true; do
         4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/install_fail2ban.sh) ;;
         5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ping-control.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/system_info.sh) ;;
-        7) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh) ;;
-        8) update_script ;;
-        9) uninstall_script ;;
+        7) ssh_beautify ;;
+        8) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh) ;;
+        9) update_script ;;
+        10) uninstall_script ;;
         0) echo -e "${MAGENTA}退出脚本。${NC}"; break ;;
         "") echo -e "${RED}错误：未输入选项，请按任意键返回菜单。${NC}"; read -n 1 -s -r -p "" ;;
         *) echo -e "${RED}错误：无效选项，请按任意键返回菜单。${NC}"; read -n 1 -s -r -p "" ;;
