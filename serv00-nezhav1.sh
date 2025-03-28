@@ -22,7 +22,7 @@ download_latest_agent() {
     rm -rf nezha-agent_freebsd_amd64.zip
 }
 
-# 安装 nezha 的逻辑函数（选项2）
+# 安装 nezha 的逻辑函数（选项1）
 install_nezha() {
     cd ~/domains
     mkdir -p nezhav1
@@ -103,6 +103,13 @@ EOF
     echo "It is ok"
 }
 
+# 停止 nezha 的函数（用于选项2和选项5）
+stop_nezha() {
+    pkill -f "nezhav1" >/dev/null 2>&1
+    pkill -f "check_process.sh" >/dev/null 2>&1
+    echo "nezha 进程已停止"
+}
+
 # 更新 agent 的逻辑函数（选项4）
 update_agent() {
     cd ~/domains/nezhav1
@@ -142,42 +149,47 @@ EOF
     fi
 }
 
+# 清理磁盘的函数（用于选项5）
+clean_disk() {
+    echo "即将进行磁盘清理操作，此操作将清除相关缓存和下载文件，请确认是否继续."
+    read -p "是否继续清理磁盘? (y/n): " clean_choice
+    if [ "$clean_choice" != "y" ]; then
+        echo "取消磁盘清理操作."
+        return
+    fi
+    rm -rf ~/domains/nezhav1/* >/dev/null 2>&1
+    rm -rf ~/.cache/* >/dev/null 2>&1
+    rm -rf ~/.local/share/Trash/* >/dev/null 2>&1
+    rm -rf ~/.npm/* >/dev/null 2>&1
+    rm -rf ~/.yarn/* >/dev/null 2>&1
+    rm -rf ~/Downloads/* >/dev/null 2>&1
+    rm -rf ~/downloads/* >/dev/null 2>&1
+    rm -rf ~/tmp/* >/dev/null 2>&1
+    rm -rf ~/logs/* >/dev/null 2>&1
+    : > ~/.bash_history
+    echo "磁盘清理完成"
+}
+
 # 显示菜单
 echo "请选择操作:"
-echo "1. 停止 nezha 并清理进程以及磁盘"
-echo "2. 开始安装 nezha"
+echo "1. 开始安装 nezha"
+echo "2. 停止 nezha"
 echo "3. 重启 nezha"
 echo "4. 更新 agent"
-read -p "请输入选项 (1/2/3/4): " option
+echo "5. 卸载 nezha"
+read -p "请输入选项 (1/2/3/4/5): " option
 
 case "$option" in
     1)
-        # 清理进程
-        pkill -f "nezhav1" >/dev/null 2>&1
-        pkill -f "check_process.sh" >/dev/null 2>&1
-        echo "进程清理完成"
-
-        # 清理磁盘
-        rm -rf ~/domains/nezhav1/* >/dev/null 2>&1
-        rm -rf ~/.cache/* >/dev/null 2>&1
-        rm -rf ~/.local/share/Trash/* >/dev/null 2>&1
-        rm -rf ~/.npm/* >/dev/null 2>&1
-        rm -rf ~/.yarn/* >/dev/null 2>&1
-        rm -rf ~/Downloads/* >/dev/null 2>&1
-        rm -rf ~/downloads/* >/dev/null 2>&1
-        rm -rf ~/tmp/* >/dev/null 2>&1
-        rm -rf ~/logs/* >/dev/null 2>&1
-        : > ~/.bash_history
-        echo "磁盘清理完成"
-        exit 0
+        install_nezha
         ;;
     2)
-        install_nezha
+        # 仅停止 nezha
+        stop_nezha
         ;;
     3)
         # 重启 nezha：仅清理 nezha 进程，然后重新启动
-        pkill -f "nezhav1" >/dev/null 2>&1
-        pkill -f "check_process.sh" >/dev/null 2>&1
+        stop_nezha
         echo "进程清理完成"
         cd ~/domains/nezhav1
         nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
@@ -186,8 +198,19 @@ case "$option" in
     4)
         update_agent
         ;;
+    5)
+        echo "卸载 nezha 将停止所有 nezha 进程并清理相关磁盘文件。"
+        read -p "是否确认卸载 nezha? (y/n): " uninstall_confirm
+        if [ "$uninstall_confirm" != "y" ]; then
+            echo "取消卸载操作。"
+            exit 0
+        fi
+        stop_nezha
+        clean_disk
+        echo "nezha 卸载完成"
+        ;;
     *)
-        echo "无效选项，请选择 1、2、3 或 4"
+        echo "无效选项，请选择 1、2、3、4 或 5"
         exit 1
         ;;
 esac
