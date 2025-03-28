@@ -1,38 +1,28 @@
 #!/bin/bash
 
-# 下载最新 FreeBSD 版本的 agent 函数（仅下载 freebsd_arm64.zip 的文件）
+# 下载最新 FreeBSD 版本的 agent 函数
 download_latest_agent() {
     echo "正在获取最新的 FreeBSD 版本下载链接..."
-    download_url=$(curl -s https://api.github.com/repos/nezhahq/agent/releases/latest | grep browser_download_url | grep freebsd_arm64.zip | cut -d '"' -f 4)
+    download_url=$(curl -s https://api.github.com/repos/nezhahq/agent/releases/latest | grep browser_download_url | grep freebsd_amd64.zip | cut -d '"' -f 4)
     if [ -z "$download_url" ]; then
-        echo "未能获取最新下载链接."
-        read -p "是否手动输入下载链接? (y/n): " manual_choice
-        if [ "$manual_choice" == "y" ]; then
-            read -p "请输入下载链接: " download_url
-            if [ -z "$download_url" ]; then
-                echo "未输入下载链接，取消安装."
-                exit 1
-            fi
-        else
-            echo "取消安装."
-            exit 1
-        fi
+        echo "未能获取最新下载链接，请检查网络连接或手动下载."
+        exit 1
     fi
     echo "最新版本下载链接：$download_url"
     echo "开始下载最新的 FreeBSD 版本..."
-    wget "$download_url" -O nezha-agent_freebsd_arm64.zip
+    wget "$download_url" -O nezha-agent_freebsd_amd64.zip
     if [ $? -ne 0 ]; then
         echo "下载失败，请检查网络或下载链接."
         exit 1
     fi
-    unzip nezha-agent_freebsd_arm64.zip
+    unzip nezha-agent_freebsd_amd64.zip
     # 假设解压后生成的文件名为 nezha-agent，将其重命名为 nezhav1
     mv nezha-agent nezhav1
     chmod 755 nezhav1
-    rm -rf nezha-agent_freebsd_arm64.zip
+    rm -rf nezha-agent_freebsd_amd64.zip
 }
 
-# 安装 nezha 的逻辑函数（选项1）
+# 安装 nezha 的逻辑函数（选项2）
 install_nezha() {
     cd ~/domains
     mkdir -p nezhav1
@@ -154,41 +144,19 @@ EOF
 
 # 显示菜单
 echo "请选择操作:"
-echo "1. 开始安装 nezha"
-echo "2. 停止 nezha 进程"
+echo "1. 停止 nezha 并清理进程以及磁盘"
+echo "2. 开始安装 nezha"
 echo "3. 重启 nezha"
 echo "4. 更新 agent"
-echo "5. 卸载 nezha 并清理进程以及磁盘"
-read -p "请输入选项 (1/2/3/4/5): " option
+read -p "请输入选项 (1/2/3/4): " option
 
 case "$option" in
     1)
-        install_nezha
-        ;;
-    2)
-        # 仅停止 nezha 进程
-        pkill -f "nezhav1" >/dev/null 2>&1
-        pkill -f "check_process.sh" >/dev/null 2>&1
-        echo "nezha 进程已停止"
-        exit 0
-        ;;
-    3)
-        # 重启 nezha：仅清理 nezha 进程，然后重新启动
+        # 清理进程
         pkill -f "nezhav1" >/dev/null 2>&1
         pkill -f "check_process.sh" >/dev/null 2>&1
         echo "进程清理完成"
-        cd ~/domains/nezhav1
-        nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
-        echo "nezha 已重启"
-        ;;
-    4)
-        update_agent
-        ;;
-    5)
-        # 卸载 nezha 并清理进程以及磁盘
-        pkill -f "nezhav1" >/dev/null 2>&1
-        pkill -f "check_process.sh" >/dev/null 2>&1
-        echo "nezha 进程已停止"
+
         # 清理磁盘
         rm -rf ~/domains/nezhav1/* >/dev/null 2>&1
         rm -rf ~/.cache/* >/dev/null 2>&1
@@ -203,8 +171,23 @@ case "$option" in
         echo "磁盘清理完成"
         exit 0
         ;;
+    2)
+        install_nezha
+        ;;
+    3)
+        # 重启 nezha：仅清理 nezha 进程，然后重新启动
+        pkill -f "nezhav1" >/dev/null 2>&1
+        pkill -f "check_process.sh" >/dev/null 2>&1
+        echo "进程清理完成"
+        cd ~/domains/nezhav1
+        nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
+        echo "nezha 已重启"
+        ;;
+    4)
+        update_agent
+        ;;
     *)
-        echo "无效选项，请选择 1、2、3、4 或 5"
+        echo "无效选项，请选择 1、2、3 或 4"
         exit 1
         ;;
 esac
