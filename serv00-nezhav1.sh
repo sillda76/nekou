@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# 下载最新 FreeBSD 版本的 agent 函数（使用 grep 方式解析 JSON）
+# 下载最新 FreeBSD 版本的 agent 函数
 download_latest_agent() {
     echo "正在获取最新的 FreeBSD 版本下载链接..."
-    # 使用 curl 获取最新 release 的 JSON 数据，并使用 grep 和 cut 获取 FreeBSD 版本的下载链接
     download_url=$(curl -s https://api.github.com/repos/nezhahq/agent/releases/latest | grep browser_download_url | grep freebsd_amd64.zip | cut -d '"' -f 4)
     if [ -z "$download_url" ]; then
         echo "未能获取最新下载链接，请检查网络连接或手动下载."
@@ -23,11 +22,11 @@ download_latest_agent() {
     rm -rf nezha-agent_freebsd_amd64.zip
 }
 
-# 安装 nezha 的逻辑函数（选项1）
+# 安装 nezha 的逻辑函数（原选项2，现调整为选项1）
 install_nezha() {
-    cd ~/domains || exit
+    cd ~/domains
     mkdir -p nezhav1
-    cd nezhav1 || exit
+    cd nezhav1
 
     config_file="config.yml"
     # 如果检测到 config.yml 存在，则列出内容并提示用户是否重新下载安装并重新配置
@@ -46,7 +45,7 @@ install_nezha() {
 
     # 生成或重新生成 config.yml 文件
     read -p "请输入 client_secret: " client_secret
-    read -p "请输入 server 地址 (例如: misaka.es:8008): " server
+    read -p "请输入 server 地址 (例如: google.com:8008): " server
     read -p "是否启用 TLS (y/n): " tls_input
     tls=$( [ "$tls_input" == "y" ] && echo "true" || echo "false" )
     read -p "是否手动输入 UUID? (y/n): " uuid_choice
@@ -56,11 +55,10 @@ install_nezha() {
         uuid=$(uuidgen)
     fi
 
-    cat > "$config_file" <<EOF
-client_secret: $client_secret
+    echo "client_secret: $client_secret
 debug: false
 disable_auto_update: false
-disable_command_execute: false
+disable_command_execute: true
 disable_force_update: false
 disable_nat: false
 disable_send_query: false
@@ -75,8 +73,7 @@ temperature: false
 tls: $tls
 use_gitee_to_upgrade: false
 use_ipv6_country_code: false
-uuid: $uuid
-EOF
+uuid: $uuid" > "$config_file"
     echo "$config_file 文件已生成，UUID: $uuid"
 
     # 询问是否开启进程保活
@@ -87,7 +84,7 @@ EOF
 #!/bin/bash
 while true; do
     if ! pgrep -f "nezhav1" > /dev/null; then
-        cd "$(dirname "$0")"
+        cd $(dirname $0)
         nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
         echo "Process restarted at $(date)"
     fi
@@ -106,16 +103,9 @@ EOF
     echo "It is ok"
 }
 
-# 停止 nezha 的函数（用于选项2和选项5）
-stop_nezha() {
-    pkill -f "nezhav1" >/dev/null 2>&1
-    pkill -f "check_process.sh" >/dev/null 2>&1
-    echo "nezha 进程已停止"
-}
-
 # 更新 agent 的逻辑函数（选项4）
 update_agent() {
-    cd ~/domains/nezhav1 || exit
+    cd ~/domains/nezhav1
     # 清理 nezha 进程
     pkill -f "nezhav1" >/dev/null 2>&1
     pkill -f "check_process.sh" >/dev/null 2>&1
@@ -139,7 +129,7 @@ update_agent() {
 #!/bin/bash
 while true; do
     if ! pgrep -f "nezhav1" > /dev/null; then
-        cd "$(dirname "$0")"
+        cd $(dirname $0)
         nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
         echo "Process restarted at $(date)"
     fi
@@ -152,34 +142,13 @@ EOF
     fi
 }
 
-# 清理磁盘的函数（用于选项5）
-clean_disk() {
-    echo "即将进行磁盘清理操作，此操作将清除相关缓存和下载文件，请确认是否继续."
-    read -p "是否继续清理磁盘? (y/n): " clean_choice
-    if [ "$clean_choice" != "y" ]; then
-        echo "取消磁盘清理操作."
-        return
-    fi
-    rm -rf ~/domains/nezhav1/* >/dev/null 2>&1
-    rm -rf ~/.cache/* >/dev/null 2>&1
-    rm -rf ~/.local/share/Trash/* >/dev/null 2>&1
-    rm -rf ~/.npm/* >/dev/null 2>&1
-    rm -rf ~/.yarn/* >/dev/null 2>&1
-    rm -rf ~/Downloads/* >/dev/null 2>&1
-    rm -rf ~/downloads/* >/dev/null 2>&1
-    rm -rf ~/tmp/* >/dev/null 2>&1
-    rm -rf ~/logs/* >/dev/null 2>&1
-    : > ~/.bash_history
-    echo "磁盘清理完成"
-}
-
 # 显示菜单
 echo "请选择操作:"
 echo "1. 开始安装 nezha"
-echo "2. 停止 nezha"
+echo "2. 停止 nezha 进程"
 echo "3. 重启 nezha"
 echo "4. 更新 agent"
-echo "5. 卸载 nezha"
+echo "5. 卸载 nezha 并清理进程以及磁盘"
 read -p "请输入选项 (1/2/3/4/5): " option
 
 case "$option" in
@@ -187,12 +156,18 @@ case "$option" in
         install_nezha
         ;;
     2)
-        stop_nezha
+        # 仅停止 nezha 进程
+        pkill -f "nezhav1" >/dev/null 2>&1
+        pkill -f "check_process.sh" >/dev/null 2>&1
+        echo "nezha 进程已停止"
+        exit 0
         ;;
     3)
-        stop_nezha
+        # 重启 nezha：仅清理 nezha 进程，然后重新启动
+        pkill -f "nezhav1" >/dev/null 2>&1
+        pkill -f "check_process.sh" >/dev/null 2>&1
         echo "进程清理完成"
-        cd ~/domains/nezhav1 || exit
+        cd ~/domains/nezhav1
         nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
         echo "nezha 已重启"
         ;;
@@ -200,15 +175,23 @@ case "$option" in
         update_agent
         ;;
     5)
-        echo "卸载 nezha 将停止所有 nezha 进程并清理相关磁盘文件。"
-        read -p "是否确认卸载 nezha? (y/n): " uninstall_confirm
-        if [ "$uninstall_confirm" != "y" ]; then
-            echo "取消卸载操作。"
-            exit 0
-        fi
-        stop_nezha
-        clean_disk
-        echo "nezha 卸载完成"
+        # 卸载 nezha 并清理进程以及磁盘
+        pkill -f "nezhav1" >/dev/null 2>&1
+        pkill -f "check_process.sh" >/dev/null 2>&1
+        echo "nezha 进程已停止"
+        # 清理磁盘
+        rm -rf ~/domains/nezhav1/* >/dev/null 2>&1
+        rm -rf ~/.cache/* >/dev/null 2>&1
+        rm -rf ~/.local/share/Trash/* >/dev/null 2>&1
+        rm -rf ~/.npm/* >/dev/null 2>&1
+        rm -rf ~/.yarn/* >/dev/null 2>&1
+        rm -rf ~/Downloads/* >/dev/null 2>&1
+        rm -rf ~/downloads/* >/dev/null 2>&1
+        rm -rf ~/tmp/* >/dev/null 2>&1
+        rm -rf ~/logs/* >/dev/null 2>&1
+        : > ~/.bash_history
+        echo "磁盘清理完成"
+        exit 0
         ;;
     *)
         echo "无效选项，请选择 1、2、3、4 或 5"
