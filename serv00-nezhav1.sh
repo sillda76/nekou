@@ -5,8 +5,18 @@ download_latest_agent() {
     echo "正在获取最新的 FreeBSD 版本下载链接..."
     download_url=$(curl -s https://api.github.com/repos/nezhahq/agent/releases/latest | grep browser_download_url | grep freebsd_arm64.zip | cut -d '"' -f 4)
     if [ -z "$download_url" ]; then
-        echo "未能获取最新下载链接，请检查网络连接或手动下载."
-        exit 1
+        echo "未能获取最新下载链接."
+        read -p "是否手动输入下载链接? (y/n): " manual_choice
+        if [ "$manual_choice" == "y" ]; then
+            read -p "请输入下载链接: " download_url
+            if [ -z "$download_url" ]; then
+                echo "未输入下载链接，取消安装."
+                exit 1
+            fi
+        else
+            echo "取消安装."
+            exit 1
+        fi
     fi
     echo "最新版本下载链接：$download_url"
     echo "开始下载最新的 FreeBSD 版本..."
