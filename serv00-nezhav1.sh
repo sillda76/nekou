@@ -1,28 +1,28 @@
 #!/bin/bash
 
-# 下载最新 FreeBSD 版本的 agent 函数
+# 下载最新 FreeBSD 版本的 agent 函数（仅下载 freebsd_arm64.zip 的文件）
 download_latest_agent() {
     echo "正在获取最新的 FreeBSD 版本下载链接..."
-    download_url=$(curl -s https://api.github.com/repos/nezhahq/agent/releases/latest | grep browser_download_url | grep freebsd_amd64.zip | cut -d '"' -f 4)
+    download_url=$(curl -s https://api.github.com/repos/nezhahq/agent/releases/latest | grep browser_download_url | grep freebsd_arm64.zip | cut -d '"' -f 4)
     if [ -z "$download_url" ]; then
         echo "未能获取最新下载链接，请检查网络连接或手动下载."
         exit 1
     fi
     echo "最新版本下载链接：$download_url"
     echo "开始下载最新的 FreeBSD 版本..."
-    wget "$download_url" -O nezha-agent_freebsd_amd64.zip
+    wget "$download_url" -O nezha-agent_freebsd_arm64.zip
     if [ $? -ne 0 ]; then
         echo "下载失败，请检查网络或下载链接."
         exit 1
     fi
-    unzip nezha-agent_freebsd_amd64.zip
+    unzip nezha-agent_freebsd_arm64.zip
     # 假设解压后生成的文件名为 nezha-agent，将其重命名为 nezhav1
     mv nezha-agent nezhav1
     chmod 755 nezhav1
-    rm -rf nezha-agent_freebsd_amd64.zip
+    rm -rf nezha-agent_freebsd_arm64.zip
 }
 
-# 安装 nezha 的逻辑函数（原选项2，现调整为选项1）
+# 安装 nezha 的逻辑函数（选项1）
 install_nezha() {
     cd ~/domains
     mkdir -p nezhav1
@@ -45,7 +45,7 @@ install_nezha() {
 
     # 生成或重新生成 config.yml 文件
     read -p "请输入 client_secret: " client_secret
-    read -p "请输入 server 地址 (例如: google.com:8008): " server
+    read -p "请输入 server 地址 (例如: misaka.es:8008): " server
     read -p "是否启用 TLS (y/n): " tls_input
     tls=$( [ "$tls_input" == "y" ] && echo "true" || echo "false" )
     read -p "是否手动输入 UUID? (y/n): " uuid_choice
@@ -58,7 +58,7 @@ install_nezha() {
     echo "client_secret: $client_secret
 debug: false
 disable_auto_update: false
-disable_command_execute: true
+disable_command_execute: false
 disable_force_update: false
 disable_nat: false
 disable_send_query: false
