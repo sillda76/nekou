@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# 下载最新 FreeBSD 版本的 agent 函数
+# 下载最新 FreeBSD 版本的 agent 函数（使用 grep 方式解析 JSON）
 download_latest_agent() {
     echo "正在获取最新的 FreeBSD 版本下载链接..."
+    # 使用 curl 获取最新 release 的 JSON 数据，并使用 grep 和 cut 获取 FreeBSD 版本的下载链接
     download_url=$(curl -s https://api.github.com/repos/nezhahq/agent/releases/latest | grep browser_download_url | grep freebsd_amd64.zip | cut -d '"' -f 4)
     if [ -z "$download_url" ]; then
         echo "未能获取最新下载链接，请检查网络连接或手动下载."
@@ -24,9 +25,9 @@ download_latest_agent() {
 
 # 安装 nezha 的逻辑函数（选项1）
 install_nezha() {
-    cd ~/domains
+    cd ~/domains || exit
     mkdir -p nezhav1
-    cd nezhav1
+    cd nezhav1 || exit
 
     config_file="config.yml"
     # 如果检测到 config.yml 存在，则列出内容并提示用户是否重新下载安装并重新配置
@@ -55,7 +56,8 @@ install_nezha() {
         uuid=$(uuidgen)
     fi
 
-    echo "client_secret: $client_secret
+    cat > "$config_file" <<EOF
+client_secret: $client_secret
 debug: false
 disable_auto_update: false
 disable_command_execute: false
@@ -73,7 +75,8 @@ temperature: false
 tls: $tls
 use_gitee_to_upgrade: false
 use_ipv6_country_code: false
-uuid: $uuid" > "$config_file"
+uuid: $uuid
+EOF
     echo "$config_file 文件已生成，UUID: $uuid"
 
     # 询问是否开启进程保活
@@ -84,7 +87,7 @@ uuid: $uuid" > "$config_file"
 #!/bin/bash
 while true; do
     if ! pgrep -f "nezhav1" > /dev/null; then
-        cd $(dirname $0)
+        cd "$(dirname "$0")"
         nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
         echo "Process restarted at $(date)"
     fi
@@ -112,7 +115,7 @@ stop_nezha() {
 
 # 更新 agent 的逻辑函数（选项4）
 update_agent() {
-    cd ~/domains/nezhav1
+    cd ~/domains/nezhav1 || exit
     # 清理 nezha 进程
     pkill -f "nezhav1" >/dev/null 2>&1
     pkill -f "check_process.sh" >/dev/null 2>&1
@@ -136,7 +139,7 @@ update_agent() {
 #!/bin/bash
 while true; do
     if ! pgrep -f "nezhav1" > /dev/null; then
-        cd $(dirname $0)
+        cd "$(dirname "$0")"
         nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
         echo "Process restarted at $(date)"
     fi
@@ -184,14 +187,12 @@ case "$option" in
         install_nezha
         ;;
     2)
-        # 仅停止 nezha
         stop_nezha
         ;;
     3)
-        # 重启 nezha：仅清理 nezha 进程，然后重新启动
         stop_nezha
         echo "进程清理完成"
-        cd ~/domains/nezhav1
+        cd ~/domains/nezhav1 || exit
         nohup ./nezhav1 -c config.yml >/dev/null 2>&1 &
         echo "nezha 已重启"
         ;;
