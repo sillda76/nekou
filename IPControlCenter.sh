@@ -25,37 +25,101 @@ restart_network() {
     echo "已重启网络服务使配置生效"
 }
 
-# 函数：配置IP协议优先级
-config_ip_precedence() {
-    current_precedence=$(grep '^precedence' /etc/gai.conf 2>/dev/null | awk '{print $NF}')
+# 函数：获取优先级状态描述
+get_precedence_status() {
+    if grep -q '^precedence ::ffff:0:0/96  100' /etc/gai.conf 2>/dev/null; then
+        echo "IPv4"
+    elif grep -q '^precedence ::/0           20' /etc/gai.conf 2>/dev/null; then
+        echo "IPv6"
+    else
+        echo "默认"
+    fi
+}
+
+# 函数：测试IP优先级
+test_ip_precedence() {
+    echo "正在测试IP优先级..."
+    echo "测试域名：youtube.com"
+    echo "--------------------------------------"
     
-    echo "======================================"
-    echo " 当前IPv6优先级: ${current_precedence:-默认}"
-    echo "======================================"
-    echo "1. 优先使用IPv4"
-    echo "2. 优先使用IPv6"
-    echo "3. 返回主菜单"
+    # 获取解析结果并去重
+    local result=$(getent ahosts youtube.com 2>/dev/null | awk '/^[^#]/ {if($2=="STREAM") print $1,$3; else print $1,$2}' | sort -u)
     
-    read -p "请选择优先级模式 [1-3]: " choice
-    case $choice in
-        1)
-            sed -i '/^precedence/d' /etc/gai.conf
-            echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
-            echo "已设置优先使用IPv4"
+    if [ -z "$result" ]; then
+        echo -e "\033[31m错误：无法解析测试域名，请检查网络连接！\033[0m"
+        return 1
+    fi
+    
+    # 显示解析结果
+    echo -e "解析结果：\n$result"
+    
+    # 分析第一个结果
+    local first_record=$(echo "$result" | head -n1)
+    case $(echo "$first_record" | awk '{print $2}') in
+        AF_INET)
+            echo -e "\033[32m检测到优先使用 IPv4 地址\033[0m"
             ;;
-        2)
-            sed -i '/^precedence/d' /etc/gai.conf
-            echo "precedence ::/0           20" >> /etc/gai.conf
-            echo "precedence ::1/128       50" >> /etc/gai.conf
-            echo "已设置优先使用IPv6"
-            ;;
-        3)
-            return
+        AF_INET6)
+            echo -e "\033[32m检测到优先使用 IPv6 地址\033[0m"
             ;;
         *)
-            echo "无效选择！"
+            echo -e "\033[33m未知地址类型：$first_record\033[0m"
             ;;
     esac
+}
+
+# 函数：配置IP协议优先级
+config_ip_precedence() {
+    while true; do
+        clear
+        current_status=$(get_precedence_status)
+        
+        echo "======================================"
+        echo " IP协议优先级配置"
+        echo "======================================"
+        echo " 当前优先级: ${current_status}"
+        echo "--------------------------------------"
+        echo "1. 优先使用IPv4"
+        echo "2. 优先使用IPv6"
+        echo "3. 恢复默认优先级"
+        echo "4. 测试当前优先级"
+        echo "0. 返回主菜单"
+        
+        read -p "请选择操作 [0-4]: " choice
+        case $choice in
+            1)
+                sed -i '/^precedence/d' /etc/gai.conf
+                echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+                echo "已设置优先使用IPv4"
+                test_ip_precedence
+                read -p "测试完成，按回车键继续..."
+                ;;
+            2)
+                sed -i '/^precedence/d' /etc/gai.conf
+                echo "precedence ::/0           20" >> /etc/gai.conf
+                echo "precedence ::1/128       50" >> /etc/gai.conf
+                echo "已设置优先使用IPv6"
+                test_ip_precedence
+                read -p "测试完成，按回车键继续..."
+                ;;
+            3)
+                sed -i '/^precedence/d' /etc/gai.conf
+                echo "已恢复默认优先级配置"
+                test_ip_precedence
+                read -p "测试完成，按回车键继续..."
+                ;;
+            4)
+                test_ip_precedence
+                read -p "按回车键继续..."
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo "无效选择！"
+                ;;
+        esac
+    done
 }
 
 # 函数：临时禁用IPv6
@@ -68,17 +132,13 @@ temp_disable_ipv6() {
 
 # 函数：永久禁用IPv6
 perm_disable_ipv6() {
-    # 修改sysctl配置
     sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
     sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
     echo "net.ipv6.conf.all.disable_ipv6=1" >> /etc/sysctl.conf
     echo "net.ipv6.conf.default.disable_ipv6=1" >> /etc/sysctl.conf
     
-    # 修改grub配置（针对Debian系）
-    if grep -q 'ipv6.disable=1' /etc/default/grub; then
-        sed -i 's/ipv6.disable=1//g' /etc/default/grub
-    else
-        sed -i 's/GRUB_CMDLINE_LINUX="/&ipv6.disable=1 /' /etc/default/grub
+    if ! grep -q 'ipv6.disable=1' /etc/default/grub; then
+        sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ ipv6.disable=1"/' /etc/default/grub
     fi
     update-grub
     
@@ -89,12 +149,9 @@ perm_disable_ipv6() {
 
 # 函数：恢复IPv6设置
 restore_ipv6() {
-    # 清除sysctl配置
     sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
     sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
-    
-    # 清除grub配置
-    sed -i 's/ipv6.disable=1//g' /etc/default/grub
+    sed -i 's/ ipv6.disable=1//g' /etc/default/grub
     update-grub
     
     sysctl -w net.ipv6.conf.all.disable_ipv6=0 >/dev/null
@@ -112,42 +169,31 @@ config_ping_block() {
         echo " 禁Ping配置"
         echo "======================================"
         
-        # 获取当前状态
-        v4_status=$(sysctl -n net.ipv4.icmp_echo_ignore_all)
-        v6_status=$(sysctl -n net.ipv6.icmp.echo_ignore_all 2>/dev/null || echo "0")
+        v4_status=$(sysctl -n net.ipv4.icmp_echo_ignore_all 2>/dev/null)
+        v6_status=$(sysctl -n net.ipv6.icmp.echo_ignore_all 2>/dev/null || echo 0)
         
         echo "1. IPv4禁Ping当前状态: $(show_status $v4_status)"
         echo "2. IPv6禁Ping当前状态: $(show_status $v6_status)"
-        echo "3. 返回主菜单"
+        echo "0. 返回主菜单"
         
-        read -p "请选择要配置的项目 [1-3]: " choice
+        read -p "请选择操作 [0-2]: " choice
         
         case $choice in
             1)
-                if [ "$v4_status" = "1" ]; then
-                    sed -i '/net.ipv4.icmp_echo_ignore_all/d' /etc/sysctl.conf
-                    sysctl -w net.ipv4.icmp_echo_ignore_all=0 >/dev/null
-                    echo -e "\n\033[32mIPv4禁Ping已关闭！\033[0m"
-                else
-                    sed -i '/net.ipv4.icmp_echo_ignore_all/d' /etc/sysctl.conf
-                    echo "net.ipv4.icmp_echo_ignore_all=1" >> /etc/sysctl.conf
-                    sysctl -p >/dev/null
-                    echo -e "\n\033[32mIPv4禁Ping已开启！\033[0m"
-                fi
+                new_status=$((1 - v4_status))
+                sed -i '/net.ipv4.icmp_echo_ignore_all/d' /etc/sysctl.conf
+                echo "net.ipv4.icmp_echo_ignore_all=$new_status" >> /etc/sysctl.conf
+                sysctl -p >/dev/null
+                echo -e "\n\033[32mIPv4禁Ping已$([ $new_status -eq 1 ] && echo '开启' || echo '关闭')\033[0m"
                 ;;
             2)
-                if [ "$v6_status" = "1" ]; then
-                    sed -i '/net.ipv6.icmp.echo_ignore_all/d' /etc/sysctl.conf
-                    sysctl -w net.ipv6.icmp.echo_ignore_all=0 >/dev/null
-                    echo -e "\n\033[32mIPv6禁Ping已关闭！\033[0m"
-                else
-                    sed -i '/net.ipv6.icmp.echo_ignore_all/d' /etc/sysctl.conf
-                    echo "net.ipv6.icmp.echo_ignore_all=1" >> /etc/sysctl.conf
-                    sysctl -p >/dev/null
-                    echo -e "\n\033[32mIPv6禁Ping已开启！\033[0m"
-                fi
+                new_status=$((1 - v6_status))
+                sed -i '/net.ipv6.icmp.echo_ignore_all/d' /etc/sysctl.conf
+                echo "net.ipv6.icmp.echo_ignore_all=$new_status" >> /etc/sysctl.conf
+                sysctl -p >/dev/null
+                echo -e "\n\033[32mIPv6禁Ping已$([ $new_status -eq 1 ] && echo '开启' || echo '关闭')\033[0m"
                 ;;
-            3)
+            0)
                 return
                 ;;
             *)
@@ -166,52 +212,32 @@ while true; do
     echo "======================================"
     echo " Debian网络高级配置工具"
     echo "======================================"
-    echo "1. 配置IP协议优先级"
+    echo "1. 配置IP协议优先级（当前：$(get_precedence_status)）"
     echo "2. 临时禁用IPv6（重启后恢复）"
     echo "3. 永久禁用IPv6" 
     echo "4. 恢复IPv6默认设置"
     echo "5. 配置禁Ping设置"
-    echo "6. 退出"
+    echo "0. 退出"
     echo "======================================"
     
-    read -p "请选择操作 [1-6]: " option
+    read -p "请选择操作 [0-5]: " option
     case $option in
-        1) 
-            config_ip_precedence 
-            ;;
+        1) config_ip_precedence ;;
         2)
             read -p "确定要临时禁用IPv6吗？(y/N): " confirm
-            if [[ $confirm =~ [Yy] ]]; then
-                temp_disable_ipv6
-            else
-                echo "操作已取消"
-            fi
+            [[ $confirm =~ [Yy] ]] && temp_disable_ipv6
             ;;
         3)
             read -p "永久禁用IPv6需要重启系统，确定继续吗？(y/N): " confirm
-            if [[ $confirm =~ [Yy] ]]; then
-                perm_disable_ipv6
-            else
-                echo "操作已取消"
-            fi
+            [[ $confirm =~ [Yy] ]] && perm_disable_ipv6
             ;;
         4)
             read -p "确定要恢复IPv6默认设置吗？(y/N): " confirm
-            if [[ $confirm =~ [Yy] ]]; then
-                restore_ipv6
-            else
-                echo "操作已取消"
-            fi
+            [[ $confirm =~ [Yy] ]] && restore_ipv6
             ;;
-        5) 
-            config_ping_block 
-            ;;
-        6) 
-            exit 0 
-            ;;
-        *) 
-            echo "无效选项，请重新输入！" 
-            ;;
+        5) config_ping_block ;;
+        0) exit 0 ;;
+        *) echo "无效选项，请重新输入！" ;;
     esac
     
     read -p "按回车键返回主菜单..."
