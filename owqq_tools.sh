@@ -378,7 +378,7 @@ show_menu() {
     echo -e "${CYAN}2. 系统更新${NC}"
     echo -e "${GREEN}3. 系统清理${NC}"
     echo -e "${BLUE}4. Fail2ban配置${NC}"
-    echo -e "${MAGENTA}5. 禁用Ping响应${NC}"
+    echo -e "${MAGENTA}5. IPv4/IPv6配置${NC}"
     echo -e "${CYAN}6. 添加系统信息${NC}"
     echo -e "${YELLOW}7. SSH命令行美化${NC}"
     echo -e "${GREEN}8. DanmakuRender${NC}"
@@ -397,7 +397,7 @@ while true; do
         2) system_update ;;
         3) system_clean ;;
         4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/install_fail2ban.sh) ;;
-        5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/ping-control.sh) ;;
+        5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/IPControlCenter.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/system_info.sh) ;;
         7) ssh_beautify ;;
         8) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh) ;;
