@@ -36,36 +36,14 @@ get_precedence_status() {
     fi
 }
 
-# 函数：测试IP优先级
+# 函数：测试IP优先级（简化版）
 test_ip_precedence() {
-    echo "正在测试IP优先级..."
-    echo "测试域名：youtube.com"
+    echo "使用DNS解析顺序测试IP优先级..."
+    echo "测试命令：getent ahosts youtube.com"
     echo "--------------------------------------"
     
-    # 获取解析结果并去重
-    local result=$(getent ahosts youtube.com 2>/dev/null | awk '/^[^#]/ {if($2=="STREAM") print $1,$3; else print $1,$2}' | sort -u)
-    
-    if [ -z "$result" ]; then
-        echo -e "\033[31m错误：无法解析测试域名，请检查网络连接！\033[0m"
-        return 1
-    fi
-    
-    # 显示解析结果
-    echo -e "解析结果：\n$result"
-    
-    # 分析第一个结果
-    local first_record=$(echo "$result" | head -n1)
-    case $(echo "$first_record" | awk '{print $2}') in
-        AF_INET)
-            echo -e "\033[32m检测到优先使用 IPv4 地址\033[0m"
-            ;;
-        AF_INET6)
-            echo -e "\033[32m检测到优先使用 IPv6 地址\033[0m"
-            ;;
-        *)
-            echo -e "\033[33m未知地址类型：$first_record\033[0m"
-            ;;
-    esac
+    # 直接显示原始结果
+    getent ahosts youtube.com 2>/dev/null || echo -e "\033[31m错误：无法解析测试域名\033[0m"
 }
 
 # 函数：配置IP协议优先级
@@ -92,7 +70,7 @@ config_ip_precedence() {
                 echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
                 echo "已设置优先使用IPv4"
                 test_ip_precedence
-                read -p "测试完成，按回车键继续..."
+                read -p "按回车键返回菜单..."
                 ;;
             2)
                 sed -i '/^precedence/d' /etc/gai.conf
@@ -100,17 +78,17 @@ config_ip_precedence() {
                 echo "precedence ::1/128       50" >> /etc/gai.conf
                 echo "已设置优先使用IPv6"
                 test_ip_precedence
-                read -p "测试完成，按回车键继续..."
+                read -p "按回车键返回菜单..."
                 ;;
             3)
                 sed -i '/^precedence/d' /etc/gai.conf
                 echo "已恢复默认优先级配置"
                 test_ip_precedence
-                read -p "测试完成，按回车键继续..."
+                read -p "按回车键返回菜单..."
                 ;;
             4)
                 test_ip_precedence
-                read -p "按回车键继续..."
+                read -p "按回车键返回菜单..."
                 ;;
             0)
                 return
