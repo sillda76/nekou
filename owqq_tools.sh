@@ -353,13 +353,13 @@ uninstall_script() {
         sed -i '/alias q=/d' "$shell_rc"
         echo -e "${GREEN}快捷启动命令 'q' 已经删除咯～ (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧${NC}"
     else
-        echo -e "${YELLOW}快捷启动命令 'q' 不存在哦～ (｡•́︿•̀｡)"
+        echo -e "${YELLOW}快捷启动命令 'q' 不存在哦～ (｡•́︿•̀｡)${NC}"
     fi
     if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
         rm -f "$CURRENT_SCRIPT_PATH"
         echo -e "${GREEN}脚本文件删除成功啦～ (✿◠‿◠)${NC}"
     else
-        echo -e "${YELLOW}脚本文件已经不在啦～ (｡•́︿•̀｡)"
+        echo -e "${YELLOW}脚本文件已经不在啦～ (｡•́︿•̀｡)${NC}"
     fi
     echo -e "${GREEN}脚本卸载完成啦～ (づ｡◕‿‿◕｡)づ 喵~${NC}"
     exit 0
@@ -369,7 +369,7 @@ uninstall_script() {
 show_menu() {
     clear
     echo -e "${MAGENTA}========================================${NC}"
-    echo -e "${GREEN} (｡◕‿◕｡) 喵~${NC}"
+    echo -e "${GREEN}超级萌VPS Manager (｡◕‿◕｡) 喵~${NC}"
     echo -e "${BLUE}https://github.com/sillda76/owqq${NC}"
     echo -e "${MAGENTA}========================================${NC}"
     echo -e "${YELLOW}1. 修改DNS${NC}"
@@ -390,7 +390,7 @@ show_menu() {
 # 主循环 (づ｡◕‿‿◕｡)づ
 while true; do
     show_menu
-    read -p "请输入选项数字喵~： " choice
+    read -p "请输入选项数字呦： " choice
     case $choice in
         1) modify_dns ;;
         2) system_update ;;
