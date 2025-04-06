@@ -66,10 +66,10 @@ get_public_ip() {
     ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
 
     if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
+        echo -e "${GREEN}IPv4${NC} : $ipv4"
     fi
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
+        echo -e "${GREEN}IPv6${NC} : $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
         echo -e "${RED}No Public IP${NC}"
@@ -225,23 +225,22 @@ get_network_traffic() {
     local rx_traffic=$(format_bytes $rx_bytes)
     local tx_traffic=$(format_bytes $tx_bytes)
 
-    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
-    echo "======================"
+    echo -e "${ORANGE}Traffic${NC} : ${BLUE}TX${NC} : ${YELLOW}$tx_traffic${NC} ${BLUE}RX${NC} : ${GREEN}$rx_traffic${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━"
 }
 
-echo -e "${ORANGE}OS:${NC}       ${os_info:-N/A}"
-echo -e "${ORANGE}Uptime:${NC}   ${uptime_info:-N/A}"
-echo -e "${ORANGE}CPU:${NC}      ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${ORANGE}Load:${NC}     ${load_info:-N/A}"
+echo -e "${ORANGE}OS${NC}       : ${os_info:-N/A}"
+echo -e "${ORANGE}Uptime${NC}   : ${uptime_info:-N/A}"
+echo -e "${ORANGE}CPU${NC}      : ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${ORANGE}Load${NC}     : ${load_info:-N/A}"
 
 # Memory 显示
-echo -ne "${ORANGE}Memory:${NC}   "
+echo -ne "${ORANGE}Memory${NC}   "
 progress_bar $memory_used $memory_total
-mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
+echo " : ${memory_used:-N/A}MB/${memory_total:-N/A}MB ($(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
     if (total>0) printf "%.0f%%", (used/total)*100;
     else printf "N/A";
-}')
-echo " ${memory_used:-N/A}MB/${memory_total:-N/A}MB (${mem_percent})"
+}'))"
 
 # Swap 显示
 if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
@@ -249,25 +248,25 @@ if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
         if (total>0) printf "%.0fMB/%.0fMB (%.0f%%)", used, total, (used/total)*100;
         else printf "0MB/0MB (0%%)";
     }')
-    echo -e "${ORANGE}Swap:${NC}     $swap_usage"
+    echo -e "${ORANGE}Swap${NC}     : $swap_usage"
 fi
 
 # Disk 显示
-echo -ne "${ORANGE}Disk:${NC}     "
+echo -ne "${ORANGE}Disk${NC}     "
 progress_bar $disk_used $disk_total
-echo " $(df -h / 2>/dev/null | grep / | awk '{print $3"/"$2" ("$5")"}')"
+echo " : $(df -h / 2>/dev/null | grep / | awk '{print $3"/"$2" ("$5")"}')"
 
 get_network_traffic
 
 get_public_ip() {
     ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 config.co)
 
     if [[ -n "$ipv4" ]]; then
-        echo -e "${GREEN}IPv4:${NC} $ipv4"
+        echo -e "${GREEN}IPv4${NC} : $ipv4"
     fi
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
-        echo -e "${GREEN}IPv6:${NC} $ipv6"
+        echo -e "${GREEN}IPv6${NC} : $ipv6"
     fi
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
         echo -e "${RED}No Public IP${NC}"
@@ -338,14 +337,14 @@ show_menu() {
             display_asn_mode="IPv6"
         fi
 
-        echo -e "${ORANGE}=========================${NC}"
-        echo -e "${ORANGE}请选择操作：${NC}"
+        echo -e "${ORANGE}━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${ORANGE}请选择操作${NC} :"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
-        echo -e "${ORANGE}2. 切换 ASN 显示模式 ${YELLOW}${BOLD}(当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}2. 切换 ASN 显示模式 ${YELLOW}${BOLD}(当前 : ${display_asn_mode})${NC}"
         echo -e "${ORANGE}3. 卸载脚本及系统信息${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
-        echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
-        echo -e "${ORANGE}=========================${NC}"
+        echo -e "${ORANGE}当前状态${NC} : $(check_installed)"
+        echo -e "${ORANGE}━━━━━━━━━━━━━━━━━━━━━━${NC}"
         read -p "请输入选项 (0、1、2 或 3): " choice
 
         case $choice in
