@@ -60,10 +60,26 @@ install_dependencies() {
     sudo apt install net-tools curl -y || { echo -e "${RED}安装依赖失败！${NC}"; exit 1; }
 }
 
-# 获取公网 IP（仅用于安装前检测，不含 ASN 信息）
+# 修改后的公网 IP 获取（支持本地或外部获取）
 get_public_ip() {
-    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    # 读取 IP 获取模式，默认 "local"
+    local ip_mode
+    ip_mode=$(cat ~/.local/sysinfo_ip_mode 2>/dev/null)
+    if [[ -z "$ip_mode" ]]; then
+        ip_mode="local"
+    fi
+
+    if [[ "$ip_mode" == "local" ]]; then
+        # 本地获取：通过缺省网卡获取 IP 信息
+        local default_iface
+        default_iface=$(ip route | grep default | awk '{print $5}' | head -n 1)
+        ipv4=$(ip -4 addr show "$default_iface" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
+        ipv6=$(ip -6 addr show "$default_iface" 2>/dev/null | grep -oP '(?<=inet6\s)[a-fA-F0-9:]+(?=/)' | head -n 1)
+    else
+        # 外部获取：依然使用外部服务查询
+        ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+        ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    fi
 
     if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
@@ -74,6 +90,19 @@ get_public_ip() {
     if [[ -z "$ipv4" && -z "$ipv6" ]]; then
         echo -e "${RED}No Public IP${NC}"
     fi
+
+    # 根据配置决定 ASN 查询使用的 IP（保留原有逻辑）
+    local asn_ip=""
+    if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
+        if [[ "$ASN_MODE" == "ipv6" ]]; then
+            asn_ip="$ipv6"
+        else
+            asn_ip="$ipv4"
+        fi
+    else
+        asn_ip="$ipv4"
+    fi
+    get_asn_info "$asn_ip"
 }
 
 # 卸载函数
@@ -123,6 +152,11 @@ install() {
 
     mkdir -p ~/.local
 
+    # 初始化 IP 获取模式为 local（本地获取）如果配置文件不存在
+    if [[ ! -f ~/.local/sysinfo_ip_mode ]]; then
+        echo "local" > ~/.local/sysinfo_ip_mode
+    fi
+
     echo -e "${YELLOW}正在安装依赖工具...${NC}"
     install_dependencies
 
@@ -147,10 +181,16 @@ BLUE='\033[1;34m'
 LIGHTGREEN='\033[1;92m'
 NC='\033[0m'
 
-# 从配置中读取 ASN 显示模式（默认使用 ipv4）
+# 读取 ASN 显示模式（默认使用 ipv4）
 ASN_MODE=$(cat ~/.local/sysinfo_asn_mode 2>/dev/null)
 if [[ -z "$ASN_MODE" ]]; then
     ASN_MODE="ipv4"
+fi
+
+# 读取 IP 获取模式（默认 local：本地获取）
+IP_MODE=$(cat ~/.local/sysinfo_ip_mode 2>/dev/null)
+if [[ -z "$IP_MODE" ]]; then
+    IP_MODE="local"
 fi
 
 progress_bar() {
@@ -257,11 +297,17 @@ echo -ne "${ORANGE}Disk:${NC}     "
 progress_bar $disk_used $disk_total
 echo " $(df -h / 2>/dev/null | grep / | awk '{print $3"/"$2" ("$5")"}')"
 
-get_network_traffic
-
+# 修改后的公网 IP 获取：根据 IP_MODE 决定使用本地还是外部获取方式
 get_public_ip() {
-    ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
-    ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    if [[ "$IP_MODE" == "local" ]]; then
+        local default_iface
+        default_iface=$(ip route | grep default | awk '{print $5}' | head -n 1)
+        ipv4=$(ip -4 addr show "$default_iface" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
+        ipv6=$(ip -6 addr show "$default_iface" 2>/dev/null | grep -oP '(?<=inet6\s)[a-fA-F0-9:]+(?=/)' | head -n 1)
+    else
+        ipv4=$(curl -s --max-time 3 ipv4.icanhazip.com || curl -s --max-time 3 ifconfig.me)
+        ipv6=$(curl -s --max-time 3 ipv6.icanhazip.com || curl -s --max-time 3 ifconfig.co)
+    fi
 
     if [[ -n "$ipv4" ]]; then
         echo -e "${GREEN}IPv4:${NC} $ipv4"
@@ -273,7 +319,7 @@ get_public_ip() {
         echo -e "${RED}No Public IP${NC}"
     fi
 
-    # 根据配置决定 ASN 查询使用的 IP
+    # 根据配置决定 ASN 查询使用的 IP（保留原有逻辑）
     local asn_ip=""
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
         if [[ "$ASN_MODE" == "ipv6" ]]; then
@@ -319,7 +365,7 @@ EOF
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    echo -e "${YELLOW}提示：可通过交互菜单中的选项 2 切换 ASN 显示模式（IPv4/IPv6）。${NC}"
+    echo -e "${YELLOW}提示：可通过交互菜单中的选项 2 切换 ASN 显示模式（IPv4/IPv6）；选项 4 切换 IP 获取模式（本地/外部）。${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
@@ -331,6 +377,12 @@ show_menu() {
         if [[ -z "$current_asn_mode" ]]; then
             current_asn_mode="ipv4"
         fi
+        # 读取当前 IP 获取模式
+        current_ip_mode=$(cat ~/.local/sysinfo_ip_mode 2>/dev/null)
+        if [[ -z "$current_ip_mode" ]]; then
+            current_ip_mode="local"
+        fi
+
         # 根据当前模式设置显示文字
         if [[ "$current_asn_mode" == "ipv4" ]]; then
             display_asn_mode="IPv4"
@@ -338,15 +390,22 @@ show_menu() {
             display_asn_mode="IPv6"
         fi
 
+        if [[ "$current_ip_mode" == "local" ]]; then
+            display_ip_mode="本地获取"
+        else
+            display_ip_mode="外部获取"
+        fi
+
         echo -e "${ORANGE}━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
-        echo -e "${ORANGE}2. 切换 ASN 显示模式 ${YELLOW}${BOLD}(当前: ${display_asn_mode})${NC}"
+        echo -e "${ORANGE}2. 切换 ASN 显示模式 ${YELLOW}(当前: ${display_asn_mode})${NC}"
         echo -e "${ORANGE}3. 卸载脚本及系统信息${NC}"
+        echo -e "${ORANGE}4. 切换 IP 获取模式 ${YELLOW}(当前: ${display_ip_mode})${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        read -p "请输入选项 (0、1、2 或 3): " choice
+        read -p "请输入选项 (0、1、2、3 或 4): " choice
 
         case $choice in
             1)
@@ -367,6 +426,19 @@ show_menu() {
                 ;;
             3)
                 uninstall
+                read -n 1 -s -r -p "按任意键返回菜单..."
+                ;;
+            4)
+                # 切换 IP 获取模式
+                if [[ "$current_ip_mode" == "local" ]]; then
+                    new_ip_mode="external"
+                    new_ip_mode_disp="外部获取"
+                else
+                    new_ip_mode="local"
+                    new_ip_mode_disp="本地获取"
+                fi
+                echo "$new_ip_mode" > ~/.local/sysinfo_ip_mode
+                echo -e "${YELLOW}IP 获取模式已切换为 ${new_ip_mode_disp}${NC}"
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             0)
