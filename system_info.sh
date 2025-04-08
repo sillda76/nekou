@@ -9,7 +9,8 @@ BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 LIGHTGREEN='\033[1;92m'  # 浅绿色
-LIGHTBLUE='\033[1;94m'   # 新增：浅蓝色
+LIGHTBLUE='\033[1;94m'   # 浅蓝色
+LIGHTPURPLE='\033[1;35m' # 浅紫色
 NC='\033[0m'
 
 # 检查是否已安装
@@ -181,7 +182,8 @@ BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 LIGHTGREEN='\033[1;92m'
-LIGHTBLUE='\033[1;94m'    # 新增：浅蓝色
+LIGHTBLUE='\033[1;94m'
+LIGHTPURPLE='\033[1;35m'
 NC='\033[0m'
 
 # 读取 ASN 显示模式（默认使用 ipv4）
@@ -271,7 +273,7 @@ get_network_traffic() {
     rx_traffic=$(format_bytes "$rx_bytes")
     tx_traffic=$(format_bytes "$tx_bytes")
 
-    echo -e "${LIGHTBLUE}Traffic:${NC} ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
+    echo -e "${LIGHTBLUE}Traffic:${NC} ${ORANGE}TX:${NC}${YELLOW}$tx_traffic${NC} ${LIGHTPURPLE}RX:${NC}${GREEN}$rx_traffic${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━"
 }
 
