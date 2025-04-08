@@ -9,6 +9,7 @@ BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 LIGHTGREEN='\033[1;92m'  # 浅绿色
+LIGHTBLUE='\033[1;94m'   # 新增：浅蓝色
 NC='\033[0m'
 
 # 检查是否已安装
@@ -180,6 +181,7 @@ BLACK='\033[1;30m'
 ORANGE='\033[1;38;5;208m'
 BLUE='\033[1;34m'
 LIGHTGREEN='\033[1;92m'
+LIGHTBLUE='\033[1;94m'    # 新增：浅蓝色
 NC='\033[0m'
 
 # 读取 ASN 显示模式（默认使用 ipv4）
@@ -269,17 +271,17 @@ get_network_traffic() {
     rx_traffic=$(format_bytes "$rx_bytes")
     tx_traffic=$(format_bytes "$tx_bytes")
 
-    echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
+    echo -e "${LIGHTBLUE}Traffic:${NC} ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━"
 }
 
-echo -e "${ORANGE}OS:${NC}       ${os_info:-N/A}"
-echo -e "${ORANGE}Uptime:${NC}   ${uptime_info:-N/A}"
-echo -e "${ORANGE}CPU:${NC}      ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${ORANGE}Load:${NC}     ${load_info:-N/A}"
+echo -e "${LIGHTBLUE}OS:${NC}       ${os_info:-N/A}"
+echo -e "${LIGHTBLUE}Uptime:${NC}   ${uptime_info:-N/A}"
+echo -e "${LIGHTBLUE}CPU:${NC}      ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
+echo -e "${LIGHTBLUE}Load:${NC}     ${load_info:-N/A}"
 
 # Memory 显示
-echo -ne "${ORANGE}Memory:${NC}   "
+echo -ne "${LIGHTBLUE}Memory:${NC}   "
 progress_bar $memory_used $memory_total
 mem_percent=$(awk -v used="$memory_used" -v total="$memory_total" 'BEGIN {
     if (total>0) printf "%.0f%%", (used/total)*100;
@@ -293,11 +295,11 @@ if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
         if (total>0) printf "%.0fMB/%.0fMB (%.0f%%)", used, total, (used/total)*100;
         else printf "0MB/0MB (0%%)";
     }')
-    echo -e "${ORANGE}Swap:${NC}     $swap_usage"
+    echo -e "${LIGHTBLUE}Swap:${NC}     $swap_usage"
 fi
 
 # Disk 显示
-echo -ne "${ORANGE}Disk:${NC}     "
+echo -ne "${LIGHTBLUE}Disk:${NC}     "
 progress_bar $disk_used $disk_total
 echo " $(df -h / 2>/dev/null | grep / | awk '{print $3"/"$2" ("$5")"}')"
 
@@ -374,7 +376,7 @@ EOF
     source ~/.bashrc >/dev/null 2>&1
     echo -e "${GREEN}系统信息工具安装完成！${NC}"
     echo -e "${YELLOW}系统信息脚本路径：~/.local/sysinfo.sh${NC}"
-    echo -e "${YELLOW}提示：可通过交互菜单中的选项 2 切换 ASN 显示模式（IPv4/IPv6）；选项 4 切换 IP 获取模式（本地/外部）。${NC}"
+    echo -e "${YELLOW}提示：可通过交互菜单中的选项 2 切换 ASN 显示模式（IPv4/IPv6）；选项 3 切换 IP 获取模式（本地/外部）。${NC}"
     read -n 1 -s -r -p "按任意键返回菜单..."
 }
 
@@ -409,8 +411,8 @@ show_menu() {
         echo -e "${ORANGE}请选择操作：${NC}"
         echo -e "${ORANGE}1. 安装 SSH 欢迎系统信息${NC}"
         echo -e "${ORANGE}2. 切换 ASN 显示模式 ${YELLOW}(当前: ${display_asn_mode})${NC}"
-        echo -e "${ORANGE}3. 卸载脚本及系统信息${NC}"
-        echo -e "${ORANGE}4. 切换 IP 获取模式 ${YELLOW}(当前: ${display_ip_mode})${NC}"
+        echo -e "${ORANGE}3. 切换 IP 获取模式 ${YELLOW}(当前: ${display_ip_mode})${NC}"
+        echo -e "${ORANGE}4. 卸载脚本及系统信息${NC}"
         echo -e "${ORANGE}0. 退出脚本${NC}"
         echo -e "${ORANGE}当前状态：$(check_installed)${NC}"
         echo -e "${ORANGE}━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -434,10 +436,6 @@ show_menu() {
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             3)
-                uninstall
-                read -n 1 -s -r -p "按任意键返回菜单..."
-                ;;
-            4)
                 # 切换 IP 获取模式
                 if [[ "$current_ip_mode" == "local" ]]; then
                     new_ip_mode="external"
@@ -448,6 +446,10 @@ show_menu() {
                 fi
                 echo "$new_ip_mode" > ~/.local/sysinfo_ip_mode
                 echo -e "${YELLOW}IP 获取模式已切换为 ${new_ip_mode_disp}${NC}"
+                read -n 1 -s -r -p "按任意键返回菜单..."
+                ;;
+            4)
+                uninstall
                 read -n 1 -s -r -p "按任意键返回菜单..."
                 ;;
             0)
