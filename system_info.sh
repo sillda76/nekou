@@ -61,6 +61,7 @@ install_dependencies() {
 }
 
 # 修改后的公网 IP 获取（支持本地或外部获取）
+# 此函数主要用于安装前检测和在安装脚本中打印 IP 信息
 get_public_ip() {
     # 读取 IP 获取模式，默认 "local"
     local ip_mode
@@ -241,13 +242,15 @@ disk_total=$(df -k / 2>/dev/null | grep / | awk '{print $2}')
 disk_used=$(df -k / 2>/dev/null | grep / | awk '{print $3}')
 
 get_network_traffic() {
-    local interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
+    local interface
+    interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
     if [[ -z "$interface" ]]; then
         interface="eth0"
     fi
 
-    local rx_bytes=$(cat /sys/class/net/$interface/statistics/rx_bytes 2>/dev/null)
-    local tx_bytes=$(cat /sys/class/net/$interface/statistics/tx_bytes 2>/dev/null)
+    local rx_bytes tx_bytes
+    rx_bytes=$(cat /sys/class/net/"$interface"/statistics/rx_bytes 2>/dev/null)
+    tx_bytes=$(cat /sys/class/net/"$interface"/statistics/tx_bytes 2>/dev/null)
     [[ -z "$rx_bytes" ]] && rx_bytes=0
     [[ -z "$tx_bytes" ]] && tx_bytes=0
 
@@ -262,8 +265,9 @@ get_network_traffic() {
         fi
     }
 
-    local rx_traffic=$(format_bytes $rx_bytes)
-    local tx_traffic=$(format_bytes $tx_bytes)
+    local rx_traffic tx_traffic
+    rx_traffic=$(format_bytes "$rx_bytes")
+    tx_traffic=$(format_bytes "$tx_bytes")
 
     echo -e "${ORANGE}Traffic:${NC} ${BLUE}TX:${NC}${YELLOW}$tx_traffic${NC} ${BLUE}RX:${NC}${GREEN}$rx_traffic${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━"
@@ -296,6 +300,9 @@ fi
 echo -ne "${ORANGE}Disk:${NC}     "
 progress_bar $disk_used $disk_total
 echo " $(df -h / 2>/dev/null | grep / | awk '{print $3"/"$2" ("$5")"}')"
+
+# 调用系统流量信息函数，恢复显示流量统计
+get_network_traffic
 
 # 修改后的公网 IP 获取：根据 IP_MODE 决定使用本地还是外部获取方式
 get_public_ip() {
@@ -339,8 +346,10 @@ get_asn_info() {
         echo -e "${RED}No IP available for ASN${NC}"
         return
     fi
-    local response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
-    local org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
+    local response
+    response=$(curl -s --max-time 3 "https://ipinfo.io/${ip}/json?token=3b01046f048430")
+    local org
+    org=$(echo "$response" | grep -oP '"org":\s*"\K[^"]+')
     if [[ -n "$org" ]]; then
         echo -e "${LIGHTGREEN}${org}${NC}"
     else
