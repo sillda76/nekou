@@ -286,7 +286,7 @@ echo -e "${LIGHTBLUE}OS:${NC}       ${os_info:-N/A} (${arch_info})"
 echo -e "${LIGHTBLUE}Uptime:${NC}   ${uptime_info:-N/A}"
 echo -e "${LIGHTBLUE}CPU:${NC}      ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
 # Load 信息及 CPU 使用率
-echo -e "${LIGHTBLUE}Load:${NC}     ${load_info:-N/A}  ${CYAN}(CPU:${cpu_usage})${NC}"
+echo -e "${LIGHTBLUE}Load:${NC}     ${load_info:-N/A}  (CPU:${cpu_usage})${NC}"
 
 # Memory 显示
 echo -ne "${LIGHTBLUE}Memory:${NC}   "
