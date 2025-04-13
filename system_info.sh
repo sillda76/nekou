@@ -63,7 +63,6 @@ install_dependencies() {
 }
 
 # 修改后的公网 IP 获取（支持本地或外部获取）
-# 此函数主要用于安装前检测和在安装脚本中打印 IP 信息
 get_public_ip() {
     # 读取 IP 获取模式，默认 "local"
     local ip_mode
@@ -227,6 +226,8 @@ progress_bar() {
 }
 
 os_info=$(cat /etc/os-release 2>/dev/null | grep '^PRETTY_NAME=' | sed 's/PRETTY_NAME="//g' | sed 's/"//g')
+# 获取系统架构信息，如：x86_64、arm等
+arch_info=$(uname -m)
 
 uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
 uptime_days=$(bc <<< "scale=0; $uptime_seconds / 86400")
@@ -237,6 +238,8 @@ uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minut
 cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
 load_info=$(cat /proc/loadavg | awk '{print $1", "$2", "$3}')
+# 获取 CPU 使用率，利用 top 命令计算（Idle 取反）
+cpu_usage=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{printf "%.0f%%", 100 - $1}')
 
 memory_total=$(free -m 2>/dev/null | grep Mem: | awk '{print $2}')
 memory_used=$(free -m 2>/dev/null | grep Mem: | awk '{print $3}')
@@ -277,10 +280,13 @@ get_network_traffic() {
     echo "━━━━━━━━━━━━━━━━━━━━━━"
 }
 
-echo -e "${LIGHTBLUE}OS:${NC}       ${os_info:-N/A}"
+# 显示系统信息：
+# OS 信息及系统架构
+echo -e "${LIGHTBLUE}OS:${NC}       ${os_info:-N/A} (${arch_info})"
 echo -e "${LIGHTBLUE}Uptime:${NC}   ${uptime_info:-N/A}"
 echo -e "${LIGHTBLUE}CPU:${NC}      ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-echo -e "${LIGHTBLUE}Load:${NC}     ${load_info:-N/A}"
+# Load 信息及 CPU 使用率
+echo -e "${LIGHTBLUE}Load:${NC}     ${load_info:-N/A}  ${CYAN}(CPU:${cpu_usage})${NC}"
 
 # Memory 显示
 echo -ne "${LIGHTBLUE}Memory:${NC}   "
@@ -300,12 +306,21 @@ if [[ -n "$swap_total" && $swap_total -ne 0 ]]; then
     echo -e "${LIGHTBLUE}Swap:${NC}     $swap_usage"
 fi
 
-# Disk 显示
+# Disk 显示（修复百分比显示问题）
+disk_percent=$(awk -v used="$disk_used" -v total="$disk_total" 'BEGIN {
+    if (total>0) printf "%.0f%%", (used/total)*100;
+    else printf "N/A";
+}')
+
 echo -ne "${LIGHTBLUE}Disk:${NC}     "
 progress_bar $disk_used $disk_total
-echo " $(df -h / 2>/dev/null | grep / | awk '{print $3"/"$2" ("$5")"}')"
 
-# 调用系统流量信息函数，恢复显示流量统计
+# 转换为人性化单位并显示计算后的真实百分比
+disk_used_hr=$(df -h / 2>/dev/null | grep / | awk '{print $3}')
+disk_total_hr=$(df -h / 2>/dev/null | grep / | awk '{print $2}')
+echo " ${disk_used_hr}/${disk_total_hr} (${disk_percent})"
+
+# 调用系统流量信息函数
 get_network_traffic
 
 # 修改后的公网 IP 获取：根据 IP_MODE 决定使用本地还是外部获取方式
@@ -330,7 +345,7 @@ get_public_ip() {
         echo -e "${RED}No Public IP${NC}"
     fi
 
-    # 根据配置决定 ASN 查询使用的 IP（保留原有逻辑）
+    # 根据配置决定 ASN 查询使用的 IP
     local asn_ip=""
     if [[ -n "$ipv6" && "$ipv6" != *"DOCTYPE"* && "$ipv6" != "$ipv4" ]]; then
         if [[ "$ASN_MODE" == "ipv6" ]]; then
