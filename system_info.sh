@@ -238,8 +238,6 @@ uptime_info="${uptime_days} days, ${uptime_hours} hours, ${uptime_minutes} minut
 cpu_info=$(lscpu 2>/dev/null | grep -m 1 "Model name:" | sed 's/Model name:[ \t]*//g' | sed 's/CPU @.*//g' | xargs)
 cpu_cores=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
 load_info=$(cat /proc/loadavg | awk '{print $1", "$2", "$3}')
-# 获取 CPU 使用率，利用 top 命令计算（Idle 取反）
-cpu_usage=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{printf "%.0f%%", 100 - $1}')
 
 memory_total=$(free -m 2>/dev/null | grep Mem: | awk '{print $2}')
 memory_used=$(free -m 2>/dev/null | grep Mem: | awk '{print $3}')
@@ -285,8 +283,8 @@ get_network_traffic() {
 echo -e "${LIGHTBLUE}OS:${NC}       ${os_info:-N/A} (${arch_info})"
 echo -e "${LIGHTBLUE}Uptime:${NC}   ${uptime_info:-N/A}"
 echo -e "${LIGHTBLUE}CPU:${NC}      ${cpu_info:-N/A} (${cpu_cores:-N/A} cores)"
-# Load 信息及 CPU 使用率
-echo -e "${LIGHTBLUE}Load:${NC}     ${load_info:-N/A}  (CPU:${cpu_usage})${NC}"
+# Load 信息显示
+echo -e "${LIGHTBLUE}Load:${NC}     ${load_info:-N/A}"
 
 # Memory 显示
 echo -ne "${LIGHTBLUE}Memory:${NC}   "
