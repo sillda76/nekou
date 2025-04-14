@@ -372,8 +372,8 @@ show_menu() {
     echo -e "${YELLOW}7. SSH命令行美化喵～(ฅ'ω'ฅ)${NC}"
     echo -e "${GREEN}8. 超萌BBR管理脚本喵～(ฅ'ω'ฅ)${NC}"
     echo -e "${BLUE}9. DanmakuRender喵～(ฅ'ω'ฅ)${NC}"
-    echo -e "${MAGENTA}10. 更新脚本喵～(ฅ'ω'ฅ)${NC}"
-    echo -e "${CYAN}11. 卸载脚本喵～(ฅ'ω'ฅ)${NC}"
+    echo -e "${MAGENTA}10.更新脚本喵～(ฅ'ω'ฅ)${NC}"
+    echo -e "${CYAN}11.卸载脚本喵～(ฅ'ω'ฅ)${NC}"
     echo -e "${RED}0. 退出脚本喵～(╥﹏╥)${NC}"
     echo -e "${MAGENTA}========================================${NC}"
 }
