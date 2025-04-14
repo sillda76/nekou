@@ -22,28 +22,37 @@ PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\
 # 命令行美化结束 - 快来体验可爱风格吧～(=^･ω･^=)
 '
 
-# 设置快捷启动命令 alias（首次自动设置喵～(ฅ'ω'ฅ)）
-setup_alias() {
-    local shell_rc
-    if [[ -f ~/.bashrc ]]; then
-        shell_rc=~/.bashrc
-    elif [[ -f ~/.zshrc ]]; then
-        shell_rc=~/.zshrc
-    elif [[ -f ~/.bash_profile ]]; then
-        shell_rc=~/.bash_profile
-    elif [[ -f ~/.profile ]]; then
-        shell_rc=~/.profile
+###########################################
+# 设置快捷启动命令（通过软链接方式设置） #
+###########################################
+setup_symlink() {
+    local symlink="/usr/local/bin/q"
+
+    # 检查是否有旧的软链接存在，若存在且指向其他位置则删除
+    if [ -L "$symlink" ]; then
+        sudo rm -f "$symlink"
+    fi
+
+    # 创建指向当前脚本的软链接
+    if sudo ln -s "$CURRENT_SCRIPT_PATH" "$symlink"; then
+        echo -e "${GREEN}快捷启动命令 'q' 已设置在 /usr/local/bin${NC}"
     else
-        touch ~/.bashrc
-        shell_rc=~/.bashrc
+        echo -e "${RED}设置快捷启动命令失败，请检查权限喵～(╥﹏╥)${NC}"
     fi
-    if ! grep -q "alias q=" "$shell_rc"; then
-        echo "alias q='${CURRENT_SCRIPT_PATH}'" >> "$shell_rc"
-    fi
-    source "$shell_rc" >/dev/null 2>&1
 }
 
-setup_alias
+###########################################
+# 卸载快捷启动命令（删除软链接）          #
+###########################################
+remove_symlink() {
+    local symlink="/usr/local/bin/q"
+    if [ -L "$symlink" ]; then
+        sudo rm -f "$symlink"
+        echo -e "${GREEN}快捷启动命令 'q' 已删除${NC}"
+    else
+        echo -e "${YELLOW}未发现快捷启动命令 'q'${NC}"
+    fi
+}
 
 # 检测网络栈类型（检测网络，喵～(ฅ^•ﻌ•^ฅ)）
 detect_network_stack() {
@@ -335,28 +344,12 @@ update_script() {
     fi
 }
 
-# 卸载脚本
+# 卸载脚本（同时删除软链接）
 uninstall_script() {
     echo -e "${YELLOW}正在卸载脚本喵～(｡•́︿•̀｡)${NC}"
-    local shell_rc
-    if [[ -f ~/.bashrc ]]; then
-        shell_rc=~/.bashrc
-    elif [[ -f ~/.zshrc ]]; then
-        shell_rc=~/.zshrc
-    elif [[ -f ~/.bash_profile ]]; then
-        shell_rc=~/.bash_profile
-    elif [[ -f ~/.profile ]]; then
-        shell_rc=~/.profile
-    else
-        echo -e "${RED}未找到支持的 Shell 配置文件，无法删除快捷启动命令喵～(╥﹏╥)${NC}"
-        return
-    fi
-    if grep -q "alias q=" "$shell_rc"; then
-        sed -i '/alias q=/d' "$shell_rc"
-        echo -e "${GREEN}快捷启动命令 'q' 已删除喵～(=^･ω･^=)${NC}"
-    else
-        echo -e "${YELLOW}快捷启动命令 'q' 不存在喵～(๑•̀ㅂ•́)و✧${NC}"
-    fi
+    # 删除软链接
+    remove_symlink
+    # 此处也可删除其他配置或备份的文件
     if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
         rm -f "$CURRENT_SCRIPT_PATH"
         echo -e "${GREEN}脚本文件已删除喵～(=^･ω･^=)${NC}"
@@ -383,11 +376,14 @@ show_menu() {
     echo -e "${YELLOW}7. SSH命令行美化喵～(ฅ'ω'ฅ)${NC}"
     echo -e "${GREEN}8. 超萌BBR管理脚本喵～(ฅ'ω'ฅ)${NC}"
     echo -e "${BLUE}9. DanmakuRender喵～(ฅ'ω'ฅ)${NC}"
-    echo -e "${MAGENTA}10.更新脚本喵～(ฅ'ω'ฅ)${NC}"
-    echo -e "${CYAN}11.卸载脚本喵～(ฅ'ω'ฅ)${NC}"
+    echo -e "${MAGENTA}10. 更新脚本喵～(ฅ'ω'ฅ)${NC}"
+    echo -e "${CYAN}11. 卸载脚本喵～(ฅ'ω'ฅ)${NC}"
     echo -e "${RED}0. 退出脚本喵～(╥﹏╥)${NC}"
     echo -e "${MAGENTA}========================================${NC}"
 }
+
+# 程序开始前，自动设置软链接快捷键 q
+setup_symlink
 
 # 主循环
 while true; do
