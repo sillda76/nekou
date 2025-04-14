@@ -35,7 +35,7 @@ setup_symlink() {
 
     # 创建指向当前脚本的软链接
     if sudo ln -s "$CURRENT_SCRIPT_PATH" "$symlink"; then
-        echo -e "${GREEN}快捷启动命令 'q' 已设置在 /usr/local/bin${NC}"
+        echo -e "${GREEN}快捷启动命令 'q' 已设置在 /usr/local/bin喵～${NC}"
     else
         echo -e "${RED}设置快捷启动命令失败，请检查权限喵～(╥﹏╥)${NC}"
     fi
@@ -48,9 +48,9 @@ remove_symlink() {
     local symlink="/usr/local/bin/q"
     if [ -L "$symlink" ]; then
         sudo rm -f "$symlink"
-        echo -e "${GREEN}快捷启动命令 'q' 已删除${NC}"
+        echo -e "${GREEN}快捷启动命令 'q' 已删除喵～${NC}"
     else
-        echo -e "${YELLOW}未发现快捷启动命令 'q'${NC}"
+        echo -e "${YELLOW}未发现快捷启动命令 'q'喵～${NC}"
     fi
 }
 
