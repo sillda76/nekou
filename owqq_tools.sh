@@ -23,6 +23,18 @@ PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\
 '
 
 ###########################################
+# 检查并确保 /usr/local/bin 在用户 PATH 中
+###########################################
+ensure_path() {
+    # 检查 ~/.bashrc 是否包含对 /usr/local/bin 的配置
+    if ! grep -q "/usr/local/bin" ~/.bashrc; then
+        echo -e "\n# 确保 /usr/local/bin 在 PATH 中" >> ~/.bashrc
+        echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
+        echo -e "${GREEN}已在 ~/.bashrc 中追加 /usr/local/bin 到 PATH，重连或执行 'source ~/.bashrc' 后生效喵～(=^･ω･^=)${NC}"
+    fi
+}
+
+###########################################
 # 设置快捷启动命令（通过软链接方式设置）
 ###########################################
 setup_symlink() {
@@ -38,7 +50,7 @@ setup_symlink() {
 }
 
 ###########################################
-# 卸载快捷启动命令（删除软链接）          #
+# 卸载快捷启动命令（删除软链接）
 ###########################################
 remove_symlink() {
     local symlink="/usr/local/bin/q"
@@ -82,15 +94,15 @@ modify_dns() {
     echo -e "${CYAN}当前DNS配置如下喵～(＾◡＾)：${NC}"
     cat /etc/resolv.conf
     echo -e "${CYAN}----------------------------------------${NC}"
-    
+    
     # 检测当前网络栈
     local network_stack=$(detect_network_stack)
     case $network_stack in
         "dual") echo -e "${GREEN}检测到双栈网络 (IPv4+IPv6) 喵～(ฅ'ω'ฅ)${NC}" ;;
         "ipv4") echo -e "${GREEN}检测到IPv4单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
         "ipv6") echo -e "${GREEN}检测到IPv6单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
-        *) echo -e "${RED}未检测到有效网络连接喵～(╥﹏╥)${NC}" 
-           read -n 1 -s -r -p "按任意键返回菜单喵～" 
+        *) echo -e "${RED}未检测到有效网络连接喵～(╥﹏╥)${NC}" 
+           read -n 1 -s -r -p "按任意键返回菜单喵～" 
            return 1 ;;
     esac
 
@@ -152,14 +164,14 @@ modify_dns() {
     echo -e "${YELLOW}正在禁用 systemd-resolved 喵～(｡•́︿•̀｡)${NC}"
     sudo systemctl disable --now systemd-resolved 2>/dev/null
     echo -e "${YELLOW}写入DNS配置喵～(｡•̀ᴗ-)✧${NC}"
-    
+    
     # 备份原有配置
     sudo cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null
-    
+    
     # 写入新配置
     echo -e "$dns_config" | sudo tee /etc/resolv.conf >/dev/null
     sudo chattr +i /etc/resolv.conf 2>/dev/null
-    
+    
     echo -e "${GREEN}DNS优化已完成～新的DNS配置如下喵～(=^･ω･^=)${NC}"
     cat /etc/resolv.conf
     read -n 1 -s -r -p "按任意键返回菜单喵～"
@@ -378,8 +390,11 @@ show_menu() {
     echo -e "${MAGENTA}========================================${NC}"
 }
 
-# 程序开始前，自动设置软链接快捷键 q（现在不显示提示）
-setup_symlink
+###########################################
+# 程序启动前的准备工作
+###########################################
+ensure_path    # 确保 /usr/local/bin 在 PATH 中
+setup_symlink  # 创建 q 快捷命令
 
 # 主循环
 while true; do
@@ -393,7 +408,7 @@ while true; do
         5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/IPControlCenter.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/system_info.sh) ;;
         7) ssh_beautify ;;
-        8) 
+        8) 
             echo -e "${GREEN}正在执行超萌BBR管理脚本喵～(=^･ω･^=)${NC}"
             sudo bash -c "$(wget -qO- https://raw.githubusercontent.com/byJoey/Actions-bbr-v3/refs/heads/main/install.sh)"
             read -n 1 -s -r -p "按任意键返回菜单喵～"
