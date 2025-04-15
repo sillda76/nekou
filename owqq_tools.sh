@@ -23,45 +23,27 @@ PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\
 '
 
 ###########################################
-# 检查并确保 /usr/local/bin 在用户 PATH 中
+# 设置 Q/q 快捷指令（通过 bashrc）
 ###########################################
-ensure_path() {
-    # 检查 ~/.bashrc 是否包含对 /usr/local/bin 的配置
-    if ! grep -q "/usr/local/bin" ~/.bashrc; then
-        echo -e "\n# 确保 /usr/local/bin 在 PATH 中" >> ~/.bashrc
-        echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
-        echo -e "${GREEN}已在 ~/.bashrc 中追加 /usr/local/bin 到 PATH，重连或执行 'source ~/.bashrc' 后生效喵～(=^･ω･^=)${NC}"
+setup_q_command() {
+    # 检查是否已设置
+    if ! alias Q >/dev/null 2>&1; then
+        # 添加到 bashrc
+        echo -e "\n# Q/q 快捷指令" >> ~/.bashrc
+        echo "alias Q='$CURRENT_SCRIPT_PATH'" >> ~/.bashrc
+        echo "alias q='$CURRENT_SCRIPT_PATH'" >> ~/.bashrc
+        
+        # 立即生效
+        source ~/.bashrc
+        
+        echo -e "${GREEN}快捷指令 Q/q 已设置并立即生效喵～(=^･ω･^=)${NC}"
     fi
 }
 
-###########################################
-# 设置快捷启动命令（通过软链接方式设置）
-###########################################
-setup_symlink() {
-    local symlink="/usr/local/bin/q"
-
-    # 检查是否有旧的软链接存在，若存在且指向其他位置则删除
-    if [ -L "$symlink" ]; then
-        sudo rm -f "$symlink"
-    fi
-
-    # 创建指向当前脚本的软链接（不显示提示）
-    sudo ln -s "$CURRENT_SCRIPT_PATH" "$symlink" >/dev/null 2>&1
-}
+# 首次运行时设置快捷指令
+setup_q_command
 
 ###########################################
-# 卸载快捷启动命令（删除软链接）
-###########################################
-remove_symlink() {
-    local symlink="/usr/local/bin/q"
-    if [ -L "$symlink" ]; then
-        sudo rm -f "$symlink"
-        echo -e "${GREEN}快捷启动命令 'q' 已删除喵～${NC}"
-    else
-        echo -e "${YELLOW}未发现快捷启动命令 'q'喵～${NC}"
-    fi
-}
-
 # 检测网络栈类型（检测网络，喵～(ฅ^•ﻌ•^ฅ)）
 detect_network_stack() {
     local has_ipv4=0
@@ -193,7 +175,8 @@ ssh_beautify() {
                 echo -e "${YELLOW}命令行美化已经安装过喵～(｡•́︿•̀｡)${NC}"
             else
                 echo "$BEAUTIFY_CONTENT" >> ~/.bashrc
-                echo -e "${GREEN}命令行美化已安装，请重新打开终端或运行 'source ~/.bashrc' 查看效果喵～(=^･ω･^=)${NC}"
+                source ~/.bashrc
+                echo -e "${GREEN}命令行美化已安装并立即生效喵～(=^･ω･^=)${NC}"
             fi
             read -n 1 -s -r -p "按任意键返回菜单喵～"
             ;;
@@ -202,7 +185,8 @@ ssh_beautify() {
             if grep -q "# 命令行美化" ~/.bashrc; then
                 # 使用sed删除从"# 命令行美化"到"# 命令行美化结束"之间的内容
                 sed -i '/# 命令行美化/,/# 命令行美化结束/d' ~/.bashrc
-                echo -e "${GREEN}命令行美化已卸载，请重新打开终端或运行 'source ~/.bashrc' 查看效果喵～(｡•́︿•̀｡)${NC}"
+                source ~/.bashrc
+                echo -e "${GREEN}命令行美化已卸载并立即生效喵～(｡•́︿•̀｡)${NC}"
             else
                 echo -e "${YELLOW}没有找到已安装的命令行美化内容喵～(๑•̀ㅂ•́)و✧${NC}"
             fi
@@ -352,18 +336,23 @@ update_script() {
     fi
 }
 
-# 卸载脚本（同时删除软链接）
+# 卸载脚本
 uninstall_script() {
     echo -e "${YELLOW}正在卸载脚本喵～(｡•́︿•̀｡)${NC}"
-    # 删除软链接
-    remove_symlink
-    # 此处也可删除其他配置或备份的文件
+    # 从 bashrc 中删除 Q/q 别名
+    sed -i '/# Q\/q 快捷指令/,+2d' ~/.bashrc
+    
+    # 删除脚本文件
     if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
         rm -f "$CURRENT_SCRIPT_PATH"
         echo -e "${GREEN}脚本文件已删除喵～(=^･ω･^=)${NC}"
     else
         echo -e "${YELLOW}脚本文件不存在喵～(๑•̀ㅂ•́)و✧${NC}"
     fi
+    
+    # 立即生效
+    source ~/.bashrc
+    
     echo -e "${GREEN}脚本卸载完成喵～(=^･ω･^=)${NC}"
     exit 0
 }
@@ -389,12 +378,6 @@ show_menu() {
     echo -e "${RED}0. 退出脚本喵～(╥﹏╥)${NC}"
     echo -e "${MAGENTA}========================================${NC}"
 }
-
-###########################################
-# 程序启动前的准备工作
-###########################################
-ensure_path    # 确保 /usr/local/bin 在 PATH 中
-setup_symlink  # 创建 q 快捷命令
 
 # 主循环
 while true; do
