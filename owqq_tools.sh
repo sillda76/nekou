@@ -9,7 +9,7 @@ CYAN='\033[1;36m'
 NC='\033[0m'
 
 # 当前脚本路径及远程脚本 URL（用于更新）
-CURRENT_SCRIPT_PATH="$(pwd)/owqq_tools.sh"
+CURRENT_SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 SCRIPT_URL="https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/owqq_tools.sh"
 
 # SSH美化内容（萌萌哒提示喵～(ฅ'ω'ฅ)）
@@ -82,15 +82,15 @@ modify_dns() {
     echo -e "${CYAN}当前DNS配置如下喵～(＾◡＾)：${NC}"
     cat /etc/resolv.conf
     echo -e "${CYAN}----------------------------------------${NC}"
-    
+    
     # 检测当前网络栈
     local network_stack=$(detect_network_stack)
     case $network_stack in
         "dual") echo -e "${GREEN}检测到双栈网络 (IPv4+IPv6) 喵～(ฅ'ω'ฅ)${NC}" ;;
         "ipv4") echo -e "${GREEN}检测到IPv4单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
         "ipv6") echo -e "${GREEN}检测到IPv6单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
-        *) echo -e "${RED}未检测到有效网络连接喵～(╥﹏╥)${NC}" 
-           read -n 1 -s -r -p "按任意键返回菜单喵～" 
+        *) echo -e "${RED}未检测到有效网络连接喵～(╥﹏╥)${NC}" 
+           read -n 1 -s -r -p "按任意键返回菜单喵～" 
            return 1 ;;
     esac
 
@@ -152,14 +152,14 @@ modify_dns() {
     echo -e "${YELLOW}正在禁用 systemd-resolved 喵～(｡•́︿•̀｡)${NC}"
     sudo systemctl disable --now systemd-resolved 2>/dev/null
     echo -e "${YELLOW}写入DNS配置喵～(｡•̀ᴗ-)✧${NC}"
-    
+    
     # 备份原有配置
     sudo cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null
-    
+    
     # 写入新配置
     echo -e "$dns_config" | sudo tee /etc/resolv.conf >/dev/null
     sudo chattr +i /etc/resolv.conf 2>/dev/null
-    
+    
     echo -e "${GREEN}DNS优化已完成～新的DNS配置如下喵～(=^･ω･^=)${NC}"
     cat /etc/resolv.conf
     read -n 1 -s -r -p "按任意键返回菜单喵～"
@@ -393,7 +393,7 @@ while true; do
         5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/IPControlCenter.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/system_info.sh) ;;
         7) ssh_beautify ;;
-        8) 
+        8) 
             echo -e "${GREEN}正在执行超萌BBR管理脚本喵～(=^･ω･^=)${NC}"
             sudo bash -c "$(wget -qO- https://raw.githubusercontent.com/byJoey/Actions-bbr-v3/refs/heads/main/install.sh)"
             read -n 1 -s -r -p "按任意键返回菜单喵～"
