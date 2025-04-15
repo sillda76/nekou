@@ -31,9 +31,6 @@ setup_q_command() {
         # 创建符号链接
         sudo ln -sf "$CURRENT_SCRIPT_PATH" /usr/local/bin/q
         sudo ln -sf "$CURRENT_SCRIPT_PATH" /usr/local/bin/Q
-        
-        echo -e "${GREEN}快捷指令 Q/q 已设置喵～(=^･ω･^=)${NC}"
-        echo -e "${YELLOW}现在可以直接输入 q 或 Q 来运行本脚本了喵～(ฅ'ω'ฅ)${NC}"
     fi
 }
 
@@ -222,7 +219,7 @@ install_package() {
 
 # 系统更新
 system_update() {
-    echo -e "${YELLOW}正在系统更新喵～(๑>◡<๑)${NC}
+    echo -e "${YELLOW}正在系统更新喵～(๑>◡<๑)${NC}"
     if command -v apt &>/dev/null; then
         apt update -y && apt upgrade -y && apt dist-upgrade -y && apt autoremove -y
     elif command -v yum &>/dev/null; then
@@ -340,12 +337,10 @@ uninstall_script() {
     # 删除符号链接
     if [ -L "/usr/local/bin/q" ]; then
         sudo rm -f /usr/local/bin/q
-        echo -e "${GREEN}已删除快捷指令 q 喵～(=^･ω･^=)${NC}"
     fi
     
     if [ -L "/usr/local/bin/Q" ]; then
         sudo rm -f /usr/local/bin/Q
-        echo -e "${GREEN}已删除快捷指令 Q 喵～(=^･ω･^=)${NC}"
     fi
     
     # 删除脚本文件
