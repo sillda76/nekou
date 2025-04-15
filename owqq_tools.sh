@@ -23,20 +23,17 @@ PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\
 '
 
 ###########################################
-# 设置 Q/q 快捷指令（通过 bashrc）
+# 设置 Q/q 快捷指令（通过符号链接）
 ###########################################
 setup_q_command() {
     # 检查是否已设置
-    if ! alias Q >/dev/null 2>&1; then
-        # 添加到 bashrc
-        echo -e "\n# Q/q 快捷指令" >> ~/.bashrc
-        echo "alias Q='$CURRENT_SCRIPT_PATH'" >> ~/.bashrc
-        echo "alias q='$CURRENT_SCRIPT_PATH'" >> ~/.bashrc
+    if [ ! -L "/usr/local/bin/q" ] || [ ! -L "/usr/local/bin/Q" ]; then
+        # 创建符号链接
+        sudo ln -sf "$CURRENT_SCRIPT_PATH" /usr/local/bin/q
+        sudo ln -sf "$CURRENT_SCRIPT_PATH" /usr/local/bin/Q
         
-        # 立即生效
-        source ~/.bashrc
-        
-        echo -e "${GREEN}快捷指令 Q/q 已设置并立即生效喵～(=^･ω･^=)${NC}"
+        echo -e "${GREEN}快捷指令 Q/q 已设置喵～(=^･ω･^=)${NC}"
+        echo -e "${YELLOW}现在可以直接输入 q 或 Q 来运行本脚本了喵～(ฅ'ω'ฅ)${NC}"
     fi
 }
 
@@ -225,7 +222,7 @@ install_package() {
 
 # 系统更新
 system_update() {
-    echo -e "${YELLOW}正在系统更新喵～(๑>◡<๑)${NC}"
+    echo -e "${YELLOW}正在系统更新喵～(๑>◡<๑)${NC}
     if command -v apt &>/dev/null; then
         apt update -y && apt upgrade -y && apt dist-upgrade -y && apt autoremove -y
     elif command -v yum &>/dev/null; then
@@ -339,8 +336,17 @@ update_script() {
 # 卸载脚本
 uninstall_script() {
     echo -e "${YELLOW}正在卸载脚本喵～(｡•́︿•̀｡)${NC}"
-    # 从 bashrc 中删除 Q/q 别名
-    sed -i '/# Q\/q 快捷指令/,+2d' ~/.bashrc
+    
+    # 删除符号链接
+    if [ -L "/usr/local/bin/q" ]; then
+        sudo rm -f /usr/local/bin/q
+        echo -e "${GREEN}已删除快捷指令 q 喵～(=^･ω･^=)${NC}"
+    fi
+    
+    if [ -L "/usr/local/bin/Q" ]; then
+        sudo rm -f /usr/local/bin/Q
+        echo -e "${GREEN}已删除快捷指令 Q 喵～(=^･ω･^=)${NC}"
+    fi
     
     # 删除脚本文件
     if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
@@ -349,9 +355,6 @@ uninstall_script() {
     else
         echo -e "${YELLOW}脚本文件不存在喵～(๑•̀ㅂ•́)و✧${NC}"
     fi
-    
-    # 立即生效
-    source ~/.bashrc
     
     echo -e "${GREEN}脚本卸载完成喵～(=^･ω･^=)${NC}"
     exit 0
