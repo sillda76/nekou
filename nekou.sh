@@ -8,35 +8,34 @@ MAGENTA='\033[1;35m'
 CYAN='\033[1;36m'
 NC='\033[0m'
 
-# 让脚本在遇到错误的时候退出，并打印错误信息
-set -euo pipefail
-trap 'echo -e "${RED}发生错误，脚本退出喵～(╥﹏╥)${NC}"; exit 1' ERR
-
 # 当前脚本路径及远程脚本 URL（用于更新）
 CURRENT_SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 SCRIPT_URL="https://raw.githubusercontent.com/sillda76/nekou/refs/heads/main/nekou.sh"
 
 # SSH美化内容（萌萌哒提示喵～(ฅ'ω'ฅ)）
-read -r -d '' BEAUTIFY_CONTENT <<'EOF'
+BEAUTIFY_CONTENT='
 # 命令行美化 - 萌萌哒配置
 parse_git_branch() {
-    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
+    git branch 2> /dev/null | sed -e '\''/^[^*]/d'\'' -e '\''s/* \(.*\)/ (\1)/'\''
 }
-PS1='\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'
+PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''
 # 命令行美化结束 - 快来体验可爱风格吧～(=^･ω･^=)
-EOF
+'
 
 ###########################################
-# 设置 nekou 快捷指令（通过符号链接）
+# 设置 Q/q 快捷指令（通过符号链接）
 ###########################################
-setup_command() {
-    if [ ! -L "/usr/local/bin/nekou" ]; then
-        sudo ln -sf "$CURRENT_SCRIPT_PATH" /usr/local/bin/nekou
+setup_q_command() {
+    # 检查是否已设置
+    if [ ! -L "/usr/local/bin/q" ] || [ ! -L "/usr/local/bin/Q" ]; then
+        # 创建符号链接
+        sudo ln -sf "$CURRENT_SCRIPT_PATH" /usr/local/bin/q
+        sudo ln -sf "$CURRENT_SCRIPT_PATH" /usr/local/bin/Q
     fi
 }
 
 # 首次运行时设置快捷指令
-setup_command
+setup_q_command
 
 ###########################################
 # 检测网络栈类型（检测网络，喵～(ฅ^•ﻌ•^ฅ)）
@@ -65,31 +64,22 @@ detect_network_stack() {
     fi
 }
 
-# 解锁 & 禁用 systemd-resolved
-unlock_resolv() {
-    sudo chattr -i /etc/resolv.conf 2>/dev/null || true
-    sudo systemctl disable --now systemd-resolved 2>/dev/null || true
-}
-lock_resolv() {
-    sudo chattr +i /etc/resolv.conf 2>/dev/null || true
-}
-
 # 修改 DNS 配置
 modify_dns() {
     clear
     echo -e "${CYAN}当前DNS配置如下喵～(＾◡＾)：${NC}"
     cat /etc/resolv.conf
     echo -e "${CYAN}----------------------------------------${NC}"
-    
-    local network_stack
-    network_stack=$(detect_network_stack)
+    
+    # 检测当前网络栈
+    local network_stack=$(detect_network_stack)
     case $network_stack in
-        dual) echo -e "${GREEN}检测到双栈网络 (IPv4+IPv6) 喵～(ฅ'ω'ฅ)${NC}" ;;
-        ipv4) echo -e "${GREEN}检测到IPv4单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
-        ipv6) echo -e "${GREEN}检测到IPv6单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
-        *)  echo -e "${RED}未检测到有效网络连接喵～(╥﹏╥)${NC}"
-            read -n 1 -s -r -p "按任意键返回菜单喵～" 
-            return 1 ;;
+        "dual") echo -e "${GREEN}检测到双栈网络 (IPv4+IPv6) 喵～(ฅ'ω'ฅ)${NC}" ;;
+        "ipv4") echo -e "${GREEN}检测到IPv4单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
+        "ipv6") echo -e "${GREEN}检测到IPv6单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
+        *) echo -e "${RED}未检测到有效网络连接喵～(╥﹏╥)${NC}" 
+           read -n 1 -s -r -p "按任意键返回菜单喵～" 
+           return 1 ;;
     esac
 
     echo -e "${YELLOW}[DNS配置] 请选择 DNS 优化方案喵～(≧◡≦)${NC}"
@@ -99,26 +89,40 @@ modify_dns() {
     echo -e "${YELLOW}4. 保持默认${NC}"
     read -p "请输入选项数字喵～: " dns_choice
 
+    # 准备DNS配置
     local dns_config=""
     case $dns_choice in
-        1)
-            [ "$network_stack" = "ipv4" ] && dns_config+="nameserver 1.1.1.1\nnameserver 8.8.8.8\n"
-            [ "$network_stack" = "ipv6" ] && dns_config+="nameserver 2606:4700:4700::1111\nnameserver 2001:4860:4860::8888\n"
+        1) # 国外DNS
+            if [[ $network_stack == "ipv4" || $network_stack == "dual" ]]; then
+                dns_config+="nameserver 1.1.1.1\nnameserver 8.8.8.8\n"
+            fi
+            if [[ $network_stack == "ipv6" || $network_stack == "dual" ]]; then
+                dns_config+="nameserver 2606:4700:4700::1111\nnameserver 2001:4860:4860::8888\n"
+            fi
             ;;
-        2)
-            [ "$network_stack" = "ipv4" ] && dns_config+="nameserver 223.5.5.5\nnameserver 183.60.83.19\n"
-            [ "$network_stack" = "ipv6" ] && dns_config+="nameserver 2400:3200::1\nnameserver 2400:da00::6666\n"
+        2) # 国内DNS
+            if [[ $network_stack == "ipv4" || $network_stack == "dual" ]]; then
+                dns_config+="nameserver 223.5.5.5\nnameserver 183.60.83.19\n"
+            fi
+            if [[ $network_stack == "ipv6" || $network_stack == "dual" ]]; then
+                dns_config+="nameserver 2400:3200::1\nnameserver 2400:da00::6666\n"
+            fi
             ;;
-        3)
-            echo -e "${YELLOW}请使用 nano 编辑 /etc/resolv.conf，修改后保存退出喵～(＾◡＾)${NC}"
-            unlock_resolv
+        3) # 手动编辑
+            echo -e "${YELLOW}正在解锁 /etc/resolv.conf 文件喵～(｡•́︿•̀｡)${NC}"
+            sudo chattr -i /etc/resolv.conf 2>/dev/null
+            echo -e "${YELLOW}正在禁用 systemd-resolved 喵～(｡•́︿•̀｡)${NC}"
+            sudo systemctl disable --now systemd-resolved 2>/dev/null
+            echo -e "${YELLOW}请使用 nano 编辑 /etc/resolv.conf，修改DNS配置后保存退出喵～(＾◡＾)${NC}"
             sudo nano /etc/resolv.conf
-            lock_resolv
+            sudo chattr +i /etc/resolv.conf 2>/dev/null
             echo -e "${GREEN}DNS配置已更新并锁定喵～(=^･ω･^=)${NC}"
+            echo -e "${CYAN}新的DNS配置如下喵～(＾◡＾)${NC}"
+            cat /etc/resolv.conf
             read -n 1 -s -r -p "按任意键返回菜单喵～"
             return
             ;;
-        4)
+        4) # 保持默认
             echo -e "${GREEN}保持默认DNS配置，未做任何修改喵～(=^･ω･^=)${NC}"
             read -n 1 -s -r -p "按任意键返回菜单喵～"
             return
@@ -130,12 +134,20 @@ modify_dns() {
             ;;
     esac
 
-    # 应用 DNS 优化
-    echo -e "${YELLOW}正在应用 DNS 优化喵～(｡•̀ᴗ-)✧${NC}"
-    unlock_resolv
-    sudo cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null || true
+    # 应用DNS配置
+    echo -e "${YELLOW}正在解锁 /etc/resolv.conf 文件喵～(｡•́︿•̀｡)${NC}"
+    sudo chattr -i /etc/resolv.conf 2>/dev/null
+    echo -e "${YELLOW}正在禁用 systemd-resolved 喵～(｡•́︿•̀｡)${NC}"
+    sudo systemctl disable --now systemd-resolved 2>/dev/null
+    echo -e "${YELLOW}写入DNS配置喵～(｡•̀ᴗ-)✧${NC}"
+    
+    # 备份原有配置
+    sudo cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null
+    
+    # 写入新配置
     echo -e "$dns_config" | sudo tee /etc/resolv.conf >/dev/null
-    lock_resolv
+    sudo chattr +i /etc/resolv.conf 2>/dev/null
+    
     echo -e "${GREEN}DNS优化已完成～新的DNS配置如下喵～(=^･ω･^=)${NC}"
     cat /etc/resolv.conf
     read -n 1 -s -r -p "按任意键返回菜单喵～"
@@ -152,6 +164,7 @@ ssh_beautify() {
 
     case $choice in
         1)
+            # 检查是否已存在美化内容
             if grep -q "# 命令行美化" ~/.bashrc; then
                 echo -e "${YELLOW}命令行美化已经安装过喵～(｡•́︿•̀｡)${NC}"
             else
@@ -159,20 +172,28 @@ ssh_beautify() {
                 source ~/.bashrc
                 echo -e "${GREEN}命令行美化已安装并立即生效喵～(=^･ω･^=)${NC}"
             fi
+            read -n 1 -s -r -p "按任意键返回菜单喵～"
             ;;
         2)
+            # 删除美化内容
             if grep -q "# 命令行美化" ~/.bashrc; then
+                # 使用sed删除从"# 命令行美化"到"# 命令行美化结束"之间的内容
                 sed -i '/# 命令行美化/,/# 命令行美化结束/d' ~/.bashrc
                 source ~/.bashrc
                 echo -e "${GREEN}命令行美化已卸载并立即生效喵～(｡•́︿•̀｡)${NC}"
             else
                 echo -e "${YELLOW}没有找到已安装的命令行美化内容喵～(๑•̀ㅂ•́)و✧${NC}"
             fi
+            read -n 1 -s -r -p "按任意键返回菜单喵～"
             ;;
-        3) ;;
-        *) echo -e "${RED}无效的选项喵～(╥﹏╥)${NC}" ;;
+        3)
+            return
+            ;;
+        *)
+            echo -e "${RED}无效的选项喵～(╥﹏╥)${NC}"
+            read -n 1 -s -r -p "按任意键返回菜单喵～"
+            ;;
     esac
-    read -n 1 -s -r -p "按任意键返回菜单喵～"
 }
 
 # 通用安装包管理器函数
@@ -232,18 +253,63 @@ system_clean() {
         "清理 Zypper 缓存喵～"
         "清理 Opkg 缓存喵～"
     )
+    total_steps=${#steps[@]}
+    echo -e "${YELLOW}本次清理将执行以下操作喵～(≧◡≦)${NC}"
     for step in "${steps[@]}"; do
         echo -e "  - ${step}"
-        case $step in
-            "清理包管理器缓存喵～")   dnf clean all || yum clean all || apt clean && apt autoclean || apk cache clean || pacman -Scc --noconfirm || zypper clean --all || opkg clean ;;
-            "删除系统日志喵～")         journalctl --rotate && journalctl --vacuum-time=1s && journalctl --vacuum-size=500M ;;
-            "删除临时文件喵～")         rm -rf /tmp/* /var/tmp/* ;;
-            "清理 APK 缓存喵～")       [ -x "$(command -v apk)" ] && apk cache clean ;;
-            "清理 YUM/DNF 缓存喵～")    if command -v dnf &>/dev/null; then dnf clean all; elif command -v yum &>/dev/null; then yum clean all; fi ;;
-            "清理 APT 缓存喵～")        [ -x "$(command -v apt)" ] && { apt clean; apt autoclean; } ;;
-            "清理 Pacman 缓存喵～")    [ -x "$(command -v pacman)" ] && pacman -Scc --noconfirm ;;
-            "清理 Zypper 缓存喵～")     [ -x "$(command -v zypper)" ] && zypper clean --all ;;
-            "清理 Opkg 缓存喵～")       [ -x "$(command -v opkg)" ] && opkg clean ;;
+    done
+    echo -e "${YELLOW}开始清理喵～(๑•̀ㅂ•́)و✧${NC}"
+    for ((i = 0; i < total_steps; i++)); do
+        echo -e "${YELLOW}${steps[$i]}${NC}"
+        case ${steps[$i]} in
+            "清理包管理器缓存喵～")
+                if command -v dnf &>/dev/null; then
+                    dnf clean all
+                elif command -v yum &>/dev/null; then
+                    yum clean all
+                elif command -v apt &>/dev/null; then
+                    apt clean && apt autoclean
+                elif command -v apk &>/dev/null; then
+                    apk cache clean
+                elif command -v pacman &>/dev/null; then
+                    pacman -Scc --noconfirm
+                elif command -v zypper &>/dev/null; then
+                    zypper clean --all
+                elif command -v opkg &>/dev/null; then
+                    opkg clean
+                fi
+                ;;
+            "删除系统日志喵～")
+                journalctl --rotate
+                journalctl --vacuum-time=1s
+                journalctl --vacuum-size=500M
+                ;;
+            "删除临时文件喵～")
+                rm -rf /tmp/*
+                rm -rf /var/tmp/*
+                ;;
+            "清理 APK 缓存喵～")
+                [ -x "$(command -v apk)" ] && apk cache clean
+                ;;
+            "清理 YUM/DNF 缓存喵～")
+                if command -v dnf &>/dev/null; then
+                    dnf clean all
+                elif command -v yum &>/dev/null; then
+                    yum clean all
+                fi
+                ;;
+            "清理 APT 缓存喵～")
+                [ -x "$(command -v apt)" ] && { apt clean; apt autoclean; }
+                ;;
+            "清理 Pacman 缓存喵～")
+                [ -x "$(command -v pacman)" ] && pacman -Scc --noconfirm
+                ;;
+            "清理 Zypper 缓存喵～")
+                [ -x "$(command -v zypper)" ] && zypper clean --all
+                ;;
+            "清理 Opkg 缓存喵～")
+                [ -x "$(command -v opkg)" ] && opkg clean
+                ;;
         esac
     done
     echo -e "\n${GREEN}系统清理完成喵～(=^･ω･^=)${NC}"
@@ -267,15 +333,24 @@ update_script() {
 # 卸载脚本
 uninstall_script() {
     echo -e "${YELLOW}正在卸载脚本喵～(｡•́︿•̀｡)${NC}"
-    if [ -L "/usr/local/bin/nekou" ]; then
-        sudo rm -f /usr/local/bin/nekou
+    
+    # 删除符号链接
+    if [ -L "/usr/local/bin/q" ]; then
+        sudo rm -f /usr/local/bin/q
     fi
+    
+    if [ -L "/usr/local/bin/Q" ]; then
+        sudo rm -f /usr/local/bin/Q
+    fi
+    
+    # 删除脚本文件
     if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
         rm -f "$CURRENT_SCRIPT_PATH"
         echo -e "${GREEN}脚本文件已删除喵～(=^･ω･^=)${NC}"
     else
         echo -e "${YELLOW}脚本文件不存在喵～(๑•̀ㅂ•́)و✧${NC}"
     fi
+    
     echo -e "${GREEN}脚本卸载完成喵～(=^･ω･^=)${NC}"
     exit 0
 }
@@ -312,9 +387,9 @@ while true; do
         3) system_clean ;;
         4) bash <(curl -sL https://raw.githubusercontent.com/sillda76/nekou/refs/heads/main/install_fail2ban.sh) ;;
         5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/nekou/refs/heads/main/IPControlCenter.sh) ;;
-        6) bash <(curl -sL https://raw.githubusercontent.com/sillda76/nekou/refs/heads/main/system_info.sh) ;;
+        6) bash <(curl -s https://raw.githubusercontent.com/sillda76/nekou/refs/heads/main/system_info.sh) ;;
         7) ssh_beautify ;;
-        8)
+        8) 
             echo -e "${GREEN}正在执行超萌BBR管理脚本喵～(=^･ω･^=)${NC}"
             sudo bash -c "$(wget -qO- https://raw.githubusercontent.com/byJoey/Actions-bbr-v3/refs/heads/main/install.sh)"
             read -n 1 -s -r -p "按任意键返回菜单喵～"
@@ -323,6 +398,7 @@ while true; do
         10) update_script ;;
         11) uninstall_script ;;
         0) echo -e "${MAGENTA}退出脚本喵～(╥﹏╥)${NC}"; break ;;
+        "") echo -e "${RED}错误：未输入选项喵～(╥﹏╥)${NC}"; read -n 1 -s -r -p "" ;;
         *) echo -e "${RED}错误：无效选项喵～(╥﹏╥)${NC}"; read -n 1 -s -r -p "" ;;
     esac
 done
