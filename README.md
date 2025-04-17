@@ -1,4 +1,4 @@
 
-```bash
-curl -s -o owqq_tools.sh https://raw.githubusercontent.com/sillda76/owqq/refs/heads/main/owqq_tools.sh && chmod +x owqq_tools.sh && ./owqq_tools.sh
+```
+curl -sSL https://raw.githubusercontent.com/sillda76/nekou/refs/heads/main/nekou.sh -o nekou.sh && chmod +x nekou.sh && ./nekou.sh
 ```
