@@ -359,7 +359,7 @@ uninstall_script() {
 show_menu() {
     clear
     echo -e "${MAGENTA}========================================${NC}"
-    echo -e "${GREEN}萌萌VPS 管理器喵～(=^･ω･^=)${NC}"
+    echo -e "${GREEN}Nekou.sh～(=^･ω･^=)${NC}"
     echo -e "${BLUE}https://github.com/sillda76/nekou${NC}"
     echo -e "${MAGENTA}========================================${NC}"
     echo -e "${YELLOW}1. 修改DNS喵～(≧◡≦)${NC}"
