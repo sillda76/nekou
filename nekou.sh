@@ -70,15 +70,15 @@ modify_dns() {
     echo -e "${CYAN}当前DNS配置如下喵～(＾◡＾)：${NC}"
     cat /etc/resolv.conf
     echo -e "${CYAN}----------------------------------------${NC}"
-    
+    
     # 检测当前网络栈
     local network_stack=$(detect_network_stack)
     case $network_stack in
         "dual") echo -e "${GREEN}检测到双栈网络 (IPv4+IPv6) 喵～(ฅ'ω'ฅ)${NC}" ;;
         "ipv4") echo -e "${GREEN}检测到IPv4单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
         "ipv6") echo -e "${GREEN}检测到IPv6单栈网络 喵～(ฅ'ω'ฅ)${NC}" ;;
-        *) echo -e "${RED}未检测到有效网络连接喵～(╥﹏╥)${NC}" 
-           read -n 1 -s -r -p "按任意键返回菜单喵～" 
+        *) echo -e "${RED}未检测到有效网络连接喵～(╥﹏╥)${NC}" 
+           read -n 1 -s -r -p "按任意键返回菜单喵～" 
            return 1 ;;
     esac
 
@@ -140,14 +140,14 @@ modify_dns() {
     echo -e "${YELLOW}正在禁用 systemd-resolved 喵～(｡•́︿•̀｡)${NC}"
     sudo systemctl disable --now systemd-resolved 2>/dev/null
     echo -e "${YELLOW}写入DNS配置喵～(｡•̀ᴗ-)✧${NC}"
-    
+    
     # 备份原有配置
     sudo cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null
-    
+    
     # 写入新配置
     echo -e "$dns_config" | sudo tee /etc/resolv.conf >/dev/null
     sudo chattr +i /etc/resolv.conf 2>/dev/null
-    
+    
     echo -e "${GREEN}DNS优化已完成～新的DNS配置如下喵～(=^･ω･^=)${NC}"
     cat /etc/resolv.conf
     read -n 1 -s -r -p "按任意键返回菜单喵～"
@@ -333,16 +333,16 @@ update_script() {
 # 卸载脚本
 uninstall_script() {
     echo -e "${YELLOW}正在卸载脚本喵～(｡•́︿•̀｡)${NC}"
-    
+    
     # 删除符号链接
     if [ -L "/usr/local/bin/q" ]; then
         sudo rm -f /usr/local/bin/q
     fi
-    
+    
     if [ -L "/usr/local/bin/Q" ]; then
         sudo rm -f /usr/local/bin/Q
     fi
-    
+    
     # 删除脚本文件
     if [[ -f "$CURRENT_SCRIPT_PATH" ]]; then
         rm -f "$CURRENT_SCRIPT_PATH"
@@ -350,7 +350,7 @@ uninstall_script() {
     else
         echo -e "${YELLOW}脚本文件不存在喵～(๑•̀ㅂ•́)و✧${NC}"
     fi
-    
+    
     echo -e "${GREEN}脚本卸载完成喵～(=^･ω･^=)${NC}"
     exit 0
 }
@@ -389,8 +389,13 @@ while true; do
         5) bash <(curl -sL https://raw.githubusercontent.com/sillda76/nekou/refs/heads/main/IPControlCenter.sh) ;;
         6) bash <(curl -s https://raw.githubusercontent.com/sillda76/nekou/refs/heads/main/system_info.sh) ;;
         7) ssh_beautify ;;
-        8) 
+        8)
             echo -e "${GREEN}正在执行超萌BBR管理脚本喵～(=^･ω･^=)${NC}"
+            # 检查是否安装wget
+            if ! command -v wget &>/dev/null; then
+                echo -e "${YELLOW}检测到未安装wget，正在安装喵～(｡•̀ᴗ-)✧${NC}"
+                install_package wget
+            fi
             sudo bash -c "$(wget -qO- https://raw.githubusercontent.com/byJoey/Actions-bbr-v3/refs/heads/main/install.sh)"
             read -n 1 -s -r -p "按任意键返回菜单喵～"
             ;;
