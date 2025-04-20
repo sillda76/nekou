@@ -246,18 +246,23 @@ swap_used=$(free -m 2>/dev/null | grep Swap: | awk '{print $3}')
 disk_total=$(df -k / 2>/dev/null | grep / | awk '{print $2}')
 disk_used=$(df -k / 2>/dev/null | grep / | awk '{print $3}')
 
+# 获取所有网卡流量统计
 get_network_traffic() {
-    local interface
-    interface=$(ip route | grep default | awk '{print $5}' | head -n 1)
-    if [[ -z "$interface" ]]; then
-        interface="eth0"
-    fi
-
-    local rx_bytes tx_bytes
-    rx_bytes=$(cat /sys/class/net/"$interface"/statistics/rx_bytes 2>/dev/null)
-    tx_bytes=$(cat /sys/class/net/"$interface"/statistics/tx_bytes 2>/dev/null)
-    [[ -z "$rx_bytes" ]] && rx_bytes=0
-    [[ -z "$tx_bytes" ]] && tx_bytes=0
+    # 获取所有活跃网卡列表
+    local interfaces=($(ip -o link show | awk -F': ' '{print $2}'))
+    local total_rx=0
+    local total_tx=0
+    
+    # 遍历所有网卡获取流量统计
+    for intf in "${interfaces[@]}"; do
+        # 排除回环接口
+        if [[ "$intf" != "lo" ]]; then
+            local rx_bytes=$(cat /sys/class/net/"$intf"/statistics/rx_bytes 2>/dev/null || echo 0)
+            local tx_bytes=$(cat /sys/class/net/"$intf"/statistics/tx_bytes 2>/dev/null || echo 0)
+            total_rx=$((total_rx + rx_bytes))
+            total_tx=$((total_tx + tx_bytes))
+        fi
+    done
 
     format_bytes() {
         local bytes=$1
@@ -271,8 +276,8 @@ get_network_traffic() {
     }
 
     local rx_traffic tx_traffic
-    rx_traffic=$(format_bytes "$rx_bytes")
-    tx_traffic=$(format_bytes "$tx_bytes")
+    rx_traffic=$(format_bytes "$total_rx")
+    tx_traffic=$(format_bytes "$total_tx")
 
     echo -e "${LIGHTBLUE}Traffic:${NC} ${ORANGE}TX:${NC}${YELLOW}$tx_traffic${NC} ${LIGHTPURPLE}RX:${NC}${GREEN}$rx_traffic${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━"
