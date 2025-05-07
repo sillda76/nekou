@@ -197,17 +197,27 @@ function manual_ban() {
         read -n1 -s -p "按任意键返回菜单…"
 
     elif [ "$action" == "2" ]; then
-        # 获取当前 fail2ban sshd 已封禁的 IP 列表
-        local banned_line ips_raw
+        # 获取 fail2ban sshd 已封禁的 IP 列表
+        local banned_line ips_fb=()
         banned_line=$(sudo fail2ban-client status sshd 2>/dev/null | grep 'Banned IP list')
-        ips_raw=${banned_line#*:}
+        local ips_raw=${banned_line#*:}
+        IFS=',' read -ra tmp_fb <<< "$ips_raw"
+        for ip in "${tmp_fb[@]}"; do
+            clean_ip=$(echo "$ip" | xargs)
+            [ -n "$clean_ip" ] && ips_fb+=("$clean_ip")
+        done
 
-        # 去除多余空白并拆分成数组
-        IFS=',' read -ra tmp_ips <<< "$ips_raw"
+        # 获取 UFW 针对 SSH 端口的 DENY IP 列表
+        local ips_ufw=()
+        while read -r ip; do
+            [ -n "$ip" ] && ips_ufw+=("$ip")
+        done < <(sudo ufw status | grep "$ssh_port" | grep DENY | awk '{print $3}')
+
+        # 合并去重
+        declare -A seen
         ips=()
-        for ip in "${tmp_ips[@]}"; do
-            clean_ip=$(echo "$ip" | xargs)  # 去掉前后空白
-            [ -n "$clean_ip" ] && ips+=("$clean_ip")
+        for ip in "${ips_fb[@]}" "${ips_ufw[@]}"; do
+            [ -n "$ip" ] && [ -z "${seen[$ip]}" ] && { seen[$ip]=1; ips+=("$ip"); }
         done
 
         if [ ${#ips[@]} -eq 0 ]; then
