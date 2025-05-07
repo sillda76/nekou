@@ -1,6 +1,6 @@
 #!/bin/bash
 #==================================================
-# Fail2ban 安装与管理脚本
+# Fail2ban + UFW 安装与管理脚本（仅用于 SSH 爆破封禁）
 # 适用于 Debian/Ubuntu 系统
 #==================================================
 
@@ -9,7 +9,19 @@ RED="\033[0;31m"
 GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
 BLUE="\033[0;34m"
-RESET="\033[0m"  # 无颜色
+RESET="\033[0m"
+
+#===== 获取 SSH 端口函数 =====
+function get_ssh_port() {
+    local port
+    if [ -f /etc/fail2ban/jail.local ]; then
+        port=$(grep -E "^port\s*=" /etc/fail2ban/jail.local | awk -F'=' '{print $2}' | tr -d ' ')
+    fi
+    if [ -z "$port" ] && [ -f /etc/ssh/sshd_config ]; then
+        port=$(grep -E "^Port\s+" /etc/ssh/sshd_config | awk '{print $2}' | head -n1)
+    fi
+    echo "${port:-22}"
+}
 
 #===== 显示主菜单 =====
 function show_menu() {
@@ -26,50 +38,52 @@ function show_menu() {
     echo -e "${BLUE}==============================${RESET}"
     echo -e "当前状态: ${YELLOW}${install_status}${RESET}"
     echo -e "${BLUE}==============================${RESET}"
-    echo -e "${YELLOW}1. 安装 fail2ban${RESET}"
+    echo -e "${YELLOW}1. 安装 fail2ban + UFW${RESET}"
     echo -e "${YELLOW}2. 查看 fail2ban 状态${RESET}"
-    echo -e "${YELLOW}3. 查看 SSH 服务封禁情况${RESET}"
+    echo -e "${YELLOW}3. 查看 SSH 封禁情况${RESET}"
     echo -e "${YELLOW}4. 查看配置文件${RESET}"
     echo -e "${YELLOW}5. 实时查看 fail2ban 日志${RESET}"
-    echo -e "${YELLOW}6. 手动封禁/解封 IP 地址${RESET}"
+    echo -e "${YELLOW}6. 手动封禁/解封 IP${RESET}"
     echo -e "${YELLOW}7. 卸载 fail2ban 并清理日志${RESET}"
     echo -e "${YELLOW}0. 退出${RESET}"
     echo -e "${BLUE}==============================${RESET}"
     echo -n "请选择操作: "
 }
 
-#===== 查看 fail2ban 原始状态 =====
+#===== 查看原始状态 =====
 function original_view_status() {
     if systemctl is-active --quiet fail2ban; then
-        echo -e "${GREEN}fail2ban 当前状态：已启动${RESET}"
+        echo -e "${GREEN}fail2ban 已启动${RESET}"
     else
-        echo -e "${RED}fail2ban 当前状态：未运行${RESET}"
+        echo -e "${RED}fail2ban 未运行${RESET}"
     fi
     sudo fail2ban-client status 2>/dev/null
 }
 
-#===== 安装 fail2ban =====
+#===== 安装 fail2ban + UFW =====
 function install_fail2ban() {
-    echo -e "${GREEN}开始安装 fail2ban...${RESET}"
-    echo -e "${BLUE}更新系统软件包...${RESET}"
+    echo -e "${GREEN}开始安装 fail2ban + UFW...${RESET}"
     sudo apt-get update && sudo apt-get upgrade -y
-    echo -e "${BLUE}检查并安装依赖：rsyslog 和 iptables...${RESET}"
-    sudo apt-get install -y rsyslog iptables
 
-    echo -e "${BLUE}检测当前系统环境...${RESET}"
+    echo -e "${BLUE}安装依赖：rsyslog 和 ufw...${RESET}"
+    sudo apt-get install -y rsyslog ufw
+
+    echo -e "${BLUE}检测系统环境...${RESET}"
     if [ -f /etc/os-release ]; then
         source /etc/os-release
         echo -e "${GREEN}系统: $NAME $VERSION${RESET}"
     else
-        echo -e "${RED}无法检测系统环境，可能不是 Debian/Ubuntu 系统。${RESET}"
+        echo -e "${RED}无法检测系统环境。${RESET}"
     fi
 
-    ssh_port=$(grep "^Port" /etc/ssh/sshd_config | awk '{print $2}' | head -n 1)
+    # 检测 SSH 端口
+    local ssh_port
+    ssh_port=$(grep -E "^Port\s+" /etc/ssh/sshd_config | awk '{print $2}' | head -n1)
     if [ -z "$ssh_port" ]; then
-        echo -e "${YELLOW}未能自动检测到 SSH 端口，请手动输入。${RESET}"
+        echo -e "${YELLOW}未检测到 SSH 端口，请手动输入。${RESET}"
         read -p "请输入 SSH 端口: " ssh_port
         read -p "确认 SSH 端口为 $ssh_port (y/n): " confirm
-        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        if [[ "$confirm" != [Yy] ]]; then
             echo -e "${RED}SSH 端口未确认，退出安装。${RESET}"
             return
         fi
@@ -77,19 +91,28 @@ function install_fail2ban() {
         echo -e "${GREEN}检测到 SSH 端口: $ssh_port${RESET}"
     fi
 
+    # UFW 仅用于 Fail2ban 封禁：设置为默认允许所有流量
+    echo -e "${BLUE}配置 UFW 默认策略为 allow all...${RESET}"
+    sudo ufw default allow incoming
+    sudo ufw default allow outgoing
+    echo "y" | sudo ufw enable
+
+    # 安装 Fail2ban
     echo -e "${BLUE}安装 fail2ban...${RESET}"
     sudo apt-get install -y fail2ban
 
-    echo -e "${BLUE}生成 fail2ban 配置文件...${RESET}"
+    # 生成 jail.local
+    echo -e "${BLUE}生成 /etc/fail2ban/jail.local 配置...${RESET}"
     sudo mkdir -p /etc/fail2ban
     [ -f /etc/fail2ban/jail.conf ] && sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.conf.bak
 
-    sudo bash -c "cat > /etc/fail2ban/jail.local" <<EOF
+    sudo bash -c "cat > /etc/fail2ban/jail.local <<EOF
 [DEFAULT]
 ignoreip = 127.0.0.1/8 ::1
 bantime  = 3600
 findtime = 300
 maxretry = 5
+banaction = ufw
 
 [sshd]
 enabled = true
@@ -97,93 +120,101 @@ port    = $ssh_port
 filter  = sshd
 logpath = /var/log/auth.log
 maxretry = 5
-EOF
+EOF"
 
-    echo -e "${GREEN}生成的 fail2ban 配置文件内容如下:${RESET}"
+    echo -e "${GREEN}生成的配置文件：${RESET}"
     cat /etc/fail2ban/jail.local
 
-    sudo systemctl start fail2ban
+    sudo systemctl restart fail2ban
     sudo systemctl enable fail2ban
     echo -e "${GREEN}fail2ban 已启动并设置为开机自启。${RESET}"
 
-    echo -e "${BLUE}设置定时任务，每十五天清理一次 fail2ban 日志...${RESET}"
-    cron_job="0 0 */15 * * root echo '' > /var/log/fail2ban.log"
+    # 日志清理定时任务
+    echo -e "${BLUE}设置每 15 天清理一次日志...${RESET}"
+    local cron_job="0 0 */15 * * root echo '' > /var/log/fail2ban.log"
     (sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log'; echo "$cron_job") | sudo crontab -
 
-    echo -e "${BLUE}当前 fail2ban 运行状态:${RESET}"
+    echo -e "${BLUE}当前状态：${RESET}"
     original_view_status
-
-    echo -e "${GREEN}fail2ban 安装完成。${RESET}"
+    echo -e "${GREEN}安装完成。${RESET}"
 }
 
 #===== 查看 fail2ban 状态 =====
 function view_fail2ban_status() {
-    echo -e "${GREEN}当前 fail2ban 状态:${RESET}"
+    echo -e "${GREEN}fail2ban 状态：${RESET}"
     sudo service fail2ban status
-    echo -e "${YELLOW}按任意键返回菜单...${RESET}"
-    read -n 1 -s
+    read -n 1 -s -p "按任意键返回菜单..."
 }
 
-#===== 查看 SSH 封禁状态 =====
+#===== 查看 SSH 封禁情况 =====
 function view_ssh_status() {
-    echo -e "${GREEN}SSH 服务封禁情况：${RESET}"
+    local ssh_port
+    ssh_port=$(get_ssh_port)
+    echo -e "${GREEN}Fail2ban SSH 封禁：${RESET}"
     sudo fail2ban-client status sshd 2>/dev/null
+    echo -e "${GREEN}UFW 规则中针对端口 $ssh_port 的 deny 条目：${RESET}"
+    sudo ufw status numbered | grep "$ssh_port"
+    read -n 1 -s -p "按任意键返回菜单..."
 }
 
 #===== 查看配置文件 =====
 function view_config() {
-    echo -e "${GREEN}fail2ban 配置文件 (/etc/fail2ban/jail.local) 内容：${RESET}"
+    echo -e "${GREEN}/etc/fail2ban/jail.local 内容：${RESET}"
     if [ -f /etc/fail2ban/jail.local ]; then
         cat /etc/fail2ban/jail.local
     else
-        echo -e "${RED}/etc/fail2ban/jail.local 文件不存在！${RESET}"
+        echo -e "${RED}文件不存在！${RESET}"
     fi
+    read -n 1 -s -p "按任意键返回菜单..."
 }
 
-#===== 实时查看 fail2ban 日志（已修复卡死问题） =====
+#===== 实时查看日志 =====
 function tail_log() {
-    echo -e "${GREEN}实时查看 fail2ban 日志（按 Ctrl+C 退出）:${RESET}"
+    echo -e "${GREEN}实时查看 /var/log/fail2ban.log（Ctrl+C 退出）${RESET}"
     if [ -f /var/log/fail2ban.log ]; then
         sudo tail -n 50 -F /var/log/fail2ban.log
     else
-        echo -e "${RED}未找到 /var/log/fail2ban.log 日志文件！${RESET}"
+        echo -e "${RED}日志文件不存在！${RESET}"
     fi
 }
 
-#===== 手动封禁或解封 IP =====
+#===== 手动封禁/解封 IP =====
 function manual_ban() {
-    echo -e "${GREEN}手动封禁/解封 IP 地址${RESET}"
-    read -p "请输入目标 IP 地址: " ip_addr
-    echo -e "${YELLOW}请选择操作：1. 封禁   2. 解封${RESET}"
-    read -p "请选择操作 (1/2): " action
+    local ssh_port ip_addr
+    ssh_port=$(get_ssh_port)
+    read -p "请输入目标 IP: " ip_addr
+    echo -e "${YELLOW}1. 封禁   2. 解封${RESET}"
+    read -p "请选择 (1/2): " action
     if [ "$action" == "1" ]; then
-        echo -e "${BLUE}正在封禁 IP: $ip_addr ...${RESET}"
-        sudo fail2ban-client set sshd banip "$ip_addr" 2>/dev/null
-        echo -e "${GREEN}IP $ip_addr 已被封禁。${RESET}"
+        echo -e "${BLUE}UFW 封禁 $ip_addr 端口 $ssh_port...${RESET}"
+        sudo ufw deny from "$ip_addr" to any port "$ssh_port"
+        echo -e "${GREEN}已封禁。${RESET}"
     elif [ "$action" == "2" ]; then
-        echo -e "${BLUE}正在解封 IP: $ip_addr ...${RESET}"
-        sudo fail2ban-client set sshd unbanip "$ip_addr" 2>/dev/null
-        echo -e "${GREEN}IP $ip_addr 已被解封。${RESET}"
+        echo -e "${BLUE}UFW 解封 $ip_addr...${RESET}"
+        sudo ufw delete deny from "$ip_addr" to any port "$ssh_port"
+        echo -e "${GREEN}已解封。${RESET}"
     else
-        echo -e "${RED}无效操作，请选择 1 或 2。${RESET}"
+        echo -e "${RED}无效选择！${RESET}"
     fi
+    read -n 1 -s -p "按任意键返回菜单..."
 }
 
-#===== 卸载并清理 fail2ban =====
+#===== 卸载并清理 =====
 function uninstall_fail2ban() {
-    echo -e "${GREEN}正在卸载 fail2ban 并清理相关配置及日志...${RESET}"
+    echo -e "${GREEN}卸载 fail2ban 并清理...${RESET}"
     sudo systemctl stop fail2ban
     sudo apt-get remove --purge -y fail2ban
     sudo rm -rf /etc/fail2ban
     sudo rm -f /var/log/fail2ban.log
     sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log' | sudo crontab -
-    echo -e "${GREEN}fail2ban 已卸载，相关日志及配置文件已清理。${RESET}"
+    echo -e "${GREEN}卸载完成。${RESET}"
+    read -n 1 -s -p "按任意键返回菜单..."
 }
 
-#===== 主菜单循环 =====
+#===== 主循环 =====
 while true; do
     show_menu
-    read choice
+    read -r choice
     case $choice in
         1) install_fail2ban ;;
         2) view_fail2ban_status ;;
@@ -193,15 +224,11 @@ while true; do
         6) manual_ban ;;
         7) uninstall_fail2ban ;;
         0)
-            echo -e "${GREEN}退出脚本。${RESET}"
+            echo -e "${GREEN}退出。${RESET}"
             exit 0
             ;;
         *)
-            echo -e "${RED}无效选项，请重新选择。${RESET}"
+            echo -e "${RED}无效选项，请重试。${RESET}"
             ;;
     esac
-    if [ "$choice" != "2" ]; then
-        echo -e "${YELLOW}按任意键返回主菜单...${RESET}"
-        read -n 1 -s
-    fi
 done
