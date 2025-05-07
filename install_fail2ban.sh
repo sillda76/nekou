@@ -92,7 +92,7 @@ function install_fail2ban() {
         echo -e "${GREEN}检测到 SSH 端口: $ssh_port${RESET}"
     fi
 
-    # UFW 仅用于 Fail2ban 封禁：设置为默认允许所有流量
+    # UFW 默认允许所有流量
     echo -e "${BLUE}配置 UFW 默认策略为 allow all...${RESET}"
     sudo ufw default allow incoming
     sudo ufw default allow outgoing
@@ -106,7 +106,6 @@ function install_fail2ban() {
     echo -e "${BLUE}生成 /etc/fail2ban/jail.local 配置...${RESET}"
     sudo mkdir -p /etc/fail2ban
     [ -f /etc/fail2ban/jail.conf ] && sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.conf.bak
-
     sudo bash -c "cat > /etc/fail2ban/jail.local <<EOF
 [DEFAULT]
 ignoreip = 127.0.0.1/8 ::1
@@ -195,18 +194,25 @@ function manual_ban() {
         echo -e "${BLUE}UFW 封禁 $ip_addr 端口 $ssh_port...${RESET}"
         sudo ufw deny from "$ip_addr" to any port "$ssh_port"
         echo -e "${GREEN}已封禁 $ip_addr。${RESET}"
-        read -n1 -s -p "按任意键返回菜单..."
+        read -n1 -s -p "按任意键返回菜单…"
 
     elif [ "$action" == "2" ]; then
         # 获取当前 fail2ban sshd 已封禁的 IP 列表
         local banned_line ips_raw
         banned_line=$(sudo fail2ban-client status sshd 2>/dev/null | grep 'Banned IP list')
         ips_raw=${banned_line#*:}
-        IFS=', ' read -r -a ips <<< "$ips_raw"
 
-        if [ ${#ips[@]} -eq 0 ] || [ -z "${ips[0]}" ]; then
-            echo -e "${RED}当前没有通过 fail2ban 封禁的 IP。${RESET}"
-            read -n1 -s -p "按任意键返回菜单..."
+        # 去除多余空白并拆分成数组
+        IFS=',' read -ra tmp_ips <<< "$ips_raw"
+        ips=()
+        for ip in "${tmp_ips[@]}"; do
+            clean_ip=$(echo "$ip" | xargs)  # 去掉前后空白
+            [ -n "$clean_ip" ] && ips+=("$clean_ip")
+        done
+
+        if [ ${#ips[@]} -eq 0 ]; then
+            echo -e "${RED}当前没有被封禁的 IP。${RESET}"
+            read -n1 -s -p "按任意键返回菜单…"
             return
         fi
 
@@ -216,28 +222,29 @@ function manual_ban() {
             printf "%2d) %s\n" $((i+1)) "${ips[$i]}"
         done
         read -p "请输入要解封的序号 (1-${#ips[@]}): " sel
+
         if ! [[ "$sel" =~ ^[0-9]+$ ]] || [ "$sel" -lt 1 ] || [ "$sel" -gt ${#ips[@]} ]; then
             echo -e "${RED}无效选择！${RESET}"
-            read -n1 -s -p "按任意键返回菜单..."
+            read -n1 -s -p "按任意键返回菜单…"
             return
         fi
+
         ip_addr=${ips[$((sel-1))]}
-        echo -e "${BLUE}正在解除 UFW 针对 $ip_addr 的封禁...${RESET}"
-        sudo ufw delete deny from "$ip_addr" to any port "$ssh_port"
-        # 同时通知 fail2ban 立即解封
-        sudo fail2ban-client set sshd unbanip "$ip_addr"
+        echo -e "${BLUE}正在解除封禁：$ip_addr…${RESET}"
+        sudo ufw delete deny from "$ip_addr" to any port "$ssh_port" || true
+        sudo fail2ban-client set sshd unbanip "$ip_addr" || true
         echo -e "${GREEN}已解封 $ip_addr。${RESET}"
-        read -n1 -s -p "按任意键返回菜单..."
+        read -n1 -s -p "按任意键返回菜单…"
 
     else
         echo -e "${RED}无效选择！${RESET}"
-        read -n1 -s -p "按任意键返回菜单..."
+        read -n1 -s -p "按任意键返回菜单…"
     fi
 }
 
 #===== 卸载并清理 =====
 function uninstall_fail2ban() {
-    echo -e "${GREEN}开始卸载 fail2ban + UFW 并清理残留...${RESET}"
+    echo -e "${GREEN}开始卸载 fail2ban + UFW 并清理残留…${RESET}"
 
     # 停止并卸载 fail2ban、rsyslog
     sudo systemctl stop fail2ban
@@ -255,7 +262,7 @@ function uninstall_fail2ban() {
     sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log' | sudo crontab -
 
     echo -e "${GREEN}卸载并清理完成。${RESET}"
-    read -n1 -s -p "卸载完成，按任意键返回菜单..."
+    read -n1 -s -p "按任意键返回菜单…"
 }
 
 #===== 主循环 =====
