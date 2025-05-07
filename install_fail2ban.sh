@@ -186,32 +186,64 @@ function tail_log() {
 function manual_ban() {
     local ssh_port ip_addr
     ssh_port=$(get_ssh_port)
-    read -p "请输入目标 IP: " ip_addr
-    echo -e "${YELLOW}1. 封禁   2. 解封${RESET}"
+
+    echo -e "${YELLOW}1. 封禁 IP   2. 解封 IP${RESET}"
     read -p "请选择 (1/2): " action
+
     if [ "$action" == "1" ]; then
+        read -p "请输入要封禁的 IP: " ip_addr
         echo -e "${BLUE}UFW 封禁 $ip_addr 端口 $ssh_port...${RESET}"
         sudo ufw deny from "$ip_addr" to any port "$ssh_port"
-        echo -e "${GREEN}已封禁。${RESET}"
+        echo -e "${GREEN}已封禁 $ip_addr。${RESET}"
+        read -n1 -s -p "按任意键返回菜单..."
+
     elif [ "$action" == "2" ]; then
-        echo -e "${BLUE}UFW 解封 $ip_addr...${RESET}"
+        # 获取当前 fail2ban sshd 已封禁的 IP 列表
+        local banned_line ips_raw
+        banned_line=$(sudo fail2ban-client status sshd 2>/dev/null | grep 'Banned IP list')
+        ips_raw=${banned_line#*:}
+        IFS=', ' read -r -a ips <<< "$ips_raw"
+
+        if [ ${#ips[@]} -eq 0 ] || [ -z "${ips[0]}" ]; then
+            echo -e "${RED}当前没有通过 fail2ban 封禁的 IP。${RESET}"
+            read -n1 -s -p "按任意键返回菜单..."
+            return
+        fi
+
+        # 显示动态选择菜单
+        echo -e "${BLUE}当前被封禁的 IP：${RESET}"
+        for i in "${!ips[@]}"; do
+            printf "%2d) %s\n" $((i+1)) "${ips[$i]}"
+        done
+        read -p "请输入要解封的序号 (1-${#ips[@]}): " sel
+        if ! [[ "$sel" =~ ^[0-9]+$ ]] || [ "$sel" -lt 1 ] || [ "$sel" -gt ${#ips[@]} ]; then
+            echo -e "${RED}无效选择！${RESET}"
+            read -n1 -s -p "按任意键返回菜单..."
+            return
+        fi
+        ip_addr=${ips[$((sel-1))]}
+        echo -e "${BLUE}正在解除 UFW 针对 $ip_addr 的封禁...${RESET}"
         sudo ufw delete deny from "$ip_addr" to any port "$ssh_port"
-        echo -e "${GREEN}已解封。${RESET}"
+        # 同时通知 fail2ban 立即解封
+        sudo fail2ban-client set sshd unbanip "$ip_addr"
+        echo -e "${GREEN}已解封 $ip_addr。${RESET}"
+        read -n1 -s -p "按任意键返回菜单..."
+
     else
         echo -e "${RED}无效选择！${RESET}"
+        read -n1 -s -p "按任意键返回菜单..."
     fi
-    read -n1 -s -p "按任意键返回菜单..."
 }
 
 #===== 卸载并清理 =====
 function uninstall_fail2ban() {
     echo -e "${GREEN}开始卸载 fail2ban + UFW 并清理残留...${RESET}"
 
-    # 停止并卸载 fail2ban
+    # 停止并卸载 fail2ban、rsyslog
     sudo systemctl stop fail2ban
     sudo apt-get remove --purge -y fail2ban rsyslog
 
-    # 停止并卸载 ufw
+    # 禁用并卸载 ufw
     sudo ufw disable
     sudo apt-get remove --purge -y ufw
 
