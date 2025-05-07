@@ -44,7 +44,7 @@ function show_menu() {
     echo -e "${YELLOW}4. 查看配置文件${RESET}"
     echo -e "${YELLOW}5. 实时查看 fail2ban 日志${RESET}"
     echo -e "${YELLOW}6. 手动封禁/解封 IP${RESET}"
-    echo -e "${YELLOW}7. 卸载 fail2ban 并清理日志${RESET}"
+    echo -e "${YELLOW}7. 卸载 fail2ban + UFW 并清理日志${RESET}"
     echo -e "${YELLOW}0. 退出${RESET}"
     echo -e "${BLUE}==============================${RESET}"
     echo -n "请选择操作: "
@@ -85,6 +85,7 @@ function install_fail2ban() {
         read -p "确认 SSH 端口为 $ssh_port (y/n): " confirm
         if [[ "$confirm" != [Yy] ]]; then
             echo -e "${RED}SSH 端口未确认，退出安装。${RESET}"
+            read -n1 -s -p "按任意键返回菜单..."
             return
         fi
     else
@@ -136,14 +137,15 @@ EOF"
 
     echo -e "${BLUE}当前状态：${RESET}"
     original_view_status
-    echo -e "${GREEN}安装完成。${RESET}"
+
+    read -n1 -s -p "安装完成，按任意键返回菜单..."
 }
 
 #===== 查看 fail2ban 状态 =====
 function view_fail2ban_status() {
     echo -e "${GREEN}fail2ban 状态：${RESET}"
     sudo service fail2ban status
-    read -n 1 -s -p "按任意键返回菜单..."
+    read -n1 -s -p "按任意键返回菜单..."
 }
 
 #===== 查看 SSH 封禁情况 =====
@@ -154,7 +156,7 @@ function view_ssh_status() {
     sudo fail2ban-client status sshd 2>/dev/null
     echo -e "${GREEN}UFW 规则中针对端口 $ssh_port 的 deny 条目：${RESET}"
     sudo ufw status numbered | grep "$ssh_port"
-    read -n 1 -s -p "按任意键返回菜单..."
+    read -n1 -s -p "按任意键返回菜单..."
 }
 
 #===== 查看配置文件 =====
@@ -165,7 +167,7 @@ function view_config() {
     else
         echo -e "${RED}文件不存在！${RESET}"
     fi
-    read -n 1 -s -p "按任意键返回菜单..."
+    read -n1 -s -p "按任意键返回菜单..."
 }
 
 #===== 实时查看日志 =====
@@ -176,6 +178,8 @@ function tail_log() {
     else
         echo -e "${RED}日志文件不存在！${RESET}"
     fi
+    echo
+    read -n1 -s -p "按任意键返回菜单..."
 }
 
 #===== 手动封禁/解封 IP =====
@@ -196,19 +200,30 @@ function manual_ban() {
     else
         echo -e "${RED}无效选择！${RESET}"
     fi
-    read -n 1 -s -p "按任意键返回菜单..."
+    read -n1 -s -p "按任意键返回菜单..."
 }
 
 #===== 卸载并清理 =====
 function uninstall_fail2ban() {
-    echo -e "${GREEN}卸载 fail2ban 并清理...${RESET}"
+    echo -e "${GREEN}开始卸载 fail2ban + UFW 并清理残留...${RESET}"
+
+    # 停止并卸载 fail2ban
     sudo systemctl stop fail2ban
-    sudo apt-get remove --purge -y fail2ban
-    sudo rm -rf /etc/fail2ban
-    sudo rm -f /var/log/fail2ban.log
+    sudo apt-get remove --purge -y fail2ban rsyslog
+
+    # 停止并卸载 ufw
+    sudo ufw disable
+    sudo apt-get remove --purge -y ufw
+
+    # 清理配置文件和日志
+    sudo rm -rf /etc/fail2ban /etc/ufw
+    sudo rm -f /var/log/fail2ban.log /var/log/ufw.log
+
+    # 清理定时任务
     sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log' | sudo crontab -
-    echo -e "${GREEN}卸载完成。${RESET}"
-    read -n 1 -s -p "按任意键返回菜单..."
+
+    echo -e "${GREEN}卸载并清理完成。${RESET}"
+    read -n1 -s -p "卸载完成，按任意键返回菜单..."
 }
 
 #===== 主循环 =====
@@ -229,6 +244,7 @@ while true; do
             ;;
         *)
             echo -e "${RED}无效选项，请重试。${RESET}"
+            sleep 1
             ;;
     esac
 done
