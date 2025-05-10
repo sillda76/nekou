@@ -309,8 +309,8 @@ show_menu() {
     echo -e "${YELLOW}7. SSH 命令行美化${NC}"
     echo -e "${GREEN}8. 超萌 BBR 管理脚本${NC}"
     echo -e "${BLUE}9. DanmakuRender${NC}"
-    echo -e "${MAGENTA}10. 更新脚本${NC}"
-    echo -e "${CYAN}11. 卸载脚本${NC}"
+    echo -e "${MAGENTA}10.更新脚本${NC}"
+    echo -e "${CYAN}11.卸载脚本${NC}"
     echo -e "${RED}0. 退出脚本${NC}"
     echo -e "${MAGENTA}========================================${NC}"
 }
