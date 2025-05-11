@@ -109,7 +109,7 @@ set_dns() {
 }
 
 ###########################################
-# DNS 优化交互界面
+# DNS 优化交互界面（已修复手动编辑权限问题）
 ###########################################
 set_dns_ui() {
     while true; do
@@ -143,7 +143,9 @@ set_dns_ui() {
                 if ! command -v nano &>/dev/null; then
                     install_package nano
                 fi
+                sudo chattr -i /etc/resolv.conf 2>/dev/null
                 sudo nano /etc/resolv.conf
+                sudo chattr +i /etc/resolv.conf 2>/dev/null
                 ;;
             0) break ;;
             *)
