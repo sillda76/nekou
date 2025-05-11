@@ -149,8 +149,8 @@ set_dns_ui() {
                 ;;
             0) break ;;
             *)
-                echo -e "${RED}无效选项${NC}"
-                sleep 1
+                echo -e "${RED}无效选项喵～(╥﹏╥)，按任意键继续...${NC}"
+                read -n1 -s -r
                 ;;
         esac
     done
@@ -190,8 +190,8 @@ ssh_beautify() {
             ;;
         3) return ;;
         *)
-            echo -e "${RED}无效的选项喵～(╥﹏╥)${NC}"
-            read -n1 -s -r -p "按任意键返回菜单喵～"
+            echo -e "${RED}无效选项喵～(╥﹏╥)，按任意键继续...${NC}"
+            read -n1 -s -r
             ;;
     esac
 }
@@ -272,7 +272,7 @@ update_script() {
         exec "$CURRENT_SCRIPT_PATH"
     else
         echo -e "${RED}脚本更新失败，请检查网络或 URL 是否正确喵～(╥﹏╥)${NC}"
-        read -n1 -s -r -p "按任意键返回菜单喵～"
+        read -n1 -s -r -p "按任意键继续..."
     fi
 }
 
@@ -340,6 +340,9 @@ while true; do
         10) update_script ;;
         11) uninstall_script ;;
         0) echo -e "${MAGENTA}退出脚本${NC}" ; break ;;
-        *) echo -e "${RED}无效选项${NC}" ; sleep 1 ;;
+        *)
+            echo -e "${RED}无效选项喵～(╥﹏╥)，按任意键继续...${NC}"
+            read -n1 -s -r
+            ;;
     esac
 done
