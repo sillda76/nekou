@@ -18,7 +18,7 @@ BEAUTIFY_CONTENT='
 parse_git_branch() {
     git branch 2> /dev/null | sed -e '\''/^[^*]/d'\'' -e '\''s/* \(.*\)/ (\1)/'\''
 }
-PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m\][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''
+PS1='\''\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'\''
 # 命令行美化结束 - 快来体验可爱风格吧～(=^･ω･^=)
 '
 
@@ -172,20 +172,46 @@ ssh_beautify() {
             if grep -q "# 命令行美化" ~/.bashrc; then
                 echo -e "${YELLOW}命令行美化已经安装过喵～(｡•́︿•̀｡)${NC}"
             else
-                echo "$BEAUTIFY_CONTENT" >> ~/.bashrc
+                # 添加萌萌哒 PS1 美化
+                cat << 'EOF' >> ~/.bashrc
+# 命令行美化 - 萌萌哒配置
+parse_git_branch() {
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
+}
+PS1='\[\033[01;38;5;117m\]\u\[\033[01;33m\]@\[\033[01;33m\]\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[01;35m\]$(parse_git_branch)\[\033[00m\] \[\033[01;36m][\D{%H:%M:%S}]\[\033[00m\]\n\[\033[01;37m\]\$ \[\033[00m\]'
+# 命令行美化结束 - 快来体验可爱风格吧～(=^･ω･^=)
+EOF
+
+                # 添加 ls 颜色高亮：仅当未存在时才追加
+                if ! grep -q "export LS_OPTIONS" ~/.bashrc; then
+                    cat << 'EOF' >> ~/.bashrc
+#
+# ls 颜色高亮配置
+export LS_OPTIONS='--color=auto'
+eval "$(dircolors)"  # 加载颜色方案
+alias ls='ls $LS_OPTIONS'
+alias ll='ls $LS_OPTIONS -l'
+alias l='ls $LS_OPTIONS -lA'
+#
+EOF
+                fi
+
                 source ~/.bashrc
-                echo -e "${GREEN}命令行美化已安装并立即生效喵～(=^･ω･^=)${NC}"
+                echo -e "${GREEN}命令行美化及 ls 高亮已安装并立即生效喵～(=^･ω･^=)${NC}"
             fi
             read -n1 -s -r -p "按任意键返回菜单喵～"
             ;;
         2)
             if grep -q "# 命令行美化" ~/.bashrc; then
+                # 移除 PS1 美化
                 sed -i '/# 命令行美化/,/# 命令行美化结束/d' ~/.bashrc
-                source ~/.bashrc
-                echo -e "${GREEN}命令行美化已卸载并立即生效喵～(｡•́︿•̀｡)${NC}"
-            else
-                echo -e "${YELLOW}没有找到已安装的命令行美化内容喵～(๑•̀ㅂ•́)و✧${NC}"
             fi
+            if grep -q "ls 颜色高亮配置" ~/.bashrc; then
+                # 移除 ls 高亮配置
+                sed -i '/# ls 颜色高亮配置/,/#$/d' ~/.bashrc
+            fi
+            source ~/.bashrc
+            echo -e "${GREEN}命令行美化及 ls 高亮已卸载并立即生效喵～(｡•́︿•̀｡)${NC}"
             read -n1 -s -r -p "按任意键返回菜单喵～"
             ;;
         3) return ;;
