@@ -147,78 +147,49 @@ function view_fail2ban_status() {
     read -n1 -s -p "按任意键返回菜单..."
 }
 
-#===== 查看 SSH 封禁情况（最终优化版：修复颜色显示并为列名添加颜色） =====
+#===== 查看 SSH 封禁情况 =====
 function view_ssh_status() {
     local ssh_port
     ssh_port=$(get_ssh_port)
-
-    echo -e "${BLUE}============================${RESET}"
-    echo -e "${GREEN}  SSH 封禁情况 (端口: $ssh_port)  ${RESET}"
-    echo -e "${BLUE}============================${RESET}"
-
-    # ----- 获取 Fail2ban 封禁的 IP 列表 -----
-    local fb_banned_line fb_ips_raw fb_ips=() fb_ip
+    
+    echo -e "${GREEN}当前 SSH 端口: ${YELLOW}$ssh_port${RESET}"
+    echo -e "${BLUE}==============================${RESET}"
+    
+    # Get Fail2ban banned IPs with timestamps
+    echo -e "${GREEN}Fail2ban 封禁列表 (按时间排序):${RESET}"
+    local banned_ips=()
     if sudo fail2ban-client status sshd &>/dev/null; then
-        fb_banned_line=$(sudo fail2ban-client status sshd | grep 'Banned IP list')
-        fb_ips_raw=${fb_banned_line#*:}
-        if [ -n "$fb_ips_raw" ]; then
-            IFS=',' read -ra fb_parts <<< "$fb_ips_raw"
-            for ip in "${fb_parts[@]}"; do
-                clean_ip=$(echo "$ip" | xargs)
-                [ -n "$clean_ip" ] && fb_ips+=("$clean_ip")
+        banned_ips=($(sudo zgrep 'Ban' /var/log/fail2ban.log* | grep sshd | awk '{print $NF,$1,$2}' | sort -k4 | uniq | awk '{print $1}'))
+        local ban_times=($(sudo zgrep 'Ban' /var/log/fail2ban.log* | grep sshd | awk '{print $NF,$1,$2,$3}' | sort -k4 | uniq | awk '{print $2,$3}'))
+        
+        if [ ${#banned_ips[@]} -eq 0 ]; then
+            echo -e "${YELLOW}当前没有通过 Fail2ban 封禁的 IP${RESET}"
+        else
+            for i in "${!banned_ips[@]}"; do
+                printf "${YELLOW}%2d) ${RED}%-15s ${BLUE}封禁时间: ${GREEN}%s\n" \
+                    $((i+1)) "${banned_ips[$i]}" "${ban_times[$i]}"
             done
         fi
+    else
+        echo -e "${RED}Fail2ban sshd 监狱未启用或不存在${RESET}"
     fi
-
-    # ----- 获取 UFW 封禁的 IP 列表 -----
-    local ufw_lines ufw_ips=() ufw_ip
-    ufw_lines=$(sudo ufw status numbered | grep "$ssh_port" | grep DENY)
-    if [ -n "$ufw_lines" ]; then
-        # 提取所有被封禁的 IP 并去重
-        readarray -t ufw_all < <(echo "$ufw_lines" | awk '{print $3}')
-        for ip in "${ufw_all[@]}"; do
-            # 如果此 IP 不在 fb_ips 数组中，再加入 ufw_ips
-            if [[ ! " ${fb_ips[*]} " =~ " $ip " ]]; then
-                ufw_ips+=("$ip")
-            fi
+    
+    echo -e "${BLUE}==============================${RESET}"
+    
+    # Get UFW blocked IPs for SSH port
+    echo -e "${GREEN}UFW 封禁列表 (针对端口 $ssh_port):${RESET}"
+    local ufw_ips=($(sudo ufw status numbered | grep "$ssh_port" | grep DENY | awk '{print $3}'))
+    
+    if [ ${#ufw_ips[@]} -eq 0 ]; then
+        echo -e "${YELLOW}当前没有通过 UFW 封禁的 IP${RESET}"
+    else
+        for i in "${!ufw_ips[@]}"; do
+            printf "${YELLOW}%2d) ${RED}%-15s ${BLUE}封禁方式: ${GREEN}UFW 规则\n" \
+                $((i+1)) "${ufw_ips[$i]}"
         done
     fi
-
-    # ----- 合并所有 IP 并排序 -----
-    local all_ips
-    readarray -t all_ips < <(printf "%s\n" "${fb_ips[@]}" "${ufw_ips[@]}" | sort -u -V)
-
-    if [ ${#all_ips[@]} -eq 0 ]; then
-        echo -e "${YELLOW}当前没有任何被封禁的 IP。${RESET}"
-        echo -e "${BLUE}============================${RESET}"
-        read -n1 -s -p "按任意键返回菜单..."
-        return
-    fi
-
-    # ----- 按行显示 IP 并显示封禁时间 -----
-    # 打印表头，给“序号”“IP 地址”“封禁开始时间”分别加颜色
-    printf "  %s  %s%-17s%s  %s%-19s%s\n" \
-        "${YELLOW}序号${RESET}" \
-        "${YELLOW}" "IP 地址" "${RESET}" \
-        "${YELLOW}" "封禁开始时间" "${RESET}"
-    echo "  ---------------------------------------------"
-
-    local idx=1 ban_time
-    for ip in "${all_ips[@]}"; do
-        if [[ " ${fb_ips[*]} " =~ " $ip " ]]; then
-            # 从日志中取最后一次 Ban 记录并提取时间戳
-            ban_time=$(sudo grep "Ban $ip" /var/log/fail2ban.log | tail -n1 | awk '{gsub(/,.*/, "", $2); print $1" "$2}')
-            [ -z "$ban_time" ] && ban_time="N/A"
-        else
-            ban_time="N/A"
-        fi
-        # 使用 %b 让 printf 正确解析颜色转义序列
-        printf "  %2d. %b%-17s%b  %s\n" \
-            "$idx" "${RED}" "$ip" "${RESET}" "$ban_time"
-        idx=$((idx+1))
-    done
-
-    echo -e "${BLUE}============================${RESET}"
+    
+    echo -e "${BLUE}==============================${RESET}"
     read -n1 -s -p "按任意键返回菜单..."
 }
 
