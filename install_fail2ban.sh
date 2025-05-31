@@ -155,56 +155,58 @@ function view_ssh_status() {
     echo -e "${GREEN}当前 SSH 端口: ${YELLOW}$ssh_port${RESET}"
     echo -e "${BLUE}==============================${RESET}"
     
-    # Get currently banned IPs from Fail2ban
+    # Fail2ban 封禁列表
     echo -e "${GREEN}当前活跃封禁 IP (Fail2ban):${RESET}"
-    local banned_ips
-    banned_ips=$(sudo fail2ban-client status sshd 2>/dev/null | awk -F':' '/Banned IP list:/ {print $2}' | sed 's/^[ \t]*//;s/[ \t]*$//')
+    local f2b_ips
+    f2b_ips=$(sudo fail2ban-client status sshd 2>/dev/null | grep "Banned IP list:" | sed 's/.*Banned IP list://' | xargs)
     
-    if [ -z "$banned_ips" ] || [ "$banned_ips" == "None" ]; then
+    if [[ -z "$f2b_ips" || "$f2b_ips" == "None" ]]; then
         echo -e "${YELLOW}当前没有活跃的 Fail2ban 封禁 IP${RESET}"
     else
-        # Split comma-separated IPs and process each one
-        IFS=',' read -ra ips <<< "$banned_ips"
+        # 将IP列表转换为数组
+        IFS=', ' read -ra ips <<< "$f2b_ips"
         local count=1
         for ip in "${ips[@]}"; do
-            ip=$(echo "$ip" | xargs)  # Trim whitespace
-            if [[ -n "$ip" ]]; then
-                # Get most recent ban time for this IP
-                local ban_time=$(sudo zgrep "Ban $ip" /var/log/fail2ban.log* 2>/dev/null | \
-                                awk '{print $1" "$2}' | tail -n 1)
-                
-                if [[ -z "$ban_time" ]]; then
-                    ban_time="时间未知"
-                fi
-                
-                printf "${YELLOW}%2d) ${RED}%-15s ${BLUE}封禁时间: ${GREEN}%s${RESET}\n" \
-                       "$count" "$ip" "$ban_time"
-                ((count++))
+            ip=$(echo "$ip" | xargs)  # 清理空格
+            [[ -z "$ip" ]] && continue
+            
+            # 获取封禁时间
+            local ban_time=$(sudo zgrep -h "Ban $ip" /var/log/fail2ban.log* 2>/dev/null | \
+                           awk '{print $1" "$2}' | tail -n 1)
+            
+            # 如果找不到时间，尝试其他方法
+            if [[ -z "$ban_time" ]]; then
+                ban_time=$(sudo iptables -L f2b-sshd -n --line-numbers | grep "$ip" | \
+                          awk '{print $7}' | cut -d: -f1)
+                [[ -n "$ban_time" ]] && ban_time=$(date -d "@$ban_time" "+%Y-%m-%d %H:%M:%S")
             fi
+            
+            printf "${YELLOW}%2d) ${RED}%-15s ${BLUE}封禁时间: ${GREEN}%s${RESET}\n" \
+                   "$count" "$ip" "${ban_time:-时间未知}"
+            ((count++))
         done
     fi
     
     echo -e "${BLUE}==============================${RESET}"
     
-    # Get currently banned IPs from UFW for SSH port
+    # UFW 封禁列表
     echo -e "${GREEN}当前活跃封禁 IP (UFW 针对端口 $ssh_port):${RESET}"
-    local ufw_ips=($(sudo ufw status | grep -E "$ssh_port.*DENY IN" | awk '{print $3}'))
+    local ufw_ips=()
+    while read -r line; do
+        [[ -n "$line" ]] && ufw_ips+=("$line")
+    done < <(sudo ufw status | grep -E "$ssh_port.*DENY IN" | awk '{print $3}')
     
-    if [ ${#ufw_ips[@]} -eq 0 ]; then
+    if [[ ${#ufw_ips[@]} -eq 0 ]]; then
         echo -e "${YELLOW}当前没有活跃的 UFW 封禁 IP${RESET}"
     else
         local count=1
         for ip in "${ufw_ips[@]}"; do
-            # Try to get ban time from UFW logs
-            local ban_time=$(sudo grep -m 1 "UFW BLOCK.*SRC=$ip" /var/log/ufw.log 2>/dev/null | \
-                            awk '{print $1" "$2}')
-            
-            if [[ -z "$ban_time" ]]; then
-                ban_time="时间未知"
-            fi
+            # 获取UFW封禁时间
+            local ban_time=$(sudo grep -m 1 "\[UFW BLOCK\] IN=.*SRC=${ip} " /var/log/ufw.log* 2>/dev/null | \
+                           awk '{print $1" "$2}' | head -n 1)
             
             printf "${YELLOW}%2d) ${RED}%-15s ${BLUE}封禁时间: ${GREEN}%s${RESET}\n" \
-                   "$count" "$ip" "$ban_time"
+                   "$count" "$ip" "${ban_time:-时间未知}"
             ((count++))
         done
     fi
