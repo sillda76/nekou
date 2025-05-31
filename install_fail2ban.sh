@@ -189,7 +189,7 @@ function view_ssh_status() {
     
     echo -e "${BLUE}==============================${RESET}"
     
-    # UFW 封禁列表
+    # UFW 封禁列表（仅限SSH端口）
     echo -e "${GREEN}当前活跃封禁 IP (UFW 针对端口 $ssh_port):${RESET}"
     local ufw_ips=()
     while read -r line; do
@@ -210,7 +210,6 @@ function view_ssh_status() {
             ((count++))
         done
     fi
-    
     echo -e "${BLUE}==============================${RESET}"
     read -n1 -s -p "按任意键返回菜单..."
 }
@@ -240,73 +239,70 @@ function tail_log() {
 
 #===== 手动封禁/解封 IP =====
 function manual_ban() {
+    # 首先显示当前封禁情况
+    view_ssh_status
+    
     local ssh_port ip_addr
     ssh_port=$(get_ssh_port)
 
-    echo -e "${YELLOW}1. 封禁 IP   2. 解封 IP${RESET}"
-    read -p "请选择 (1/2): " action
+    echo -e "${BLUE}==============================${RESET}"
+    echo -e "${YELLOW}00. 手动封禁 IP（仅限SSH端口 ${ssh_port}）${RESET}"
+    echo -e "${YELLOW}1-99. 解封对应序号的 IP${RESET}"
+    echo -e "${BLUE}==============================${RESET}"
+    read -p "请输入选择 (00 或 1-99): " action
 
-    if [ "$action" == "1" ]; then
+    if [ "$action" == "00" ]; then
         read -p "请输入要封禁的 IP: " ip_addr
-        echo -e "${BLUE}UFW 封禁 $ip_addr 端口 $ssh_port...${RESET}"
+        # 严格限制仅封禁 SSH 端口
+        echo -e "${BLUE}UFW 封禁 $ip_addr 仅限端口 $ssh_port (SSH)...${RESET}"
         sudo ufw deny from "$ip_addr" to any port "$ssh_port"
-        echo -e "${GREEN}已封禁 $ip_addr。${RESET}"
-        read -n1 -s -p "按任意键返回菜单…"
+        echo -e "${GREEN}已封禁 $ip_addr（仅限SSH端口 ${ssh_port}）。${RESET}"
+        read -n1 -s -p "按任意键返回菜单..."
+        return
+    fi
 
-    elif [ "$action" == "2" ]; then
-        # 获取 fail2ban sshd 已封禁的 IP 列表
-        local banned_line ips_fb=()
-        banned_line=$(sudo fail2ban-client status sshd 2>/dev/null | grep 'Banned IP list')
-        local ips_raw=${banned_line#*:}
-        IFS=',' read -ra tmp_fb <<< "$ips_raw"
+    # 解封逻辑
+    if [[ "$action" =~ ^[0-9]+$ ]] && [ "$action" -ge 1 ]; then
+        # 获取所有被封禁的IP（Fail2ban + UFW）
+        local all_ips=()
+        
+        # Fail2ban封禁的IP
+        local f2b_ips
+        f2b_ips=$(sudo fail2ban-client status sshd 2>/dev/null | grep "Banned IP list:" | sed 's/.*Banned IP list://' | xargs)
+        IFS=', ' read -ra tmp_fb <<< "$f2b_ips"
         for ip in "${tmp_fb[@]}"; do
             clean_ip=$(echo "$ip" | xargs)
-            [ -n "$clean_ip" ] && ips_fb+=("$clean_ip")
+            [ -n "$clean_ip" ] && all_ips+=("$clean_ip")
         done
-
-        # 获取 UFW 针对 SSH 端口的 DENY IP 列表
-        local ips_ufw=()
+        
+        # UFW封禁的IP（仅限SSH端口）
         while read -r ip; do
-            [ -n "$ip" ] && ips_ufw+=("$ip")
+            [ -n "$ip" ] && all_ips+=("$ip")
         done < <(sudo ufw status | grep "$ssh_port" | grep DENY | awk '{print $3}')
 
-        # 合并去重
-        declare -A seen
-        ips=()
-        for ip in "${ips_fb[@]}" "${ips_ufw[@]}"; do
-            [ -n "$ip" ] && [ -z "${seen[$ip]}" ] && { seen[$ip]=1; ips+=("$ip"); }
-        done
-
-        if [ ${#ips[@]} -eq 0 ]; then
-            echo -e "${RED}当前没有被封禁的 IP。${RESET}"
-            read -n1 -s -p "按任意键返回菜单…"
+        # 检查序号是否有效
+        if [ "$action" -gt "${#all_ips[@]}" ]; then
+            echo -e "${RED}无效的序号！${RESET}"
+            read -n1 -s -p "按任意键返回菜单..."
             return
         fi
 
-        # 显示动态选择菜单
-        echo -e "${BLUE}当前被封禁的 IP：${RESET}"
-        for i in "${!ips[@]}"; do
-            printf "%2d) %s\n" $((i+1)) "${ips[$i]}"
-        done
-        read -p "请输入要解封的序号 (1-${#ips[@]}): " sel
-
-        if ! [[ "$sel" =~ ^[0-9]+$ ]] || [ "$sel" -lt 1 ] || [ "$sel" -gt ${#ips[@]} ]; then
-            echo -e "${RED}无效选择！${RESET}"
-            read -n1 -s -p "按任意键返回菜单…"
-            return
+        ip_addr=${all_ips[$((action-1))]}
+        
+        read -p "确定要解封 $ip_addr 吗？(y/n): " confirm
+        if [[ "$confirm" =~ [Yy] ]]; then
+            echo -e "${BLUE}正在解除封禁：$ip_addr...${RESET}"
+            sudo ufw delete deny from "$ip_addr" to any port "$ssh_port" || true
+            sudo fail2ban-client set sshd unbanip "$ip_addr" || true
+            echo -e "${GREEN}已解封 $ip_addr。${RESET}"
+        else
+            echo -e "${YELLOW}已取消操作。${RESET}"
         fi
-
-        ip_addr=${ips[$((sel-1))]}
-        echo -e "${BLUE}正在解除封禁：$ip_addr…${RESET}"
-        sudo ufw delete deny from "$ip_addr" to any port "$ssh_port" || true
-        sudo fail2ban-client set sshd unbanip "$ip_addr" || true
-        echo -e "${GREEN}已解封 $ip_addr。${RESET}"
-        read -n1 -s -p "按任意键返回菜单…"
-
     else
-        echo -e "${RED}无效选择！${RESET}"
-        read -n1 -s -p "按任意键返回菜单…"
+        echo -e "${RED}无效输入！${RESET}"
     fi
+    
+    read -n1 -s -p "按任意键返回菜单..."
 }
 
 #===== 卸载并清理 =====
