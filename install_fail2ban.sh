@@ -194,7 +194,7 @@ function view_ssh_status() {
     local ufw_ips=()
     while read -r line; do
         [[ -n "$line" ]] && ufw_ips+=("$line")
-    done < <(sudo ufw status | grep -E "$ssh_port.*DENY IN" | awk '{print $3}')
+    done < <(sudo ufw status numbered | grep -E "$ssh_port.*DENY IN" | awk '{print $NF}')
     
     if [[ ${#ufw_ips[@]} -eq 0 ]]; then
         echo -e "${YELLOW}当前没有活跃的 UFW 封禁 IP${RESET}"
@@ -210,8 +210,29 @@ function view_ssh_status() {
             ((count++))
         done
     fi
+
+    # 手动封禁列表（通过UFW直接封禁的IP）
     echo -e "${BLUE}==============================${RESET}"
-    read -n1 -s -p "按任意键返回菜单..."
+    echo -e "${GREEN}手动封禁 IP (非Fail2ban封禁):${RESET}"
+    local manual_ips=()
+    while read -r line; do
+        [[ -n "$line" ]] && manual_ips+=("$line")
+    done < <(sudo ufw status numbered | grep -E "DENY IN.*Anywhere" | awk '{print $NF}')
+    
+    if [[ ${#manual_ips[@]} -eq 0 ]]; then
+        echo -e "${YELLOW}当前没有手动封禁的 IP${RESET}"
+    else
+        local count=1
+        for ip in "${manual_ips[@]}"; do
+            # 获取手动封禁时间
+            local ban_time=$(sudo grep -m 1 "\[UFW BLOCK\] IN=.*SRC=${ip} " /var/log/ufw.log* 2>/dev/null | \
+                           awk '{print $1" "$2}' | head -n 1)
+            
+            printf "${YELLOW}%2d) ${RED}%-15s ${BLUE}封禁时间: ${GREEN}%s${RESET}\n" \
+                   "$count" "$ip" "${ban_time:-时间未知}"
+            ((count++))
+        done
+    fi
 }
 
 #===== 查看配置文件 =====
@@ -239,7 +260,7 @@ function tail_log() {
 
 #===== 手动封禁/解封 IP =====
 function manual_ban() {
-    # 首先显示当前封禁情况
+    # 首先显示当前封禁情况（不显示"按任意键返回"）
     view_ssh_status
     
     local ssh_port ip_addr
@@ -257,13 +278,12 @@ function manual_ban() {
         echo -e "${BLUE}UFW 封禁 $ip_addr 仅限端口 $ssh_port (SSH)...${RESET}"
         sudo ufw deny from "$ip_addr" to any port "$ssh_port"
         echo -e "${GREEN}已封禁 $ip_addr（仅限SSH端口 ${ssh_port}）。${RESET}"
-        read -n1 -s -p "按任意键返回菜单..."
         return
     fi
 
     # 解封逻辑
     if [[ "$action" =~ ^[0-9]+$ ]] && [ "$action" -ge 1 ]; then
-        # 获取所有被封禁的IP（Fail2ban + UFW）
+        # 获取所有被封禁的IP（Fail2ban + UFW + 手动封禁）
         local all_ips=()
         
         # Fail2ban封禁的IP
@@ -278,12 +298,16 @@ function manual_ban() {
         # UFW封禁的IP（仅限SSH端口）
         while read -r ip; do
             [ -n "$ip" ] && all_ips+=("$ip")
-        done < <(sudo ufw status | grep "$ssh_port" | grep DENY | awk '{print $3}')
+        done < <(sudo ufw status numbered | grep "$ssh_port" | grep DENY | awk '{print $NF}')
+        
+        # 手动封禁的IP（非Fail2ban封禁）
+        while read -r ip; do
+            [ -n "$ip" ] && all_ips+=("$ip")
+        done < <(sudo ufw status numbered | grep "DENY IN.*Anywhere" | awk '{print $NF}')
 
         # 检查序号是否有效
         if [ "$action" -gt "${#all_ips[@]}" ]; then
             echo -e "${RED}无效的序号！${RESET}"
-            read -n1 -s -p "按任意键返回菜单..."
             return
         fi
 
@@ -301,8 +325,6 @@ function manual_ban() {
     else
         echo -e "${RED}无效输入！${RESET}"
     fi
-    
-    read -n1 -s -p "按任意键返回菜单..."
 }
 
 #===== 卸载并清理 =====
