@@ -147,7 +147,7 @@ function view_fail2ban_status() {
     read -n1 -s -p "按任意键返回菜单..."
 }
 
-#===== 查看 SSH 封禁情况（优化版：按行显示并带封禁时间） =====
+#===== 查看 SSH 封禁情况（最终优化版：修复颜色显示并为列名添加颜色） =====
 function view_ssh_status() {
     local ssh_port
     ssh_port=$(get_ssh_port)
@@ -189,25 +189,32 @@ function view_ssh_status() {
     readarray -t all_ips < <(printf "%s\n" "${fb_ips[@]}" "${ufw_ips[@]}" | sort -u -V)
 
     if [ ${#all_ips[@]} -eq 0 ]; then
-        echo "当前没有任何被封禁的 IP。"
+        echo -e "${YELLOW}当前没有任何被封禁的 IP。${RESET}"
         echo -e "${BLUE}============================${RESET}"
         read -n1 -s -p "按任意键返回菜单..."
         return
     fi
 
     # ----- 按行显示 IP 并显示封禁时间 -----
-    echo -e "${YELLOW}序号  IP 地址             封禁开始时间${RESET}"
-    echo "--------------------------------------------"
+    # 打印表头，给“序号”“IP 地址”“封禁开始时间”分别加颜色
+    printf "  %s  %s%-17s%s  %s%-19s%s\n" \
+        "${YELLOW}序号${RESET}" \
+        "${YELLOW}" "IP 地址" "${RESET}" \
+        "${YELLOW}" "封禁开始时间" "${RESET}"
+    echo "  ---------------------------------------------"
+
     local idx=1 ban_time
     for ip in "${all_ips[@]}"; do
-        # 如果在 fb_ips 中，则尝试从日志里获取封禁时间；否则设为 N/A
         if [[ " ${fb_ips[*]} " =~ " $ip " ]]; then
+            # 从日志中取最后一次 Ban 记录并提取时间戳
             ban_time=$(sudo grep "Ban $ip" /var/log/fail2ban.log | tail -n1 | awk '{gsub(/,.*/, "", $2); print $1" "$2}')
             [ -z "$ban_time" ] && ban_time="N/A"
         else
             ban_time="N/A"
         fi
-        printf "  %2d. %-17s  %s\n" "$idx" "${RED}$ip${RESET}" "${ban_time}"
+        # 使用 %b 让 printf 正确解析颜色转义序列
+        printf "  %2d. %b%-17s%b  %s\n" \
+            "$idx" "${RED}" "$ip" "${RESET}" "$ban_time"
         idx=$((idx+1))
     done
 
