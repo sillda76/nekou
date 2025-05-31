@@ -194,7 +194,7 @@ function view_ssh_status() {
     local ufw_ips=()
     while read -r line; do
         [[ -n "$line" ]] && ufw_ips+=("$line")
-    done < <(sudo ufw status | grep -E "$ssh_port.*DENY IN" | awk '{print $3}')
+    done < <(sudo ufw status | grep -E "$ssh_port.*DENY IN" | awk '{print $4}')
     
     if [[ ${#ufw_ips[@]} -eq 0 ]]; then
         echo -e "${YELLOW}当前没有活跃的 UFW 封禁 IP${RESET}"
@@ -267,7 +267,7 @@ function manual_ban() {
         # UFW封禁的IP（仅限SSH端口）
         while read -r ip; do
             [ -n "$ip" ] && all_ips+=("$ip")
-        done < <(sudo ufw status | grep "$ssh_port" | grep DENY | awk '{print $3}')
+        done < <(sudo ufw status | grep -E "$ssh_port.*DENY IN" | awk '{print $4}')
 
         # 检查序号是否有效
         if [ "$action" -gt "${#all_ips[@]}" ]; then
