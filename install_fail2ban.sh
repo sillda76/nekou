@@ -147,14 +147,57 @@ function view_fail2ban_status() {
     read -n1 -s -p "按任意键返回菜单..."
 }
 
-#===== 查看 SSH 封禁情况 =====
+#===== 查看 SSH 封禁情况（优化版：按行显示 IP） =====
 function view_ssh_status() {
     local ssh_port
     ssh_port=$(get_ssh_port)
-    echo -e "${GREEN}Fail2ban SSH 封禁：${RESET}"
-    sudo fail2ban-client status sshd 2>/dev/null
-    echo -e "${GREEN}UFW 规则中针对端口 $ssh_port 的 deny 条目：${RESET}"
-    sudo ufw status numbered | grep "$ssh_port"
+
+    echo -e "${BLUE}============================${RESET}"
+    echo -e "${GREEN}  SSH 封禁情况 (端口: $ssh_port)  ${RESET}"
+    echo -e "${BLUE}============================${RESET}"
+
+    # ----- Fail2ban 相关 -----
+    echo -e "${YELLOW}-- Fail2ban 状态 --${RESET}"
+    if sudo fail2ban-client status sshd &>/dev/null; then
+        # 获取被封禁 IP 列表
+        local banned_line ips_raw ips fb_ip
+        banned_line=$(sudo fail2ban-client status sshd | grep 'Banned IP list')
+        ips_raw=${banned_line#*:}
+
+        if [ -z "$ips_raw" ]; then
+            echo "当前没有被 Fail2ban 封禁的 IP。"
+        else
+            IFS=',' read -ra ips <<< "$ips_raw"
+            echo "Fail2ban 封禁 IP 列表："
+            for idx in "${!ips[@]}"; do
+                fb_ip=$(echo "${ips[$idx]}" | xargs)
+                [ -n "$fb_ip" ] && echo -e "  $((idx+1)). ${RED}$fb_ip${RESET}"
+            done
+        fi
+    else
+        echo "Fail2ban 未启用或未监控 sshd。"
+    fi
+
+    echo
+
+    # ----- UFW 相关 -----
+    echo -e "${YELLOW}-- UFW 限制规则 (端口 $ssh_port) --${RESET}"
+    local ufw_lines ufw_ips ufw_ip
+    ufw_lines=$(sudo ufw status numbered | grep "$ssh_port" | grep DENY)
+
+    if [ -z "$ufw_lines" ]; then
+        echo "UFW 中当前没有针对端口 $ssh_port 的 deny 规则。"
+    else
+        # 提取所有被封禁的 IP 并去重
+        readarray -t ufw_ips < <(echo "$ufw_lines" | awk '{print $3}' | sort -u)
+        echo "UFW deny 封禁 IP 列表："
+        for idx in "${!ufw_ips[@]}"; do
+            ufw_ip="${ufw_ips[$idx]}"
+            [ -n "$ufw_ip" ] && echo -e "  $((idx+1)). ${RED}$ufw_ip${RESET}"
+        done
+    fi
+
+    echo -e "${BLUE}============================${RESET}"
     read -n1 -s -p "按任意键返回菜单..."
 }
 
