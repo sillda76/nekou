@@ -158,7 +158,7 @@ function view_ssh_status() {
     # 显示当前时间和时区
     timezone=$(cat /etc/timezone 2>/dev/null)
     current_time=$(date +"%Y-%m-%d %H:%M")
-    echo -e "${YELLOW}${timezone} ${current_time}${RESET}"
+    echo -e "系统时间: ${YELLOW}${timezone} ${current_time}${RESET}"
 
     # Fail2ban 封禁列表
     echo -e "${GREEN}当前活跃封禁 IP (Fail2ban):${RESET}"
