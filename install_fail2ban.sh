@@ -4,12 +4,12 @@
 # 适用于 Debian/Ubuntu 系统
 #==================================================
 
-#===== 颜色变量 =====
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[0;33m"
-BLUE="\033[0;34m"
-RESET="\033[0m"
+#===== 颜色变量（重新定义） =====
+RED="\e[1;31m"
+GREEN="\e[1;32m"
+YELLOW="\e[1;33m"
+BLUE="\e[1;34m"
+RESET="\e[0m"
 
 #===== 获取 SSH 端口函数 =====
 function get_ssh_port() {
@@ -234,11 +234,17 @@ function manual_ban() {
     local ssh_port ip_addr
     ssh_port=$(get_ssh_port)
 
-    echo -e "${BLUE}==============================${RESET}"
+    # 不再显示分隔线，增加选项0返回
+    echo -e "${YELLOW}操作选项：${RESET}"
+    echo -e "${YELLOW}0. 返回${RESET}"
     echo -e "${YELLOW}00. 手动封禁 IP（仅限SSH端口 ${ssh_port}）${RESET}"
     echo -e "${YELLOW}1-99. 解封对应序号的 IP${RESET}"
-    echo -e "${BLUE}==============================${RESET}"
-    read -p "请输入选择 (00 或 1-99): " action
+    read -p "请输入选择 (0/00 或 1-99): " action
+
+    # 如果选择0，直接返回主菜单
+    if [ "$action" == "0" ]; then
+        return
+    fi
 
     if [ "$action" == "00" ]; then
         read -p "请输入要封禁的 IP: " ip_addr
