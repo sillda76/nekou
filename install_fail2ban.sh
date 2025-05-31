@@ -155,37 +155,32 @@ function view_ssh_status() {
     echo -e "${GREEN}当前 SSH 端口: ${YELLOW}$ssh_port${RESET}"
     echo -e "${BLUE}==============================${RESET}"
     
-    # Get Fail2ban banned IPs with timestamps
-    echo -e "${GREEN}Fail2ban 封禁列表 (按时间排序):${RESET}"
-    local banned_ips=()
-    if sudo fail2ban-client status sshd &>/dev/null; then
-        banned_ips=($(sudo zgrep 'Ban' /var/log/fail2ban.log* | grep sshd | awk '{print $NF,$1,$2}' | sort -k4 | uniq | awk '{print $1}'))
-        local ban_times=($(sudo zgrep 'Ban' /var/log/fail2ban.log* | grep sshd | awk '{print $NF,$1,$2,$3}' | sort -k4 | uniq | awk '{print $2,$3}'))
-        
-        if [ ${#banned_ips[@]} -eq 0 ]; then
-            echo -e "${YELLOW}当前没有通过 Fail2ban 封禁的 IP${RESET}"
-        else
-            for i in "${!banned_ips[@]}"; do
-                printf "${YELLOW}%2d) ${RED}%-15s ${BLUE}封禁时间: ${GREEN}%s\n" \
-                    $((i+1)) "${banned_ips[$i]}" "${ban_times[$i]}"
-            done
-        fi
+    # Get currently banned IPs from Fail2ban
+    echo -e "${GREEN}当前活跃封禁 IP (Fail2ban):${RESET}"
+    local banned_ips
+    banned_ips=$(sudo fail2ban-client status sshd 2>/dev/null | grep -A 1 "Banned IP list:" | tail -n 1 | sed 's/^[ \t]*//')
+    
+    if [ -z "$banned_ips" ] || [ "$banned_ips" == "None" ]; then
+        echo -e "${YELLOW}当前没有活跃的 Fail2ban 封禁 IP${RESET}"
     else
-        echo -e "${RED}Fail2ban sshd 监狱未启用或不存在${RESET}"
+        # Split comma-separated IPs and display with numbering
+        IFS=',' read -ra ips <<< "$banned_ips"
+        for i in "${!ips[@]}"; do
+            printf "${YELLOW}%2d) ${RED}%-15s${RESET}\n" $((i+1)) "$(echo ${ips[$i]} | xargs)"
+        done
     fi
     
     echo -e "${BLUE}==============================${RESET}"
     
-    # Get UFW blocked IPs for SSH port
-    echo -e "${GREEN}UFW 封禁列表 (针对端口 $ssh_port):${RESET}"
-    local ufw_ips=($(sudo ufw status numbered | grep "$ssh_port" | grep DENY | awk '{print $3}'))
+    # Get currently banned IPs from UFW for SSH port
+    echo -e "${GREEN}当前活跃封禁 IP (UFW 针对端口 $ssh_port):${RESET}"
+    local ufw_ips=($(sudo ufw status | grep "$ssh_port" | grep -E "DENY IN" | awk '{print $3}'))
     
     if [ ${#ufw_ips[@]} -eq 0 ]; then
-        echo -e "${YELLOW}当前没有通过 UFW 封禁的 IP${RESET}"
+        echo -e "${YELLOW}当前没有活跃的 UFW 封禁 IP${RESET}"
     else
         for i in "${!ufw_ips[@]}"; do
-            printf "${YELLOW}%2d) ${RED}%-15s ${BLUE}封禁方式: ${GREEN}UFW 规则\n" \
-                $((i+1)) "${ufw_ips[$i]}"
+            printf "${YELLOW}%2d) ${RED}%-15s${RESET}\n" $((i+1)) "${ufw_ips[$i]}"
         done
     fi
     
