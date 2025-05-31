@@ -147,7 +147,7 @@ function view_fail2ban_status() {
     read -n1 -s -p "按任意键返回菜单..."
 }
 
-#===== 查看 SSH 封禁情况（优化版：按行显示 IP） =====
+#===== 查看 SSH 封禁情况（优化版：按行显示并带封禁时间） =====
 function view_ssh_status() {
     local ssh_port
     ssh_port=$(get_ssh_port)
@@ -156,46 +156,60 @@ function view_ssh_status() {
     echo -e "${GREEN}  SSH 封禁情况 (端口: $ssh_port)  ${RESET}"
     echo -e "${BLUE}============================${RESET}"
 
-    # ----- Fail2ban 相关 -----
-    echo -e "${YELLOW}-- Fail2ban 状态 --${RESET}"
+    # ----- 获取 Fail2ban 封禁的 IP 列表 -----
+    local fb_banned_line fb_ips_raw fb_ips=() fb_ip
     if sudo fail2ban-client status sshd &>/dev/null; then
-        # 获取被封禁 IP 列表
-        local banned_line ips_raw ips fb_ip
-        banned_line=$(sudo fail2ban-client status sshd | grep 'Banned IP list')
-        ips_raw=${banned_line#*:}
-
-        if [ -z "$ips_raw" ]; then
-            echo "当前没有被 Fail2ban 封禁的 IP。"
-        else
-            IFS=',' read -ra ips <<< "$ips_raw"
-            echo "Fail2ban 封禁 IP 列表："
-            for idx in "${!ips[@]}"; do
-                fb_ip=$(echo "${ips[$idx]}" | xargs)
-                [ -n "$fb_ip" ] && echo -e "  $((idx+1)). ${RED}$fb_ip${RESET}"
+        fb_banned_line=$(sudo fail2ban-client status sshd | grep 'Banned IP list')
+        fb_ips_raw=${fb_banned_line#*:}
+        if [ -n "$fb_ips_raw" ]; then
+            IFS=',' read -ra fb_parts <<< "$fb_ips_raw"
+            for ip in "${fb_parts[@]}"; do
+                clean_ip=$(echo "$ip" | xargs)
+                [ -n "$clean_ip" ] && fb_ips+=("$clean_ip")
             done
         fi
-    else
-        echo "Fail2ban 未启用或未监控 sshd。"
     fi
 
-    echo
-
-    # ----- UFW 相关 -----
-    echo -e "${YELLOW}-- UFW 限制规则 (端口 $ssh_port) --${RESET}"
-    local ufw_lines ufw_ips ufw_ip
+    # ----- 获取 UFW 封禁的 IP 列表 -----
+    local ufw_lines ufw_ips=() ufw_ip
     ufw_lines=$(sudo ufw status numbered | grep "$ssh_port" | grep DENY)
-
-    if [ -z "$ufw_lines" ]; then
-        echo "UFW 中当前没有针对端口 $ssh_port 的 deny 规则。"
-    else
+    if [ -n "$ufw_lines" ]; then
         # 提取所有被封禁的 IP 并去重
-        readarray -t ufw_ips < <(echo "$ufw_lines" | awk '{print $3}' | sort -u)
-        echo "UFW deny 封禁 IP 列表："
-        for idx in "${!ufw_ips[@]}"; do
-            ufw_ip="${ufw_ips[$idx]}"
-            [ -n "$ufw_ip" ] && echo -e "  $((idx+1)). ${RED}$ufw_ip${RESET}"
+        readarray -t ufw_all < <(echo "$ufw_lines" | awk '{print $3}')
+        for ip in "${ufw_all[@]}"; do
+            # 如果此 IP 不在 fb_ips 数组中，再加入 ufw_ips
+            if [[ ! " ${fb_ips[*]} " =~ " $ip " ]]; then
+                ufw_ips+=("$ip")
+            fi
         done
     fi
+
+    # ----- 合并所有 IP 并排序 -----
+    local all_ips
+    readarray -t all_ips < <(printf "%s\n" "${fb_ips[@]}" "${ufw_ips[@]}" | sort -u -V)
+
+    if [ ${#all_ips[@]} -eq 0 ]; then
+        echo "当前没有任何被封禁的 IP。"
+        echo -e "${BLUE}============================${RESET}"
+        read -n1 -s -p "按任意键返回菜单..."
+        return
+    fi
+
+    # ----- 按行显示 IP 并显示封禁时间 -----
+    echo -e "${YELLOW}序号  IP 地址             封禁开始时间${RESET}"
+    echo "--------------------------------------------"
+    local idx=1 ban_time
+    for ip in "${all_ips[@]}"; do
+        # 如果在 fb_ips 中，则尝试从日志里获取封禁时间；否则设为 N/A
+        if [[ " ${fb_ips[*]} " =~ " $ip " ]]; then
+            ban_time=$(sudo grep "Ban $ip" /var/log/fail2ban.log | tail -n1 | awk '{gsub(/,.*/, "", $2); print $1" "$2}')
+            [ -z "$ban_time" ] && ban_time="N/A"
+        else
+            ban_time="N/A"
+        fi
+        printf "  %2d. %-17s  %s\n" "$idx" "${RED}$ip${RESET}" "${ban_time}"
+        idx=$((idx+1))
+    done
 
     echo -e "${BLUE}============================${RESET}"
     read -n1 -s -p "按任意键返回菜单..."
