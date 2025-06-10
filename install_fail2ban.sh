@@ -17,7 +17,7 @@ function show_menu() {
     # fail2ban 安装状态
     if dpkg -l | grep -qw fail2ban; then
         install_status="已安装"
-        # 尝试读取 jail.local 中配置的 SSH 端口
+        # 读取 jail.local 中配置的 SSH 端口
         ssh_port=$(grep -E '^port\s*=' /etc/fail2ban/jail.local 2>/dev/null | awk -F= '{gsub(/ /,"",$2); print $2}')
         [ -z "$ssh_port" ] && ssh_port=$(grep "^Port" /etc/ssh/sshd_config | awk '{print $2}' | head -n1)
         port_display="SSH端口: ${YELLOW}${ssh_port:-未知}${RESET}"
@@ -42,14 +42,10 @@ function show_menu() {
     echo -n "请选择操作: "
 }
 
-#===== 查看 fail2ban 原始状态 =====
-function original_view_status() {
-    if systemctl is-active --quiet fail2ban; then
-        echo -e "${GREEN}fail2ban 当前状态：已启动${RESET}"
-    else
-        echo -e "${RED}fail2ban 当前状态：未运行${RESET}"
-    fi
-    sudo fail2ban-client status 2>/dev/null
+#===== 查看 fail2ban 状态 =====
+function view_fail2ban_status() {
+    echo -e "${GREEN}当前 fail2ban 状态:${RESET}"
+    sudo service fail2ban status
 }
 
 #===== 安装 fail2ban =====
@@ -114,41 +110,39 @@ EOF
     cron_job="0 0 */15 * * root echo '' > /var/log/fail2ban.log"
     (sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log'; echo "$cron_job") | sudo crontab -
 
-    echo -e "${BLUE}当前 fail2ban 运行状态:${RESET}"
     original_view_status
-
-    echo -e "${GREEN}fail2ban 安装完成。${RESET}"
 }
 
-#===== 查看 fail2ban 状态 =====
-function view_fail2ban_status() {
-    echo -e "${GREEN}当前 fail2ban 状态:${RESET}"
-    sudo service fail2ban status
-    echo -e "${YELLOW}按任意键返回菜单...${RESET}"
-    read -n 1 -s
+#===== 查看 fail2ban 原始状态 =====
+function original_view_status() {
+    if systemctl is-active --quiet fail2ban; then
+        echo -e "${GREEN}fail2ban 当前状态：已启动${RESET}"
+    else
+        echo -e "${RED}fail2ban 当前状态：未运行${RESET}"
+    fi
+    sudo fail2ban-client status 2>/dev/null
 }
 
 #===== 查看 SSH 封禁情况 & 手动解封/封禁 =====
 function view_ssh_status() {
     echo -e "${GREEN}SSH 服务封禁情况：${RESET}"
     raw_ips=$(sudo fail2ban-client status sshd 2>/dev/null | grep 'Banned IP list' | cut -d: -f2)
-    ips=$(echo $raw_ips | sed 's/^ *//;s/ *$//' | tr ',' ' ')
-    if [ -z "$ips" ]; then
+    ips=( $(echo $raw_ips | sed 's/^ *//;s/ *$//' | tr ',' ' ') )
+    if [ ${#ips[@]} -eq 0 ] || [ -z "${ips[0]}" ]; then
         echo -e "${YELLOW}当前没有被封禁的 IP。${RESET}"
     else
         echo -e "${GREEN}当前被封禁的 IP 及封禁时间：${RESET}"
         printf "%-5s %-20s %-20s\n" "序号" "IP 地址" "封禁时间"
-        i=1
-        for ip in $ips; do
+        for i in "${!ips[@]}"; do
+            ip=${ips[i]}
             ban_time=$(sudo grep "Ban $ip" /var/log/fail2ban.log | tail -n1 | awk '{print $1 " " $2}')
             printf "${BLUE}%-5s${RESET} ${RED}%-20s${RESET} ${YELLOW}%-20s${RESET}\n" \
-                "$i" "$ip" "${ban_time:-未知}"
-            ((i++))
+                "$((i+1))" "$ip" "${ban_time:-未知}"
         done
     fi
 
     echo -e "${BLUE}----------------------------------------${RESET}"
-    echo -e "${YELLOW}输入序号 解封对应 IP，输入99 手动封禁，输入0 返回主菜单${RESET}"
+    echo -e "${YELLOW}输入序号解封对应 IP，输入99手动封禁，输入0返回主菜单${RESET}"
     read -p "请选择: " sel
     case $sel in
         0) return ;;
@@ -158,19 +152,17 @@ function view_ssh_status() {
             echo -e "${GREEN}IP $banip 已被手动封禁。${RESET}"
             ;;
         ''|*[!0-9]*)
-            echo -e "${RED}无效输入${RESET}" ;;
+            echo -e "${RED}无效输入。${RESET}" ;;
         *)
-            if [ "$sel" -ge 1 ] && [ "$sel" -lt "$i" ]; then
-                target_ip=$(echo $ips | awk -v idx=$sel '{print $idx}')
+            if [ "$sel" -ge 1 ] && [ "$sel" -le "${#ips[@]}" ]; then
+                target_ip=${ips[$((sel-1))]}
                 sudo fail2ban-client set sshd unbanip "$target_ip"
                 echo -e "${GREEN}IP $target_ip 已被解封。${RESET}"
             else
-                echo -e "${RED}无效序号${RESET}"
+                echo -e "${RED}无效序号。${RESET}"
             fi
             ;;
     esac
-    echo -e "${YELLOW}按任意键返回主菜单...${RESET}"
-    read -n 1 -s
 }
 
 #===== 查看配置文件 =====
@@ -181,8 +173,6 @@ function view_config() {
     else
         echo -e "${RED}/etc/fail2ban/jail.local 文件不存在！${RESET}"
     fi
-    echo -e "${YELLOW}按任意键返回主菜单...${RESET}"
-    read -n 1 -s
 }
 
 #===== 实时查看 fail2ban 日志 =====
@@ -204,8 +194,6 @@ function uninstall_fail2ban() {
     sudo rm -f /var/log/fail2ban.log
     sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log' | sudo crontab -
     echo -e "${GREEN}fail2ban 已卸载，相关日志及配置文件已清理。${RESET}"
-    echo -e "${YELLOW}按任意键返回主菜单...${RESET}"
-    read -n 1 -s
 }
 
 #===== 主菜单循环 =====
@@ -225,7 +213,12 @@ while true; do
             ;;
         *)
             echo -e "${RED}无效选项，请重新选择。${RESET}"
-            sleep 1
             ;;
     esac
+
+    # 对于所有有效或无效选择，均提示按键后继续（除了退出）
+    if [ "$choice" != "0" ]; then
+        echo -e "${YELLOW}按任意键继续...${RESET}"
+        read -n1 -s
+    fi
 done
