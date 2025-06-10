@@ -14,17 +14,23 @@ RESET="\033[0m"  # 无颜色
 #===== 显示主菜单 =====
 function show_menu() {
     clear
-    local install_status
+    # fail2ban 安装状态
     if dpkg -l | grep -qw fail2ban; then
         install_status="已安装"
     else
         install_status="未安装"
     fi
+    # iptables 运行状态
+    if systemctl is-active --quiet iptables; then
+        ipt_status="运行中"
+    else
+        ipt_status="未运行"
+    fi
 
     echo -e "${BLUE}==============================${RESET}"
     echo -e "${GREEN}      Fail2ban 管理脚本       ${RESET}"
     echo -e "${BLUE}==============================${RESET}"
-    echo -e "当前状态: ${YELLOW}${install_status}${RESET}"
+    echo -e "Fail2ban: ${YELLOW}${install_status}${RESET}    iptables: ${YELLOW}${ipt_status}${RESET}"
     echo -e "${BLUE}==============================${RESET}"
     echo -e "${YELLOW}1. 安装 fail2ban${RESET}"
     echo -e "${YELLOW}2. 查看 fail2ban 状态${RESET}"
@@ -124,10 +130,26 @@ function view_fail2ban_status() {
     read -n 1 -s
 }
 
-#===== 查看 SSH 封禁状态 =====
+#===== 查看 SSH 封禁状态及封禁时间 =====
 function view_ssh_status() {
     echo -e "${GREEN}SSH 服务封禁情况：${RESET}"
-    sudo fail2ban-client status sshd 2>/dev/null
+    # 获取当前被封禁的 IP 列表
+    ips=$(sudo fail2ban-client status sshd 2>/dev/null | grep 'Banned IP list' | cut -d: -f2)
+    # 清理首尾空格
+    ips=$(echo $ips | sed 's/^ *//;s/ *$//')
+    if [ -z "$ips" ]; then
+        echo -e "${YELLOW}当前没有被封禁的 IP。${RESET}"
+        return
+    fi
+
+    echo -e "${GREEN}当前被封禁的 IP 及封禁时间：${RESET}"
+    printf "%-20s %-20s\n" "IP 地址" "封禁时间"
+    echo "$ips" | tr ',' '\n' | while read ip; do
+        [ -z "$ip" ] && continue
+        # 从日志中找最后一次 Ban 记录
+        ban_time=$(sudo grep "Ban $ip" /var/log/fail2ban.log | tail -n1 | awk '{print $1 " " $2}')
+        printf "%-20s %-20s\n" "$ip" "${ban_time:-未知}"
+    done
 }
 
 #===== 查看配置文件 =====
