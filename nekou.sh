@@ -86,20 +86,17 @@ set_dns() {
         return
     fi
 
-    # 取消 systemd-resolved 控制 resolv.conf
     echo -e "${YELLOW}正在禁用 systemd-resolved 并断开 resolv.conf 链接喵～${NC}"
     sudo systemctl disable --now systemd-resolved >/dev/null 2>&1
     sudo systemctl mask systemd-resolved >/dev/null 2>&1
 
-    # 如果 resolv.conf 是符号链接，则断开
     if [ -L /etc/resolv.conf ]; then
         sudo unlink /etc/resolv.conf
     fi
 
-    # 创建新的 resolv.conf
-    sudo bash -c 'echo "" > /etc/resolv.conf'
+    # 清空 resolv.conf，不添加空行
+    sudo truncate -s 0 /etc/resolv.conf
 
-    # 写入 DNS 内容
     if [[ $network_stack == "ipv4" || $network_stack == "dual" ]]; then
         echo "nameserver $dns1_ipv4" | sudo tee -a /etc/resolv.conf >/dev/null
         echo "nameserver $dns2_ipv4" | sudo tee -a /etc/resolv.conf >/dev/null
@@ -109,7 +106,6 @@ set_dns() {
         echo "nameserver $dns2_ipv6" | sudo tee -a /etc/resolv.conf >/dev/null
     fi
 
-    # 设置不可修改保护
     sudo chattr +i /etc/resolv.conf 2>/dev/null
 
     echo -e "${GREEN}DNS 优化完成，当前配置：${NC}"
