@@ -100,9 +100,9 @@ EOF
     echo -e "${GREEN}fail2ban 已启动并设置为开机自启。${RESET}"
 
     #（可选）不推荐清空日志，以下语句注释掉
-    # echo -e "${BLUE}设置定时任务，每15天清空 fail2ban 日志...${RESET}"
-    # cron_job="0 0 */15 * * root echo '' > /var/log/fail2ban.log"
-    # (sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log'; echo "$cron_job") | sudo crontab -
+    echo -e "${BLUE}设置定时任务，每15天清空 fail2ban 日志...${RESET}"
+    cron_job="0 0 */15 * * root echo '' > /var/log/fail2ban.log"
+    (sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log'; echo "$cron_job") | sudo crontab -
 
     view_fail2ban_status
 }
