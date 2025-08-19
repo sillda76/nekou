@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # install_fail2ban.sh - Debian/Ubuntu 交互脚本（最终版）
-# 包含：安装/配置 Fail2Ban（忽略本地地址）、每15天清空日志、封禁管理（按要求格式显示时间）、卸载并清理 cron & 脚本
+# 功能：
+#  - 安装并配置 Fail2Ban（仅 SSH），ignoreip 包含 127.0.0.1/8 ::1
+#  - 使用明确的 ssh 日志路径（Debian/Ubuntu: /var/log/auth.log 或 /var/log/secure）
+#  - 每15天清空 fail2ban 日志（通过 root crontab）
+#  - 查看状态、配置、实时日志、查看/解封封禁 IP、卸载并清理 cron & 脚本
 set -euo pipefail
 
 # 颜色变量（使用 \033 更稳健）
@@ -15,7 +19,7 @@ if [ "$EUID" -ne 0 ]; then
   err "请以 root 或 sudo 运行：sudo bash $0"
 fi
 
-# --- 可调参数 ---
+# ---------- 可调项 ----------
 SSH_PORT=22
 BANTIME=600                     # 封禁时长（秒）
 JAIL="sshd"
@@ -50,6 +54,7 @@ show_install_status(){
   fi
 }
 
+# 选择合适的 ssh 日志路径
 detect_ssh_logpath(){
   if [ -f "${SSH_AUTH_LOG}" ]; then
     printf "%s" "${SSH_AUTH_LOG}"
@@ -60,6 +65,7 @@ detect_ssh_logpath(){
   fi
 }
 
+# 创建清空日志脚本并添加 cron（若不存在）
 setup_periodic_log_clear(){
   cat > "${CLEAR_SCRIPT}" <<'EOF'
 #!/usr/bin/env bash
@@ -105,6 +111,20 @@ install_fail2ban(){
   info "确保 UFW 允许 SSH ${SSH_PORT}/tcp（避免被锁死）"
   ufw allow "${SSH_PORT}/tcp" || warn "ufw allow 返回非零（若 ufw 未启用这是正常的）"
 
+  # —— 关键：设置 UFW 默认为允许所有传入（因为你要用 UFW 仅配合 fail2ban）
+  info "将 UFW 设置为允许所有传入连接（UFW 仅用于配合 Fail2Ban 封禁）"
+  ufw default allow incoming || warn "设置 ufw default allow incoming 返回非零"
+  ufw default allow outgoing || true
+
+  # 再次确认放行 SSH（冗余安全）
+  ufw allow "${SSH_PORT}/tcp" || true
+
+  # 重启/启用 ufw
+  ufw --force enable || warn "启用 UFW 返回非零"
+  if systemctl list-units --type=service --all | grep -q '^ufw\.service'; then
+    systemctl restart ufw || warn "重启 ufw 返回非零"
+  fi
+
   SSH_LOGPATH="$(detect_ssh_logpath)"
   info "使用 SSH 日志路径：${SSH_LOGPATH}"
 
@@ -128,17 +148,7 @@ EOF
   info "重启 fail2ban 服务"
   systemctl restart fail2ban || warn "重启 fail2ban 返回非零"
 
-  UFW_STATUS="$(ufw status verbose 2>/dev/null || true)"
-  if echo "$UFW_STATUS" | grep -qi "Status: active"; then
-    info "UFW 已启用"
-  else
-    info "启用 UFW（已放行 SSH）"
-    ufw --force enable || warn "启用 UFW 返回非零"
-  fi
-  if systemctl list-units --type=service --all | grep -q '^ufw\.service'; then
-    systemctl restart ufw || warn "重启 ufw 返回非零"
-  fi
-
+  # 添加定期清理任务
   setup_periodic_log_clear
 
   echo -e "${SEP}"
@@ -201,15 +211,13 @@ show_bans(){
     IFS=$'\n'
     i=1
     for line in ${BANS_RAW}; do
-      # 期望格式： "<IP> <timestamp...>"，比如 "120.239.207.90 2025-08-19 19:49:09"
       ip=$(printf "%s" "${line}" | awk '{print $1}')
       t=$(printf "%s" "${line}" | cut -d' ' -f2-)
-      # 计算解封时间（尝试使用 date -d）
+      # 尝试用 date 解析并计算解封时间
       if unban_ts=$(date -d "${t} + ${BANTIME} seconds" '+%F %T %z' 2>/dev/null); then
         printf " %2d) %s\n" "${i}" "${ip}"
         printf "   Ban %s + ${BANTIME}s = Unban %s\n" "${t}" "${unban_ts}"
       else
-        # 若 date 解析失败，展示原始时间并标注 N/A
         printf " %2d) %s\n" "${i}" "${ip}"
         printf "   Ban %s + ${BANTIME}s = Unban N/A\n" "${t}"
       fi
@@ -254,7 +262,9 @@ show_bans(){
 uninstall_fail2ban(){
   echo -e "${SEP}"
   warn "你即将卸载 Fail2Ban 并清理配置与日志。此操作不可撤销。"
-  read -r -p "确认卸载？请输入 ${YELLOW}[Y/n]${RESET} （默认 N，即取消）: " CONF
+  # 修复显示问题：先用 printf 输出带颜色提示，再 read
+  printf "确认卸载？请输入 ${YELLOW}[Y/n]${RESET} （默认 N，即取消）: "
+  read -r CONF
   case "${CONF:-n}" in
     [Yy])
       info "确认：开始卸载并清理..."
