@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# install_fail2ban.sh - Debian/Ubuntu 交互脚本（带颜色、分隔线、封禁管理与安全卸载确认）
+# install_fail2ban.sh - Debian/Ubuntu 交互脚本
+# 包含：忽略本地地址、每15天清空日志、封禁管理、以及在卸载时删除 cron 任务
 set -euo pipefail
 
 # 颜色变量
@@ -19,6 +20,9 @@ JAIL="sshd"
 JAIL_DIR="/etc/fail2ban/jail.d"
 JAIL_FILE="${JAIL_DIR}/sshd-ufw.local"
 LOG_FILE="/var/log/fail2ban.log"
+CLEAR_SCRIPT="/usr/local/bin/clear_fail2ban_log.sh"
+CRON_MARK="# clear_fail2ban_log every 15 days"
+CRON_LINE="0 3 */15 * * ${CLEAR_SCRIPT} >/dev/null 2>&1"
 SEP="=============================="
 
 press_any(){
@@ -39,6 +43,35 @@ show_install_status(){
     printf "${BOLD}UFW:${RESET} ${GREEN}已安装${RESET}\n"
   else
     printf "${BOLD}UFW:${RESET} ${RED}未安装${RESET}\n"
+  fi
+}
+
+# 创建清空日志脚本并添加 cron（若不存在）
+setup_periodic_log_clear(){
+  # 写入清空脚本（截断日志）
+  cat > "${CLEAR_SCRIPT}" <<'EOF'
+#!/usr/bin/env bash
+LOG="/var/log/fail2ban.log"
+if [ -f "${LOG}" ]; then
+  : > "${LOG}"
+  chown root:root "${LOG}" 2>/dev/null || true
+  chmod 644 "${LOG}" 2>/dev/null || true
+fi
+EOF
+  chmod 755 "${CLEAR_SCRIPT}"
+  info "已创建 ${CLEAR_SCRIPT}（用于清空 ${LOG_FILE}）"
+
+  # 在 root 的 crontab 中添加注释标记行和定时任务（避免重复）
+  CRONTAB_CONTENT="$(crontab -l 2>/dev/null || true)"
+  if printf "%s\n" "$CRONTAB_CONTENT" | grep -Fq "${CRON_MARK}"; then
+    info "crontab 中已存在定时清理任务，跳过添加。"
+  else
+    {
+      printf "%s\n" "$CRONTAB_CONTENT"
+      printf "%s\n" "${CRON_MARK}"
+      printf "%s\n" "${CRON_LINE}"
+    } | crontab -
+    info "已将定时任务添加到 root 的 crontab：${CRON_LINE}"
   fi
 }
 
@@ -69,6 +102,7 @@ enabled = true
 port    = ${SSH_PORT}
 filter  = sshd
 logpath = %(sshd_log)s
+ignoreip = 127.0.0.1/8 ::1
 maxretry = 5
 findtime = 300
 bantime  = 600
@@ -91,7 +125,14 @@ EOF
     systemctl restart ufw || warn "重启 ufw 返回非零"
   fi
 
-  info "安装与配置完成。配置文件：${JAIL_FILE}"
+  # 设置每15天清空日志的脚本和 crontab
+  setup_periodic_log_clear
+
+  # 安装完成后显示服务状态
+  echo -e "${SEP}"
+  info "安装与配置已完成，显示 fail2ban 服务状态："
+  systemctl status fail2ban --no-pager -l || true
+  echo -e "${SEP}"
 }
 
 show_status(){
@@ -138,7 +179,7 @@ show_bans(){
     return
   fi
 
-  # 优先尝试带时间的输出（兼容性不同的 fail2ban 版本）
+  # 尝试带时间的输出
   BANS_RAW=$(fail2ban-client get ${JAIL} banip --with-time 2>/dev/null || true)
 
   if [ -n "$BANS_RAW" ]; then
@@ -190,9 +231,9 @@ show_bans(){
 uninstall_fail2ban(){
   echo -e "${SEP}"
   warn "你即将卸载 Fail2Ban 并清理配置与日志。此操作不可撤销。"
-  read -r -p "输入 ${RED}'yes'${RESET} 确认卸载（输入其它内容取消）: " CONF
-  case "${CONF,,}" in
-    yes|y)
+  read -r -p "确认卸载？请输入 ${YELLOW}[Y/n]${RESET} （默认 N，即取消）: " CONF
+  case "${CONF:-n}" in
+    [Yy])
       info "确认：开始卸载并清理..."
       systemctl stop fail2ban || true
       apt-get purge -y fail2ban || true
@@ -202,8 +243,23 @@ uninstall_fail2ban(){
       info "清理配置和日志"
       rm -rf /etc/fail2ban
       rm -f /var/log/fail2ban.log
-      systemctl daemon-reload || true
 
+      # 删除我们创建的清理脚本（如存在）
+      if [ -f "${CLEAR_SCRIPT}" ]; then
+        rm -f "${CLEAR_SCRIPT}"
+        info "已删除 ${CLEAR_SCRIPT}"
+      fi
+
+      # 从 root crontab 中删除我们添加的注释和 cron 行（更稳健的删除）
+      OLD_CRON="$(crontab -l 2>/dev/null || true)"
+      if [ -n "${OLD_CRON}" ]; then
+        # 删除恰好等于 CRON_MARK 或 CRON_LINE 的行
+        NEW_CRON="$(printf "%s\n" "${OLD_CRON}" | awk -v m="${CRON_MARK}" -v l="${CRON_LINE}" '$0!=m && $0!=l')"
+        printf "%s\n" "${NEW_CRON}" | crontab - 2>/dev/null || true
+        info "已从 crontab 中移除定时清理任务（如存在）"
+      fi
+
+      systemctl daemon-reload || true
       info "卸载并清理完成。"
       ;;
     *)
@@ -221,12 +277,12 @@ while true; do
 
   cat <<EOF
 ${CYAN}请选择操作：${RESET}
- ${GREEN}1)${RESET} 安装并配置 Fail2Ban
+ ${GREEN}1)${RESET} 安装并配置 Fail2Ban（并设置每15天清空日志）
  ${GREEN}2)${RESET} 查看 fail2ban 服务状态
  ${GREEN}3)${RESET} 查看 fail2ban 配置文件
  ${GREEN}4)${RESET} 查看实时日志
  ${GREEN}5)${RESET} 查看封禁情况并可解除封禁
- ${GREEN}6)${RESET} 卸载 Fail2Ban（含配置与日志，需确认）
+ ${GREEN}6)${RESET} 卸载 Fail2Ban（含配置与日志，需确认 Y/y 才卸载）
  ${GREEN}0)${RESET} 退出
 
 EOF
