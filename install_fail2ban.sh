@@ -193,7 +193,6 @@ show_logs(){
   echo -e "${SEP}"
 }
 
-# ------------ 优化后的 show_bans (选项5) ------------
 show_bans(){
   echo -e "${SEP}"
   if ! systemctl is-active --quiet fail2ban; then
@@ -207,20 +206,13 @@ show_bans(){
 
   declare -A BAN_MAP
   if [ -n "${BANS_RAW}" ]; then
-    info "当前封禁列表（带时间）："
+    info "当前封禁列表："
     IFS=$'\n'
     i=1
     for line in ${BANS_RAW}; do
       ip=$(printf "%s" "${line}" | awk '{print $1}')
       t=$(printf "%s" "${line}" | cut -d' ' -f2-)
-      # 尝试用 date 解析并计算解封时间
-      if unban_ts=$(date -d "${t} + ${BANTIME} seconds" '+%F %T %z' 2>/dev/null); then
-        printf " %2d) %s\n" "${i}" "${ip}"
-        printf "   Ban %s + ${BANTIME}s = Unban %s\n" "${t}" "${unban_ts}"
-      else
-        printf " %2d) %s\n" "${i}" "${ip}"
-        printf "   Ban %s + ${BANTIME}s = Unban N/A\n" "${t}"
-      fi
+      printf " %2d) %-15s      Ban  %s\n" "${i}" "${ip}" "${t}"
       BAN_MAP[$i]="${ip}"
       ((i++))
     done
@@ -236,8 +228,7 @@ show_bans(){
     info "当前封禁列表（不含时间）："
     i=1
     for ip in ${BANS_LINE}; do
-      printf " %2d) %s\n" "${i}" "${ip}"
-      printf "   Ban time: N/A + ${BANTIME}s = Unban: N/A\n"
+      printf " %2d) %-15s      Ban  N/A\n" "${i}" "${ip}"
       BAN_MAP[$i]="${ip}"
       ((i++))
     done
@@ -257,7 +248,6 @@ show_bans(){
   fi
   echo -e "${SEP}"
 }
-# ----------------------------------------------------
 
 uninstall_fail2ban(){
   echo -e "${SEP}"
