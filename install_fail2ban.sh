@@ -1,207 +1,246 @@
-#!/bin/bash
-#==================================================
-# Fail2ban 安装与管理脚本
-# 适用于 Debian/Ubuntu 系统
-#==================================================
+#!/usr/bin/env bash
+# install_fail2ban.sh - Debian/Ubuntu 交互脚本（带颜色、分隔线、封禁管理与安全卸载确认）
+set -euo pipefail
 
-#===== 颜色变量 =====
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[0;33m"
-BLUE="\033[0;34m"
-RESET="\033[0m"  # 无颜色
+# 颜色变量
+RED="\e[31m"; GREEN="\e[32m"; YELLOW="\e[33m";
+BLUE="\e[34m"; CYAN="\e[36m"; BOLD="\e[1m"; RESET="\e[0m"
 
-#===== 显示主菜单 =====
-function show_menu() {
-    clear
-    if dpkg -l | grep -qw fail2ban; then
-        install_status="已安装"
-        ssh_port=$(grep -E '^port\s*=' /etc/fail2ban/jail.local 2>/dev/null | awk -F= '{gsub(/ /,"",$2); print $2}')
-        [ -z "$ssh_port" ] && ssh_port=$(grep "^Port" /etc/ssh/sshd_config | awk '{print $2}' | head -n1)
-        port_display="SSH端口: ${YELLOW}${ssh_port:-未知}${RESET}"
-    else
-        install_status="未安装"
-        port_display=""
-    fi
+info(){ printf "${BLUE}[INFO]${RESET} %s\n" "$*"; }
+warn(){ printf "${YELLOW}[WARN]${RESET} %s\n" "$*"; }
+err(){ printf "${RED}[ERROR]${RESET} %s\n" "$*\n" >&2; exit 1; }
 
-    echo -e "${BLUE}==============================${RESET}"
-    echo -e "${GREEN}      Fail2ban 管理脚本       ${RESET}"
-    echo -e "${BLUE}==============================${RESET}"
-    echo -e "Fail2ban: ${YELLOW}${install_status}${RESET}    ${port_display}"
-    echo -e "${BLUE}==============================${RESET}"
-    echo -e "${YELLOW}1. 安装 fail2ban${RESET}"
-    echo -e "${YELLOW}2. 查看 fail2ban 状态${RESET}"
-    echo -e "${YELLOW}3. 查看 SSH 服务封禁情况${RESET}"
-    echo -e "${YELLOW}4. 查看配置文件${RESET}"
-    echo -e "${YELLOW}5. 实时查看 fail2ban 日志${RESET}"
-    echo -e "${YELLOW}6. 卸载 fail2ban 并清理日志${RESET}"
-    echo -e "${YELLOW}0. 退出${RESET}"
-    echo -e "${BLUE}==============================${RESET}"
-    echo -n "请选择操作: "
+if [ "$EUID" -ne 0 ]; then
+  err "请以 root 或 sudo 运行：sudo bash $0"
+fi
+
+SSH_PORT=22
+JAIL="sshd"
+JAIL_DIR="/etc/fail2ban/jail.d"
+JAIL_FILE="${JAIL_DIR}/sshd-ufw.local"
+LOG_FILE="/var/log/fail2ban.log"
+SEP="=============================="
+
+press_any(){
+  printf "\n${CYAN}按任意键继续...${RESET}"
+  read -r -n1 -s
+  printf "\n"
 }
 
-#===== 查看 fail2ban 状态 =====
-function view_fail2ban_status() {
-    echo -e "${GREEN}当前 fail2ban 状态:${RESET}"
-    sudo systemctl status fail2ban
+is_installed(){ command -v "$1" >/dev/null 2>&1; }
+
+show_install_status(){
+  if is_installed fail2ban-client || dpkg -s fail2ban >/dev/null 2>&1; then
+    printf "${BOLD}Fail2ban:${RESET} ${GREEN}已安装${RESET}    "
+  else
+    printf "${BOLD}Fail2ban:${RESET} ${RED}未安装${RESET}    "
+  fi
+  if is_installed ufw || dpkg -s ufw >/dev/null 2>&1; then
+    printf "${BOLD}UFW:${RESET} ${GREEN}已安装${RESET}\n"
+  else
+    printf "${BOLD}UFW:${RESET} ${RED}未安装${RESET}\n"
+  fi
 }
 
-#===== 安装 fail2ban =====
-function install_fail2ban() {
-    echo -e "${GREEN}开始安装 fail2ban...${RESET}"
-    sudo apt-get update && sudo apt-get upgrade -y
-    sudo apt-get install -y rsyslog iptables
+install_fail2ban(){
+  info "检测发行版信息..."
+  [ -f /etc/os-release ] && . /etc/os-release && info "Detected: $PRETTY_NAME"
+  info "架构: dpkg $(dpkg --print-architecture 2>/dev/null || echo unknown), uname $(uname -m)"
 
-    if [ -f /etc/os-release ]; then
-        source /etc/os-release
-        echo -e "${GREEN}系统: $NAME $VERSION${RESET}"
-    else
-        echo -e "${RED}无法检测系统环境，可能不是 Debian/Ubuntu 系统。${RESET}"
-    fi
+  export DEBIAN_FRONTEND=noninteractive
+  info "apt update && apt upgrade -y"
+  apt-get update -y
+  apt-get upgrade -y
 
-    ssh_port=$(grep "^Port" /etc/ssh/sshd_config | awk '{print $2}' | head -n1)
-    if [ -z "$ssh_port" ]; then
-        echo -e "${YELLOW}未能自动检测到 SSH 端口，请手动输入。${RESET}"
-        read -p "请输入 SSH 端口: " ssh_port
-        read -p "确认 SSH 端口为 $ssh_port (y/n): " confirm
-        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-            echo -e "${RED}SSH 端口未确认，退出安装。${RESET}"
-            return
-        fi
-    else
-        echo -e "${GREEN}检测到 SSH 端口: $ssh_port${RESET}"
-    fi
+  info "安装 ufw（如未安装）"
+  apt-get install -y ufw
 
-    sudo apt-get install -y fail2ban
+  info "确保 UFW 允许 SSH ${SSH_PORT}/tcp"
+  ufw allow "${SSH_PORT}/tcp" || warn "ufw allow 返回非零"
 
-    [ -f /etc/fail2ban/jail.conf ] && sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.conf.bak
+  info "安装 fail2ban（如未安装）"
+  apt-get install -y fail2ban
 
-    sudo bash -c "cat > /etc/fail2ban/jail.local" <<EOF
-[DEFAULT]
-ignoreip = 127.0.0.1/8 ::1
-bantime  = 600
-findtime = 300
-maxretry = 5
-
-[sshd]
+  info "写入 Fail2Ban 配置（覆盖）：${JAIL_FILE}"
+  mkdir -p "${JAIL_DIR}"
+  cat > "${JAIL_FILE}" <<EOF
+[${JAIL}]
 enabled = true
-port    = $ssh_port
+port    = ${SSH_PORT}
 filter  = sshd
-logpath = /var/log/auth.log
+logpath = %(sshd_log)s
 maxretry = 5
+findtime = 300
+bantime  = 600
+banaction = ufw
+EOF
+  chmod 644 "${JAIL_FILE}"
+
+  info "重启 fail2ban"
+  systemctl restart fail2ban
+
+  UFW_STATUS="$(ufw status verbose 2>/dev/null || true)"
+  if echo "$UFW_STATUS" | grep -qi "Status: active"; then
+    info "ufw 已启用"
+  else
+    info "启用 ufw（已放行 SSH）"
+    ufw --force enable
+  fi
+
+  if systemctl list-units --type=service --all | grep -q '^ufw\.service'; then
+    systemctl restart ufw || warn "重启 ufw 返回非零"
+  fi
+
+  info "安装与配置完成。配置文件：${JAIL_FILE}"
+}
+
+show_status(){
+  info "fail2ban 服务状态："
+  echo -e "${SEP}"
+  systemctl status fail2ban --no-pager -l || true
+  echo -e "${SEP}"
+}
+
+show_config(){
+  echo -e "${SEP}"
+  if [ -f "${JAIL_FILE}" ]; then
+    info "显示 ${JAIL_FILE} 内容："
+    sed -n '1,200p' "${JAIL_FILE}" || true
+  else
+    warn "${JAIL_FILE} 未找到。"
+    if [ -d "/etc/fail2ban" ]; then
+      info "/etc/fail2ban 下的文件："
+      ls -la /etc/fail2ban || true
+    fi
+  fi
+  echo -e "${SEP}"
+}
+
+show_logs(){
+  if [ ! -f "${LOG_FILE}" ]; then
+    warn "${LOG_FILE} 不存在，检查 Fail2Ban 是否在写日志。"
+    press_any
+    return
+  fi
+  info "开始 tail -n 50 -F ${LOG_FILE}（按 Ctrl+C 返回菜单）"
+  echo -e "${SEP}"
+  trap 'info "停止日志查看，返回菜单"; trap - INT; return 0' INT
+  tail -n 50 -F "${LOG_FILE}" || true
+  trap - INT
+  echo -e "${SEP}"
+}
+
+show_bans(){
+  echo -e "${SEP}"
+  if ! systemctl is-active --quiet fail2ban; then
+    warn "fail2ban 未运行。"
+    echo -e "${SEP}"
+    return
+  fi
+
+  # 优先尝试带时间的输出（兼容性不同的 fail2ban 版本）
+  BANS_RAW=$(fail2ban-client get ${JAIL} banip --with-time 2>/dev/null || true)
+
+  if [ -n "$BANS_RAW" ]; then
+    lines=$(printf "%s\n" "$BANS_RAW")
+    echo -e "${GREEN}当前封禁列表（带时间）:${RESET}"
+    IFS=$'\n' ; i=1
+    declare -A BAN_MAP
+    for line in $lines; do
+      ip=$(echo "$line" | awk '{print $1}')
+      t=$(echo "$line" | cut -d' ' -f2-)
+      printf "%2d) %s  %s\n" "$i" "$ip" "$t"
+      BAN_MAP[$i]=$ip
+      ((i++))
+    done
+    unset IFS
+  else
+    # 回退到不带时间的列表
+    BANS_LINE=$(fail2ban-client status ${JAIL} 2>/dev/null | sed -n 's/.*Banned IP list:\s*//p' || true)
+    if [ -z "$BANS_LINE" ]; then
+      info "当前没有被封禁的 IP。"
+      echo -e "${SEP}"
+      return
+    fi
+    echo -e "${GREEN}当前封禁列表（不含时间）:${RESET}"
+    i=1
+    declare -A BAN_MAP
+    for ip in $BANS_LINE; do
+      printf "%2d) %s  %s\n" "$i" "$ip" "N/A"
+      BAN_MAP[$i]=$ip
+      ((i++))
+    done
+  fi
+
+  echo
+  read -r -p "输入序号解除封禁 (0 返回菜单): " UNBAN_CHOICE
+  if [ "${UNBAN_CHOICE}" = "0" ]; then
+    echo -e "${SEP}"
+    return
+  elif [[ -n "${BAN_MAP[$UNBAN_CHOICE]:-}" ]]; then
+    ip=${BAN_MAP[$UNBAN_CHOICE]}
+    info "正在解除封禁 IP: $ip"
+    fail2ban-client set ${JAIL} unbanip "$ip" || warn "解除封禁失败"
+  else
+    warn "无效序号"
+  fi
+  echo -e "${SEP}"
+}
+
+uninstall_fail2ban(){
+  echo -e "${SEP}"
+  warn "你即将卸载 Fail2Ban 并清理配置与日志。此操作不可撤销。"
+  read -r -p "输入 ${RED}'yes'${RESET} 确认卸载（输入其它内容取消）: " CONF
+  case "${CONF,,}" in
+    yes|y)
+      info "确认：开始卸载并清理..."
+      systemctl stop fail2ban || true
+      apt-get purge -y fail2ban || true
+      apt-get autoremove -y
+      apt-get autoclean -y
+
+      info "清理配置和日志"
+      rm -rf /etc/fail2ban
+      rm -f /var/log/fail2ban.log
+      systemctl daemon-reload || true
+
+      info "卸载并清理完成。"
+      ;;
+    *)
+      info "已取消卸载操作。"
+      ;;
+  esac
+  echo -e "${SEP}"
+}
+
+# 主循环
+while true; do
+  echo -e "${SEP}"
+  show_install_status
+  echo -e "${SEP}\n"
+
+  cat <<EOF
+${CYAN}请选择操作：${RESET}
+ ${GREEN}1)${RESET} 安装并配置 Fail2Ban
+ ${GREEN}2)${RESET} 查看 fail2ban 服务状态
+ ${GREEN}3)${RESET} 查看 fail2ban 配置文件
+ ${GREEN}4)${RESET} 查看实时日志
+ ${GREEN}5)${RESET} 查看封禁情况并可解除封禁
+ ${GREEN}6)${RESET} 卸载 Fail2Ban（含配置与日志，需确认）
+ ${GREEN}0)${RESET} 退出
+
 EOF
 
-    echo -e "${GREEN}生成的 fail2ban 配置文件内容如下:${RESET}"
-    cat /etc/fail2ban/jail.local
+  read -r -p "$(printf "${YELLOW}输入选项 [0-6]: ${RESET}")" CHOICE
 
-    sudo systemctl enable fail2ban
-    sudo systemctl start fail2ban
-
-    echo -e "${GREEN}fail2ban 已启动并设置为开机自启。${RESET}"
-
-    #（可选）不推荐清空日志，以下语句注释掉
-    echo -e "${BLUE}设置定时任务，每15天清空 fail2ban 日志...${RESET}"
-    cron_job="0 0 */15 * * root echo '' > /var/log/fail2ban.log"
-    (sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log'; echo "$cron_job") | sudo crontab -
-
-    view_fail2ban_status
-}
-
-#===== 查看 SSH 封禁情况 =====
-function view_ssh_status() {
-    echo -e "${GREEN}SSH 服务封禁情况：${RESET}"
-    raw_ips=$(sudo fail2ban-client status sshd 2>/dev/null | grep 'Banned IP list' | cut -d: -f2)
-    ips=( $(echo $raw_ips | sed 's/^ *//;s/ *$//' | tr ',' ' ') )
-    if [ ${#ips[@]} -eq 0 ] || [ -z "${ips[0]}" ]; then
-        echo -e "${YELLOW}当前没有被封禁的 IP。${RESET}"
-    else
-        echo -e "${GREEN}当前被封禁的 IP 及封禁时间：${RESET}"
-        printf "%-5s %-20s %-20s\n" "序号" "IP 地址" "封禁时间"
-        for i in "${!ips[@]}"; do
-            ip=${ips[i]}
-            ban_time=$(sudo grep "Ban $ip" /var/log/fail2ban.log | tail -n1 | awk '{print $1 " " $2}')
-            printf "${BLUE}%-5s${RESET} ${RED}%-20s${RESET} ${YELLOW}%-20s${RESET}\n" \
-                "$((i+1))" "$ip" "${ban_time:-未知}"
-        done
-    fi
-
-    echo -e "${BLUE}----------------------------------------${RESET}"
-    echo -e "${YELLOW}输入序号解封对应 IP，输入99手动封禁，输入0返回主菜单${RESET}"
-    read -p "请选择: " sel
-    case $sel in
-        0) return ;;
-        99)
-            read -p "请输入要封禁的 IP 地址: " banip
-            sudo fail2ban-client set sshd banip "$banip"
-            echo -e "${GREEN}IP $banip 已被手动封禁。${RESET}"
-            ;;
-        ''|*[!0-9]*)
-            echo -e "${RED}无效输入。${RESET}" ;;
-        *)
-            if [ "$sel" -ge 1 ] && [ "$sel" -le "${#ips[@]}" ]; then
-                target_ip=${ips[$((sel-1))]}
-                sudo fail2ban-client set sshd unbanip "$target_ip"
-                echo -e "${GREEN}IP $target_ip 已被解封。${RESET}"
-            else
-                echo -e "${RED}无效序号。${RESET}"
-            fi
-            ;;
-    esac
-}
-
-#===== 查看配置文件 =====
-function view_config() {
-    echo -e "${GREEN}fail2ban 配置文件 (/etc/fail2ban/jail.local) 内容：${RESET}"
-    if [ -f /etc/fail2ban/jail.local ]; then
-        cat /etc/fail2ban/jail.local
-    else
-        echo -e "${RED}/etc/fail2ban/jail.local 文件不存在！${RESET}"
-    fi
-}
-
-#===== 实时查看日志 =====
-function tail_log() {
-    echo -e "${GREEN}实时查看 fail2ban 日志（按 Ctrl+C 退出）:${RESET}"
-    if [ -f /var/log/fail2ban.log ]; then
-        sudo tail -n 50 -F /var/log/fail2ban.log
-    else
-        echo -e "${RED}未找到 /var/log/fail2ban.log 日志文件！${RESET}"
-    fi
-}
-
-#===== 卸载并清理 fail2ban =====
-function uninstall_fail2ban() {
-    echo -e "${GREEN}正在卸载 fail2ban 并清理相关配置及日志...${RESET}"
-    sudo systemctl stop fail2ban
-    sudo apt-get remove --purge -y fail2ban
-    sudo rm -rf /etc/fail2ban
-    sudo rm -f /var/log/fail2ban.log
-    sudo crontab -l 2>/dev/null | grep -v 'fail2ban.log' | sudo crontab -
-    echo -e "${GREEN}fail2ban 已卸载，相关日志及配置文件已清理。${RESET}"
-}
-
-#===== 主循环 =====
-while true; do
-    show_menu
-    read choice
-    case $choice in
-        1) install_fail2ban ;;
-        2) view_fail2ban_status ;;
-        3) view_ssh_status ;;
-        4) view_config ;;
-        5) tail_log ;;
-        6) uninstall_fail2ban ;;
-        0)
-            echo -e "${GREEN}退出脚本。${RESET}"
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}无效选项，请重新选择。${RESET}"
-            ;;
-    esac
-
-    if [ "$choice" != "0" ]; then
-        echo -e "${YELLOW}按任意键继续...${RESET}"
-        read -n1 -s
-    fi
+  case "${CHOICE}" in
+    1) echo -e "${SEP}"; install_fail2ban; press_any ;;
+    2) echo -e "${SEP}"; show_status; press_any ;;
+    3) echo -e "${SEP}"; show_config; press_any ;;
+    4) echo -e "${SEP}"; show_logs; press_any ;;
+    5) echo -e "${SEP}"; show_bans; press_any ;;
+    6) echo -e "${SEP}"; uninstall_fail2ban; press_any ;;
+    0) info "退出脚本"; exit 0 ;;
+    *) warn "无效选项，请重新选择"; press_any ;;
+  esac
 done
