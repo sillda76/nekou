@@ -61,7 +61,9 @@ detect_ssh_logpath(){
   elif [ -f "${SSH_SECURE_LOG}" ]; then
     printf "%s" "${SSH_SECURE_LOG}"
   else
-    printf "%s" "%(sshd_log)s"
+    # 修复：当未找到常见日志文件时，不再返回占位符，而是使用明确的默认路径并给出警告
+    warn "未找到 ${SSH_AUTH_LOG} 或 ${SSH_SECURE_LOG}。回退到 ${SSH_AUTH_LOG} 作为默认路径（如果系统使用 journal，请调整）。"
+    printf "%s" "${SSH_AUTH_LOG}"
   fi
 }
 
