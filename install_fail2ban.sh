@@ -61,9 +61,7 @@ detect_ssh_logpath(){
   elif [ -f "${SSH_SECURE_LOG}" ]; then
     printf "%s" "${SSH_SECURE_LOG}"
   else
-    # 修复：当未找到常见日志文件时，不再返回占位符，而是使用明确的默认路径并给出警告
-    warn "未找到 ${SSH_AUTH_LOG} 或 ${SSH_SECURE_LOG}。回退到 ${SSH_AUTH_LOG} 作为默认路径（如果系统使用 journal，请调整）。"
-    printf "%s" "${SSH_AUTH_LOG}"
+    printf "%s" "/var/log/auth.log"
   fi
 }
 
@@ -208,7 +206,7 @@ show_bans(){
 
   declare -A BAN_MAP
   if [ -n "${BANS_RAW}" ]; then
-    info "当前封禁列表："
+  info "当前封禁列表："
     IFS=$'\n'
     i=1
     for line in ${BANS_RAW}; do
@@ -298,12 +296,12 @@ while true; do
   echo -e "${SEP}\n"
 
   printf "${CYAN}请选择操作：${RESET}\n"
-  printf " ${GREEN}1)${RESET} 安装并配置 Fail2Ban（并设置每15天清空日志）\n"
+  printf " ${GREEN}1)${RESET} 安装并配置 Fail2Ban（并设置每极天清空日志）\n"
   printf " ${GREEN}2)${RESET} 查看 fail2ban 服务状态\n"
   printf " ${GREEN}3)${RESET} 查看 fail2ban 配置文件\n"
   printf " ${GREEN}4)${RESET} 查看实时日志\n"
-  printf " ${GREEN}5)${RESET} 查看封禁情况并可解除封禁\n"
-  printf " ${GREEN}6)${RESET} 卸载 Fail2Ban（含配置与日志，需确认 Y/y 才卸载）\n"
+  printf "极 ${GREEN}5)${RESET} 查看封禁情况并可解除封禁\n"
+  printf " ${GREEN}6)${RES极ET} 卸载 Fail2Ban（含配置与日志，需确认 Y/y 才卸载）\n"
   printf " ${GREEN}0)${RESET} 退出\n\n"
 
   read -r -p "$(printf "${YELLOW}输入选项 [0-6]: ${RESET}")" CHOICE
