@@ -2,7 +2,7 @@
 # install_fail2ban.sh - Debian/Ubuntu 交互脚本（最终版）
 # 功能：
 #  - 安装并配置 Fail2Ban（仅 SSH），ignoreip 包含 127.0.0.1/8 ::1
-#  - 使用明确的 ssh 日志路径（Debian/Ubuntu: /var/log/auth.log 或 /var/log/secure）
+#  - 使用明确的 ssh 日志路径（Debian/Ubuntu: /var/log/auth.log 或 /var/log/secure，若都不存在则回退为 %(sshd_log)s）
 #  - 每15天清空 fail2ban 日志（通过 root crontab）
 #  - 查看状态、配置、实时日志、查看/解封封禁 IP、卸载并清理 cron & 脚本
 set -euo pipefail
@@ -61,7 +61,7 @@ detect_ssh_logpath(){
   elif [ -f "${SSH_SECURE_LOG}" ]; then
     printf "%s" "${SSH_SECURE_LOG}"
   else
-    printf "%s" "/var/log/auth.log"
+    printf "%s" "%(sshd_log)s"
   fi
 }
 
@@ -201,12 +201,11 @@ show_bans(){
     return
   fi
 
-  # 试图使用带时间的输出（新版 fail2ban 支持 --with-time）
   BANS_RAW="$(fail2ban-client get ${JAIL} banip --with-time 2>/dev/null || true)"
 
   declare -A BAN_MAP
   if [ -n "${BANS_RAW}" ]; then
-  info "当前封禁列表："
+    info "当前封禁列表："
     IFS=$'\n'
     i=1
     for line in ${BANS_RAW}; do
@@ -218,7 +217,6 @@ show_bans(){
     done
     unset IFS
   else
-    # 回退：不带时间的封禁列表
     BANS_LINE="$(fail2ban-client status ${JAIL} 2>/dev/null | sed -n 's/.*Banned IP list:\s*//p' || true)"
     if [ -z "${BANS_LINE}" ]; then
       info "当前没有被封禁的 IP。"
@@ -252,7 +250,6 @@ show_bans(){
 uninstall_fail2ban(){
   echo -e "${SEP}"
   warn "你即将卸载 Fail2Ban 并清理配置与日志。此操作不可撤销。"
-  # 修复显示问题：先用 printf 输出带颜色提示，再 read
   printf "确认卸载？请输入 ${YELLOW}[Y/n]${RESET} （默认 N，即取消）: "
   read -r CONF
   case "${CONF:-n}" in
@@ -296,12 +293,12 @@ while true; do
   echo -e "${SEP}\n"
 
   printf "${CYAN}请选择操作：${RESET}\n"
-  printf " ${GREEN}1)${RESET} 安装并配置 Fail2Ban（并设置每极天清空日志）\n"
+  printf " ${GREEN}1)${RESET} 安装并配置 Fail2Ban（并设置每15天清空日志）\n"
   printf " ${GREEN}2)${RESET} 查看 fail2ban 服务状态\n"
   printf " ${GREEN}3)${RESET} 查看 fail2ban 配置文件\n"
   printf " ${GREEN}4)${RESET} 查看实时日志\n"
-  printf "极 ${GREEN}5)${RESET} 查看封禁情况并可解除封禁\n"
-  printf " ${GREEN}6)${RES极ET} 卸载 Fail2Ban（含配置与日志，需确认 Y/y 才卸载）\n"
+  printf " ${GREEN}5)${RESET} 查看封禁情况并可解除封禁\n"
+  printf " ${GREEN}6)${RESET} 卸载 Fail2Ban（含配置与日志，需确认 Y/y 才卸载）\n"
   printf " ${GREEN}0)${RESET} 退出\n\n"
 
   read -r -p "$(printf "${YELLOW}输入选项 [0-6]: ${RESET}")" CHOICE
