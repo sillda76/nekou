@@ -137,7 +137,7 @@ port    = ${SSH_PORT}
 filter  = sshd
 logpath = ${SSH_LOGPATH}
 ignoreip = 127.0.0.1/8 ::1
-maxretry = 4
+maxretry = 5
 findtime = 300
 bantime  = ${BANTIME}
 banaction = ufw
@@ -152,7 +152,18 @@ EOF
   setup_periodic_log_clear
 
   echo -e "${SEP}"
-  info "安装与配置已完成，显示 fail2ban 服务状态："
+  info "安装与配置已完成，显示 fail2ban 服务状态前先展示配置文件内容："
+
+  # 新增：在显示服务状态前，显示配置文件内容供用户确认
+  if [ -f "${JAIL_FILE}" ]; then
+    info "显示 ${JAIL_FILE} 的内容："
+    sed -n '1,200p' "${JAIL_FILE}" || true
+  else
+    warn "${JAIL_FILE} 未找到。显示 /etc/fail2ban 下的文件列表："
+    ls -la /etc/fail2ban || true
+  fi
+
+  info "显示 fail2ban 服务状态："
   systemctl status fail2ban --no-pager -l || true
   echo -e "${SEP}"
 }
