@@ -65,6 +65,29 @@ detect_ssh_logpath(){
   fi
 }
 
+# 确保 crontab 可用：若不存在则尝试安装 cron 并启用
+ensure_crontab_available(){
+  if command -v crontab >/dev/null 2>&1; then
+    return 0
+  fi
+
+  info "检测到系统缺少 crontab 命令，尝试安装 cron 包..."
+  apt-get update -y || true
+  apt-get install -y cron || { warn "尝试安装 cron 失败，请手动安装 cron 或 crontab"; return 1; }
+  # 启用并启动 cron 服务（若可用）
+  if systemctl list-unit-files | grep -q '^cron\.service'; then
+    systemctl enable --now cron || warn "启动/启用 cron 服务失败（但安装已完成）"
+  fi
+
+  if command -v crontab >/dev/null 2>&1; then
+    info "crontab 命令已可用。"
+    return 0
+  fi
+
+  warn "安装 cron 后仍未找到 crontab 命令，后续将跳过添加 crontab 操作。"
+  return 1
+}
+
 # 创建清空日志脚本并添加 cron（若不存在）
 setup_periodic_log_clear(){
   cat > "${CLEAR_SCRIPT}" <<'EOF'
@@ -79,15 +102,25 @@ EOF
   chmod 755 "${CLEAR_SCRIPT}"
   info "已创建 ${CLEAR_SCRIPT}（用于清空 ${FAIL2BAN_LOG}）"
 
+  # 确保 crontab 可用，否则跳过添加
+  if ! ensure_crontab_available; then
+    warn "crontab 不可用，已创建清空脚本但未添加定时任务。"
+    return 0
+  fi
+
   CRONTAB_CONTENT="$(crontab -l 2>/dev/null || true)"
   if printf "%s\n" "$CRONTAB_CONTENT" | grep -Fq "${CRON_MARK}"; then
     info "crontab 中已存在定时清理任务，跳过添加。"
   else
+    # 写入新的 crontab（保留原有内容）
+    TMP_CRON="$(mktemp)"
     {
       printf "%s\n" "$CRONTAB_CONTENT"
       printf "%s\n" "${CRON_MARK}"
       printf "%s\n" "${CRON_LINE}"
-    } | crontab -
+    } > "${TMP_CRON}"
+    crontab "${TMP_CRON}" 2>/dev/null || warn "写入 crontab 失败（权限或格式问题）"
+    rm -f "${TMP_CRON}"
     info "已将定时任务添加到 root 的 crontab：${CRON_LINE}"
   fi
 }
@@ -280,14 +313,49 @@ uninstall_fail2ban(){
         info "已删除 ${CLEAR_SCRIPT}"
       fi
 
-      OLD_CRON="$(crontab -l 2>/dev/null || true)"
-      if [ -n "${OLD_CRON}" ]; then
-        NEW_CRON="$(printf "%s\n" "${OLD_CRON}" | awk -v m="${CRON_MARK}" -v l="${CRON_LINE}" '$0!=m && $0!=l')"
-        printf "%s\n" "${NEW_CRON}" | crontab - 2>/dev/null || true
-        info "已从 crontab 中移除定时清理任务（如存在）"
+      # 从 crontab 中移除定时任务（尝试使用 crontab 命令，否则尝试直接编辑 crontab 文件）
+      if command -v crontab >/dev/null 2>&1; then
+        OLD_CRON="$(crontab -l 2>/dev/null || true)"
+        if [ -n "${OLD_CRON}" ]; then
+          NEW_CRON="$(printf "%s\n" "${OLD_CRON}" | awk -v m="${CRON_MARK}" -v l="${CRON_LINE}" '$0!=m && $0!=l')"
+          printf "%s\n" "${NEW_CRON}" | crontab - 2>/dev/null || true
+          info "已从 crontab 中移除定时清理任务（如存在）"
+        fi
+      else
+        # Debian/Ubuntu 的 crontab 文件可能位于 /var/spool/cron/crontabs/root
+        CRON_FILE="/var/spool/cron/crontabs/root"
+        if [ -f "${CRON_FILE}" ]; then
+          OLD_CRON="$(cat "${CRON_FILE}")" || true
+          NEW_CRON="$(printf "%s\n" "${OLD_CRON}" | awk -v m="${CRON_MARK}" -v l="${CRON_LINE}" '$0!=m && $0!=l')"
+          printf "%s\n" "${NEW_CRON}" > "${CRON_FILE}" || true
+          info "已修改 ${CRON_FILE}，移除定时任务（如存在）"
+        fi
       fi
 
       systemctl daemon-reload || true
+
+      # 询问是否同时卸载 UFW
+      printf "是否同时卸载 UFW？请输入 ${YELLOW}[y/N]${RESET} （默认 N）: "
+      read -r UNINSTALL_UFW
+      case "${UNINSTALL_UFW:-n}" in
+        [Yy]*)
+          info "开始卸载并重置 UFW..."
+          # 重置 UFW 规则并停止服务（若 ufw 可用）
+          if command -v ufw >/dev/null 2>&1; then
+            ufw --force reset || warn "ufw reset 返回非零（若 ufw 未启用这可能是正常的）"
+          fi
+          systemctl stop ufw || true
+          systemctl disable ufw || true
+          apt-get purge -y ufw || true
+          apt-get autoremove -y || true
+          apt-get autoclean -y || true
+          info "UFW 已卸载并尝试清理规则。"
+          ;;
+        *)
+          info "保留 UFW（未卸载）。"
+          ;;
+      esac
+
       info "卸载并清理完成。"
       ;;
     *)
@@ -309,7 +377,7 @@ while true; do
   printf " ${GREEN}3)${RESET} 查看 fail2ban 配置文件\n"
   printf " ${GREEN}4)${RESET} 查看实时日志\n"
   printf " ${GREEN}5)${RESET} 查看封禁情况并可解除封禁\n"
-  printf " ${GREEN}6)${RESET} 卸载 Fail2Ban（含配置与日志，需确认 Y/y 才卸载）\n"
+  printf " ${GREEN}6)${RESET} 卸载 Fail2Ban（含配置与日志，需确认 Y/y 才卸载；会询问是否同时卸载 UFW）\n"
   printf " ${GREEN}0)${RESET} 退出\n\n"
 
   read -r -p "$(printf "${YELLOW}输入选项 [0-6]: ${RESET}")" CHOICE
