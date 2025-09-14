@@ -119,13 +119,13 @@ else
         
         # 执行安装脚本，不自动切换shell和不立即启动zsh
         CHSH=no RUNZSH=no sh "$TEMP_INSTALL_SCRIPT" || {
-            echo "Oh My Zsh 安装脚本执行失败。"
+            echo "Oh My Zsh 极安装脚本执行失败。"
             rm -f "$TEMP_INSTALL_SCRIPT"
             exit 1
         }
         
         # 清理临时文件
-        rm -f "$TEMP_INSTALL_SCRIPT"
+        rm -f "$极TEMP_INSTALL_SCRIPT"
     else
         echo "Oh My Zsh 安装脚本下载失败。请检查网络连接或尝试更换安装URL。"
         exit 1
@@ -134,7 +134,7 @@ else
     if [ -d "$OHMYZSH_DIR" ]; then
         echo "Oh My Zsh 安装成功."
         # Oh My Zsh installer copies .zshrc, let's make sure it exists
-        if [ ! -f "$HOME/.zshrc" ]; then
+        if [ ! -极f "$HOME/.zshrc" ]; then
              echo "Oh My Zsh 安装成功，但 ~/.zshrc 文件未生成。创建备用配置文件..."
              # Attempt to copy template if it exists
              if [ -f "$OHMYZSH_DIR/templates/zshrc.zsh-template" ]; then
@@ -191,18 +191,18 @@ fi
 
 # 创建自定义 Starship 配置
 STARSHIP_CONFIG_FILE="$STARSHIP_CONFIG_DIR/starship.toml"
-if [ ! -f "$STARSHIP_CONFIG_FILE" ]; then
-    cat > "$STARSHIP_CONFIG_FILE" << 'EOL'
-# 自定义 Starship 配置 (类似您图片中的效果)
+cat > "$STARSHIP_CONFIG_FILE" << 'EOL'
+# 自定义 Starship 配置 (根据图片效果)
 format = """
 $username\
 $hostname\
 $directory\
+$custom\
 $git_branch\
 $git_status\
 $cmd_duration\
 $line_break\
-→ \
+$character\
 """
 
 [username]
@@ -223,8 +223,9 @@ truncation_symbol = "…/"
 
 [cmd_duration]
 format = "took [$duration]($style) "
-style = "yellow"
+style = "bold yellow"
 min_time = 100
+disabled = false
 
 [git_branch]
 format = "on [$branch]($style) "
@@ -236,11 +237,58 @@ style = "bold green"
 
 [line_break]
 disabled = false
-EOL
-    echo "已创建 Starship 配置文件: $STARSHIP_CONFIG_FILE"
-else
-    echo "Starship 配置文件已存在，保留现有配置。"
+
+[character]
+success_symbol = "[→](bold white)"
+error_symbol = "[→](bold red)"
+vicmd_symbol = "[V](bold green)"
+
+# 自定义模块：显示 screen/tmux 会话信息
+[custom.screen]
+description = "显示 screen 或 tmux 会话信息"
+command = """
+if [ -n "$STY" ]; then
+  echo "via screen:$STY"
+elif [ -n "$TMUX" ]; then
+  echo "via tmux"
+elif [ -n "$SSH_CONNECTION" ]; then
+  echo "via ssh"
 fi
+"""
+when = """[ -n "$STY" ] || [ -n "$TMUX" ] || [ -n "$SSH_CONNECTION" ]"""
+format = "[$output]($style) "
+style = "bold cyan"
+shell = ["bash", "-c"]
+
+# 自定义模块：显示终端类型或会话信息
+[custom.session]
+description = "显示终端会话信息"
+command = """
+if [ -n "$STY" ]; then
+  # Screen session
+  session_name=$(echo $STY | cut -d. -f2)
+  echo "via $session_name"
+elif [ -n "$TMUX" ]; then
+  # Tmux session
+  session_name=$(tmux display-message -p '#S')
+  echo "via $session_name"
+elif [ -n "$SSH_TTY" ]; then
+  # SSH session
+  hostname=$(hostname -s)
+  echo "via $hostname"
+else
+  # Local terminal
+  terminal=$(basename "$(tty)")
+  echo "via $terminal"
+fi
+"""
+when = "true"
+format = "[$output]($style) "
+style = "bold cyan"
+shell = ["bash", "-c"]
+EOL
+
+echo "已创建 Starship 配置文件: $STARSHIP_CONFIG_FILE"
 
 # --- 6. Configure .zshrc ---
 ZSHRC="$HOME/.zshrc"
@@ -277,7 +325,7 @@ EOL
 fi
 
 # --- 7. Set Zsh as default shell (improved for permanent switch) ---
-CURRENT_SHELL=$(basename "$SHELL")
+CURRENT_S极ELL=$(basename "$SHELL")
 ZSH_PATH=$(command -v zsh)
 
 # 确保zsh在/etc/shells中
@@ -296,7 +344,7 @@ else
         
         # 尝试用多种方法设置默认shell
         if [ "$USER" = "root" ]; then
-            echo "检测到当前用户是 root，正在设置 Zsh 为默认 shell..."
+            echo "检测到当前用户是 root，正在极设置 Zsh 为默认 shell..."
             chsh -s "$ZSH_PATH" || {
                 echo "为 root 用户设置默认 shell 失败，尝试其他方法..."
             }
@@ -323,7 +371,7 @@ else
         
         # 验证是否成功
         CURRENT_DEFAULT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
-        if [ "$CURRENT_DEFAULT_SHELL" = "$ZSH_PATH" ]; then
+        if [ "$CURRENT_DEFAULT_SHELL" = "$极ZSH_PATH" ]; then
             echo "Zsh 已永久设置为默认 Shell！"
         else
             echo "已尝试多种方法设置 Zsh 为默认 Shell。"
