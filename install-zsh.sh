@@ -3,7 +3,7 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-echo "开始针对 Ubuntu/Debian/macOS 安装 Zsh 和常用插件"
+echo "开始针对 Ubuntu/Debian/macOS 安装 Zsh 和 Starship"
 
 # --- Helper function to check and run commands ---
 run_command() {
@@ -83,7 +83,6 @@ install_package() {
     fi
 }
 
-
 # --- 1. Install Git ---
 install_package git
 
@@ -148,7 +147,7 @@ else
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
 plugins=(git)
-source $ZSH/oh-my-zsh.sh
+source \$ZSH/oh-my-zsh.sh
 EOL
                 echo "已创建基本 ~/.zshrc 文件。"
              fi
@@ -159,38 +158,7 @@ EOL
     fi
 fi
 
-
-# --- 4. Install zsh-autosuggestions plugin ---
-AUTOSUGGESTIONS_DIR=${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-if [ -d "$AUTOSUGGESTIONS_DIR" ]; then
-    echo "zsh-autosuggestions 插件已安装."
-else
-    echo "安装 zsh-autosuggestions 插件..."
-    git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$AUTOSUGGESTIONS_DIR" || {
-        echo "zsh-autosuggestions 插件安装失败。"
-        echo "尝试使用国内镜像源安装..."
-        git clone --depth=1 https://gitee.com/mirrors/zsh-autosuggestions "$AUTOSUGGESTIONS_DIR" || {
-            echo "zsh-autosuggestions 插件安装失败。请手动检查问题。"
-        }
-    }
-fi
-
-# --- 5. Install zsh-syntax-highlighting plugin ---
-HIGHLIGHTING_DIR=${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-if [ -d "$HIGHLIGHTING_DIR" ]; then
-    echo "zsh-syntax-highlighting 插件已安装."
-else
-    echo "安装 zsh-syntax-highlighting 插件..."
-    git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$HIGHLIGHTING_DIR" || {
-        echo "zsh-syntax-highlighting 插件安装失败。"
-        echo "尝试使用国内镜像源安装..."
-        git clone --depth=1 https://gitee.com/mirrors/zsh-syntax-highlighting "$HIGHLIGHTING_DIR" || {
-            echo "zsh-syntax-highlighting 插件安装失败。请手动检查问题。"
-        }
-    }
-fi
-
-# --- 6. Install Starship ---
+# --- 4. Install Starship ---
 if run_command starship; then
     echo "Starship 已安装."
 else
@@ -211,45 +179,80 @@ else
     fi
 fi
 
-# --- 7. Configure plugins in .zshrc ---
+# --- 5. Configure Starship ---
+echo "配置 Starship..."
+
+# 创建 Starship 配置文件目录
+STARSHIP_CONFIG_DIR="$HOME/.config"
+if [ ! -d "$STARSHIP_CONFIG_DIR" ]; then
+    mkdir -p "$STARSHIP_CONFIG_DIR"
+    echo "已创建配置目录: $STARSHIP_CONFIG_DIR"
+fi
+
+# 创建自定义 Starship 配置
+STARSHIP_CONFIG_FILE="$STARSHIP_CONFIG_DIR/starship.toml"
+if [ ! -f "$STARSHIP_CONFIG_FILE" ]; then
+    cat > "$STARSHIP_CONFIG_FILE" << 'EOL'
+# 自定义 Starship 配置 (类似您图片中的效果)
+format = """
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$cmd_duration\
+$line_break\
+→ \
+"""
+
+[username]
+style_user = "bold red"
+format = "[$user]($style) "
+show_always = true
+
+[hostname]
+ssh_only = false
+format = "at [$hostname]($style) "
+style = "bold blue"
+
+[directory]
+style = "bold blue"
+format = "in [$path]($style) "
+truncation_length = 3
+truncation_symbol = "…/"
+
+[cmd_duration]
+format = "took [$duration]($style) "
+style = "yellow"
+min_time = 100
+
+[git_branch]
+format = "on [$branch]($style) "
+style = "bold green"
+
+[git_status]
+format = "([$all_status$ahead_behind]($style)) "
+style = "bold green"
+
+[line_break]
+disabled = false
+EOL
+    echo "已创建 Starship 配置文件: $STARSHIP_CONFIG_FILE"
+else
+    echo "Starship 配置文件已存在，保留现有配置。"
+fi
+
+# --- 6. Configure .zshrc ---
 ZSHRC="$HOME/.zshrc"
 echo "配置 ~/.zshrc 文件..."
 
-update_plugins() {
-    # 读取现有的plugins行
-    local plugins_line=$(grep -E "^[[:space:]]*plugins=\([^)]*\)" "$ZSHRC" || echo "plugins=(git)")
-    
-    # 为添加的插件名称创建一个临时文件
-    local tmp_file=$(mktemp)
-    echo "$plugins_line" > "$tmp_file"
-    
-    # 检查并添加插件
-    for plugin in "$@"; do
-        if ! grep -q "$plugin" "$tmp_file"; then
-            # 在tmp_file中更新插件列表
-            sed -i.bak "s/plugins=(\(.*\))/plugins=(\1 $plugin)/" "$tmp_file"
-        fi
-    done
-    
-    # 获取更新后的插件行
-    local new_plugins_line=$(cat "$tmp_file")
-    
-    # 如果.zshrc中有plugins行，则替换它；否则添加新行
-    if grep -q "^[[:space:]]*plugins=(" "$ZSHRC"; then
-        # 使用perl处理，避免sed在不同系统上的差异
-        perl -i -pe "s/^[[:space:]]*plugins=\([^)]*\)/$new_plugins_line/" "$ZSHRC"
-    else
-        # 如果没有找到plugins行，添加到文件末尾
-        echo "$new_plugins_line" >> "$ZSHRC"
-    fi
-    
-    # 清理临时文件
-    rm -f "$tmp_file" "$tmp_file.bak"
-}
-
 if [ -f "$ZSHRC" ]; then
-    echo "更新插件配置..."
-    update_plugins "zsh-autosuggestions" "zsh-syntax-highlighting"
+    # 确保 plugins 只包含 git
+    if grep -q "^plugins=" "$ZSHRC"; then
+        sed -i.bak 's/^plugins=.*/plugins=(git)/' "$ZSHRC"
+    else
+        echo "plugins=(git)" >> "$ZSHRC"
+    fi
     
     # 添加 Starship 配置
     if ! grep -q "starship init zsh" "$ZSHRC"; then
@@ -262,10 +265,10 @@ else
     echo "$ZSHRC 文件未找到。创建新的配置文件..."
     cat > "$ZSHRC" << EOL
 # 基本 Oh-My-Zsh 配置
-export ZSH="$HOME/.oh-my-zsh"
+export ZSH="\$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
-source $ZSH/oh-my-zsh.sh
+plugins=(git)
+source \$ZSH/oh-my-zsh.sh
 
 # 启用 Starship 提示符
 eval "\$(starship init zsh)"
@@ -273,7 +276,7 @@ EOL
     echo "已创建新的 ~/.zshrc 文件并添加插件。"
 fi
 
-# --- 8. Set Zsh as default shell (improved for permanent switch) ---
+# --- 7. Set Zsh as default shell (improved for permanent switch) ---
 CURRENT_SHELL=$(basename "$SHELL")
 ZSH_PATH=$(command -v zsh)
 
@@ -331,7 +334,7 @@ else
     fi
 fi
 
-# --- 9. Final steps and immediate switch to Zsh ---
+# --- 8. Final steps and immediate switch to Zsh ---
 echo ""
 echo "安装和配置已完成！"
 echo "----------------------------------------------------"
